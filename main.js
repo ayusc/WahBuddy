@@ -197,7 +197,8 @@ async function startBot() {
       } else if (connection === 'open') {
         
         await sock.waitForSocketOpen();
-        await sock.waitForConnectionUpdate({ connection: 'open' });
+        await sock.waitForConnectionUpdate(
+        u => u.connection === 'open',60000);
 
         if (initialConnect) {
           console.log('Authenticated with WhatsApp');
