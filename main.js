@@ -336,6 +336,45 @@ async function startBot() {
     }
     console.log('Full sync done !');
   });
+
+  
+  sock.ev.on('messages.update', async updates => {
+  for (const update of updates) {
+    if (!update.key?.id) continue;
+    await messagesCollection.updateOne(
+      { 'key.id': update.key.id },
+      { $set: update },
+      { upsert: true }
+    );
+  }
+  });
+  
+  sock.ev.on('messages.delete', async ({ keys }) => {
+  for (const key of keys) {
+    await messagesCollection.deleteOne({ 'key.id': key.id });
+  }
+  });
+ 
+  sock.ev.on('contacts.update', async updates => {
+  for (const update of updates) {
+    await contactsCollection.updateOne(
+      { id: update.id },
+      { $set: update },
+      { upsert: true }
+    );
+  }
+  });
+
+  sock.ev.on('chats.update', async updates => {
+  for (const update of updates) {
+    if (!update.id) continue;
+    await chatsCollection.updateOne(
+      { id: update.id },
+      { $set: update },
+      { upsert: true }
+    );
+  }
+  });
 }
 
 startBot();
