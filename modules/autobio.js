@@ -70,7 +70,7 @@ async function startAutoBio(sock) {
         await sock.updateProfileStatus(q);
         console.log('About updated');
       } catch (error) {
-        console.error('Failed to update About:', error.message);
+        console.error('About update failed:', error.message);
       }
     }
   }, AUTO_BIO_INTERVAL);
