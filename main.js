@@ -194,9 +194,7 @@ async function startBot() {
           startBot();
         }
 
-      } else if (connection === 'open') {
-        
-        await sock.waitForSocketOpen();
+      } else if (connection === 'open') {        
       
         if (initialConnect) {
           console.log('Authenticated with WhatsApp');
@@ -226,29 +224,47 @@ async function startBot() {
         }
         
         initialConnect = false;
-
+        
         if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-        autoDPStarted = true;
-        try {
-          //await sock.waitForConnectionUpdate(u => u.connection === 'open');
-          const autoDPModule = await import('./modules/autodp.js');
-          await autoDPModule.default.startAutoDP(sock);
-        } catch (error) {
-          console.error(`AutoDP Error: ${error.message}`);
+  autoDPStarted = true;
+  try {
+    const fakeMsg = {
+      key: {
+        id: 'WahBuddy',
+        fromMe: true,
+        remoteJid: '0123456789@whatsapp.net', 
+      },
+      message: {
+        conversation: '.autodp'
+      }
+    };
+
+    await commands.get('.autodp').execute(fakeMsg, [], sock);
+  } catch (error) {
+    console.error(`AutoDP Error (simulated msg): ${error.message}`);
         }
         }
       
-        if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-        autoBioStarted = true;
-        try {
-          //await sock.waitForConnectionUpdate(u => u.connection === 'open');
-          const autoBioModule = await import('./modules/autobio.js');
-          await autoBioModule.default.startAutoBio(sock);
-        } catch (error) {
-          console.error(`AutoBio Error: ${error.message}`);
-        }
+        if (!autoBioStarted && autoBio === 'True' && commands.has('.autobio')) {
+  autoDPStarted = true;
+  try { 
+    const fakeMsg = {
+      key: {
+        id: 'WahBuddy',
+        fromMe: true,
+        remoteJid: '0123456789@whatsapp.net', 
+      },
+      message: {
+        conversation: '.autodp'
+      }
+    };
+
+    await commands.get('.autodp').execute(fakeMsg, [], sock);
+  } catch (error) {
+    console.error(`AutoDP Error (simulated msg): ${error.message}`);
       }
       }
+
   });
 
   sock.ev.on('chats.upsert', async chats => {
