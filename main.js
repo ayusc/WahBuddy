@@ -228,9 +228,7 @@ async function startBot() {
         if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
-          while (!sock.authState?.creds?.registered || sock.ws?.readyState !== 1) {
-            await new Promise(res => setTimeout(res, 1000));
-          }
+          await sock.waitForSocketOpen();
           const autoDPModule = await import('./modules/autodp.js');
           await autoDPModule.default.startAutoDP(sock);
         } catch (error) {
@@ -241,9 +239,7 @@ async function startBot() {
         if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
         try {
-          while (!sock.authState?.creds?.registered || sock.ws?.readyState !== 1) {
-            await new Promise(res => setTimeout(res, 1000));
-          }
+          await sock.waitForSocketOpen();
           const autoBioModule = await import('./modules/autobio.js');
           await autoBioModule.default.startAutoBio(sock);
         } catch (error) {
