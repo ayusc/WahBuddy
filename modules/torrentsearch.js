@@ -72,7 +72,7 @@ export default {
         await sock.sendMessage(
           sender,
           {
-           text: `\`\`\`\n${selected.Magnet || 'N/A'}\n\`\`\``
+           text: `${selected.Magnet || 'N/A'}`
           },
           { quoted: msg }
         );
