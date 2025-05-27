@@ -100,7 +100,6 @@ async function saveAuthStateToMongo(attempt = 1) {
 }
 
 async function restoreAuthStateFromMongo() {
-
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
     console.warn('No session found in MongoDB. Will require QR login.');
@@ -224,47 +223,6 @@ async function startBot() {
         }
         
         initialConnect = false;
-        
-        if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-  autoDPStarted = true;
-  try {
-    const fakeMsg = {
-      key: {
-        id: 'WahBuddy',
-        fromMe: true,
-        remoteJid: '0123456789@whatsapp.net', 
-      },
-      message: {
-        conversation: '.autodp'
-      }
-    };
-
-    await commands.get('.autodp').execute(fakeMsg, [], sock);
-  } catch (error) {
-    console.error(`AutoDP Error (simulated msg): ${error.message}`);
-        }
-        }
-      
-        if (!autoBioStarted && autoBio === 'True' && commands.has('.autobio')) {
-  autoDPStarted = true;
-  try { 
-    const fakeMsg = {
-      key: {
-        id: 'WahBuddy',
-        fromMe: true,
-        remoteJid: '0123456789@whatsapp.net', 
-      },
-      message: {
-        conversation: '.autodp'
-      }
-    };
-
-    await commands.get('.autodp').execute(fakeMsg, [], sock);
-  } catch (error) {
-    console.error(`AutoDP Error (simulated msg): ${error.message}`);
-      }
-      }
-
   });
 
   sock.ev.on('chats.upsert', async chats => {
