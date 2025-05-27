@@ -321,7 +321,7 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
   //console.log('Image generated successfully!');
 }
 
-async function startAutoDP(sock) {
+async function startAutoDP(sock, jid) {
   if (globalThis.autodpRunning) return;
 
   globalThis.autodpRunning = true;
@@ -343,7 +343,7 @@ async function startAutoDP(sock) {
       try {
         await generateImage();
         const buffer = fs.readFileSync(outputImage);
-        await sock.updateProfilePicture('status@broadcast', buffer); // Can be customized
+        await sock.updateProfilePicture(message.key.participant || jid, buffer);
         console.log('DP updated');
       } catch (error) {
         console.error('DP update failed:', error.message);
@@ -355,7 +355,7 @@ async function startAutoDP(sock) {
       try {
         await generateImage();
         const buffer = fs.readFileSync(outputImage);
-        await sock.updateProfilePicture('status@broadcast', buffer);
+        await sock.updateProfilePicture(message.key.participant || jid, buffer);
         console.log('DP updated');
       } catch (error) {
         console.error('DP update failed:', error.message);
@@ -384,7 +384,7 @@ export default {
       await sock.sendMessage(jid, { text: `AutoDP started.\nUpdating every ${intervalMs / 1000}s` }, { quoted: msg });
     }
 
-    await startAutoDP(sock);
+    await startAutoDP(sock, jid);
   },
 
   startAutoDP
