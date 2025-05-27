@@ -343,7 +343,7 @@ async function startAutoDP(sock, jid) {
       try {
         await generateImage();
         const buffer = fs.readFileSync(outputImage);
-        await sock.updateProfilePicture(message.key.participant || jid, buffer);
+        await sock.updateProfilePicture(jid, buffer);
         console.log('DP updated');
       } catch (error) {
         console.error('DP update failed:', error.message);
@@ -355,7 +355,7 @@ async function startAutoDP(sock, jid) {
       try {
         await generateImage();
         const buffer = fs.readFileSync(outputImage);
-        await sock.updateProfilePicture(message.key.participant || jid, buffer);
+        await sock.updateProfilePicture(jid, buffer);
         console.log('DP updated');
       } catch (error) {
         console.error('DP update failed:', error.message);
