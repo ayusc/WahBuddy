@@ -224,6 +224,8 @@ async function startBot() {
         
         initialConnect = false;
   }
+  }  
+ ); 
 
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
