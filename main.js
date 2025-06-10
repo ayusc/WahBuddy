@@ -162,6 +162,8 @@ async function startBot() {
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
     qrTimeout: 2147483647,
+    defaultQueryTimeoutMs: undefined,
+    keepAliveIntervalMs: 5000,
   });
 
   sock.ev.on(
