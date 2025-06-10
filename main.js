@@ -29,7 +29,6 @@ import dotenv from 'dotenv';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
-import NodeCache from 'node-cache';
 import './app.js';
 
 dotenv.config();
@@ -126,7 +125,6 @@ let commandsLoaded = false;
 let initialConnect = true;
 
 const commands = new Map(); 
-const msgRetryCounterCache = new NodeCache();
 
 async function startBot() {
   const mongoClient = new MongoClient(mongoUri);
@@ -162,7 +160,6 @@ async function startBot() {
     syncFullHistory: true,
     getMessage,
     generateHighQualityLinkPreview: true,
-    msgRetryCounterCache,
     logger: pino({ level: 'silent' }),
     qrTimeout: 2147483647,
   });
