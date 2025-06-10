@@ -220,6 +220,27 @@ async function startBot() {
         }
         
         initialConnect = false;
+              initialConnect = false;
+
+        if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+        autoDPStarted = true;
+        try {
+          const autoDPModule = await import('./modules/autodp.js');
+          await autoDPModule.default.startAutoDP(sock);
+        } catch (error) {
+          console.error(`AutoDP Error: ${error.message}`);
+        }
+        }
+      
+        if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+        autoBioStarted = true;
+        try {
+          const autoBioModule = await import('./modules/autobio.js');
+          await autoBioModule.default.startAutoBio(sock);
+        } catch (error) {
+          console.error(`AutoBio Error: ${error.message}`);
+        }
+      }
   }
   }  
  ); 
