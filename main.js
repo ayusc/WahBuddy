@@ -220,13 +220,16 @@ async function startBot() {
         }
         
         initialConnect = false;
-              initialConnect = false;
-
+        
+        while (!sock.user || !sock.user.id) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
         if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
           const autoDPModule = await import('./modules/autodp.js');
-          await autoDPModule.default.startAutoDP(sock);
+          await autoDPModule.default.startAutoDP(sock, sock.user.id);
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
