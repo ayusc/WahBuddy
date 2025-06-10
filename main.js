@@ -123,6 +123,7 @@ export let contactsCollection;
 let mongoConnected = false;
 let commandsLoaded = false;
 let initialConnect = true;
+let activeSock;
 
 const commands = new Map(); 
 
@@ -164,6 +165,8 @@ async function startBot() {
     qrTimeout: 2147483647,
   });
 
+  activeSock = sock; 
+
   sock.ev.on(
     'creds.update',
     debounce(async () => {
@@ -175,6 +178,7 @@ async function startBot() {
   sock.ev.on(
     'connection.update',
     async ({ connection, lastDisconnect, qr }) => {
+      if (sock !== activeSock) return;
       if (qr && initialConnect) {
         console.log('Scan the QR code below: ');
         qrcode.generate(qr, { small: true });
