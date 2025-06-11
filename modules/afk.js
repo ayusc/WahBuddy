@@ -33,7 +33,6 @@ export default {
   name: '.afk',
   description: 'Sets or removes AFK status with optional reason.',
   usage: '.afk on/yes [reason] | .afk off/no',
-
   async execute(msg, args, sock) {
     setupAfkCollection();
 
@@ -43,7 +42,15 @@ export default {
 
     if (subCommand === 'on' || subCommand === 'yes') {
       const reason = args.slice(1).join(' ') || 'No reason provided';
-      const afkData = {
+
+      // Check if already AFK
+      const afkData = await afkCollection.findOne({ isafk: true });
+      if (afkData) {
+        await sock.sendMessage(jid, { text: `You are already AFK!\nReason: ${afkData.afkreason}` }, { quoted: msg });
+        return;
+      }
+
+      const newAfkData = {
         isafk: true,
         afkreason: reason,
         afktime: new Date(),
@@ -51,23 +58,23 @@ export default {
 
       await afkCollection.updateOne(
         {}, 
-        { $set: afkData },
+        { $set: newAfkData },
         { upsert: true }
       );
 
       await sock.sendMessage(jid, { text: `You are now AFK.\nReason: ${reason}` }, { quoted: msg });
     } else if (subCommand === 'off' || subCommand === 'no') {
       await afkCollection.updateOne(
-  {},
-  {
-    $set: {
-      isafk: false,
-      afktime: null,
-      afkreason: null
-    }
-  },
-  { upsert: true }
-);
+        {},
+        {
+          $set: {
+            isafk: false,
+            afktime: null,
+            afkreason: null
+          }
+        },
+        { upsert: true }
+      );
 
       await sock.sendMessage(jid, { text: `Welcome back!\nYou are no longer AFK.` }, { quoted: msg });
     } else {
