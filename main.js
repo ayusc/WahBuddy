@@ -190,11 +190,11 @@ async function startBot() {
       lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
 
     clearInterval(globalThis.autodpInterval);
-    globalThis.autodpInterval = null;
+    //globalThis.autodpInterval = null;
     globalThis.autodpRunning = false;
     autoDPStarted = false;
     clearInterval(globalThis.autobioInterval);
-    globalThis.autobioInterval = null;
+    //globalThis.autobioInterval = null;
     globalThis.autobioRunning = false;
     autoBioStarted = false;
 
@@ -244,11 +244,7 @@ async function startBot() {
 
     // Start AutoDP if enabled
     if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-      if (globalThis.autodpInterval) {
-        clearInterval(globalThis.autodpInterval);
-        globalThis.autodpInterval = null;
-        globalThis.autodpRunning = false;
-      }
+    
       autoDPStarted = true;
       try {
         const autoDPModule = await import('./modules/autodp.js');
@@ -260,11 +256,7 @@ async function startBot() {
 
     // Start AutoBio if enabled
     if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-      if (globalThis.autobioInterval) {
-        clearInterval(globalThis.autobioInterval);
-        globalThis.autobioInterval = null;
-        globalThis.autobioRunning = false;
-      }
+
       autoBioStarted = true;
       try {
         const autoBioModule = await import('./modules/autobio.js');
