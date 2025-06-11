@@ -218,8 +218,6 @@ async function startBot() {
   } else {
     console.log('Not reconnecting. Reason:', lastDisconnect?.error?.message || 'Unknown');
   }
-}
-
   } else if (connection === 'open') {
     console.log('Connection established.');
     if (initialConnect) {
