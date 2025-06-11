@@ -181,43 +181,45 @@ async function startBot() {
   }
 
   if (connection === 'close') {
-  console.log('Connection closed.');
-  commandsLoaded = false;
+    console.log('Connection closed.');
+    commandsLoaded = false;
 
-  const statusCode = lastDisconnect?.error?.output?.statusCode;
-  const shouldReconnect =
-    lastDisconnect?.error instanceof Boom &&
-    statusCode !== DisconnectReason.loggedOut &&
-    statusCode !== 440;  // Prevent reconnect on conflict
+    const shouldReconnect =
+      lastDisconnect?.error instanceof Boom &&
+      lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
 
-  console.error('Last Disconnect Reason:', lastDisconnect?.error);
-
-  // Cleanup global intervals
-  if (globalThis.autobioInterval) {
-    clearInterval(globalThis.autobioInterval);
-    globalThis.autobioInterval = null;
-    globalThis.autobioRunning = false;
-    autoBioStarted = false;
-  }
-  if (globalThis.autodpInterval) {
-    clearInterval(globalThis.autodpInterval);
-    globalThis.autodpInterval = null;
-    globalThis.autodpRunning = false;
-    autoDPStarted = false;
-  }
-
-  if (shouldReconnect) {
-    if (!globalThis.reconnecting) {
-      globalThis.reconnecting = true;
-      console.log('Reconnecting in 5 seconds...');
-      setTimeout(() => {
-        globalThis.reconnecting = false;
-        startBot();
-      }, 5000);
+    // Print lastDisconnect reason for debugging
+    if (lastDisconnect?.error) {
+      console.error('Last Disconnect Reason:', lastDisconnect.error);
     }
-  } else {
-    console.log('Not reconnecting. Reason:', lastDisconnect?.error?.message || 'Unknown');
-  }
+
+    // Cleanup global intervals
+    if (globalThis.autobioInterval) {
+      clearInterval(globalThis.autobioInterval);
+      globalThis.autobioInterval = null;
+      globalThis.autobioRunning = false;
+      autoBioStarted = false;
+    }
+    if (globalThis.autodpInterval) {
+      clearInterval(globalThis.autodpInterval);
+      globalThis.autodpInterval = null;
+      globalThis.autodpRunning = false;
+      autoDPStarted = false;
+    }
+
+    if (shouldReconnect) {
+      if (!globalThis.reconnecting) {
+        globalThis.reconnecting = true;
+        console.log('Reconnecting in 5 seconds...');
+        setTimeout(() => {
+          globalThis.reconnecting = false;
+          startBot();
+        }, 5000);
+      }
+    } else {
+      console.log('Logged out or permanent error. Manual restart required.');
+    }
+
   } else if (connection === 'open') {
     console.log('Connection established.');
     if (initialConnect) {
