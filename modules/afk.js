@@ -67,11 +67,13 @@ export async function handleAfkMessages(msg, sock) {
   const isGroup = msg.key.remoteJid.endsWith('@g.us');
   let shouldRespond = false;
 
+  const myId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+
   if (isGroup) {
     const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     const repliedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
 
-    if (mentionedJids.includes(sock.user.id) || repliedParticipant === sock.user.id) {
+    if (mentionedJids.includes(myId) || repliedParticipant === myId) {
       shouldRespond = true;
     }
   } else {
@@ -85,3 +87,4 @@ export async function handleAfkMessages(msg, sock) {
     }, { quoted: msg });
   }
 }
+
