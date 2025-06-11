@@ -1,4 +1,4 @@
-import { db } from './main.js';  // adjust path as needed
+import { db } from './main.js';
 
 const collectionName = 'afk';
 let afkCollection;
@@ -73,7 +73,7 @@ export async function handleAfkMessages(msg, sock) {
   if (afkData) {
     const reason = afkData.afkreason || 'No reason provided';
     const afkDate = new Date(afkData.afktime);
-    const time = afkDate.toLocaleDateString('en-GB');
+    const time = afkDate.toLocaleDateString('en-IN');
 
     await sock.sendMessage(msg.key.remoteJid, {
       text: `*My master is AFK!*\nAFK reason: ${reason}\nLast seen: ${time}`,
