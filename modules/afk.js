@@ -62,7 +62,36 @@ export async function handleAfkMessages(msg, sock) {
 
   const reason = afkData.afkreason || 'No reason';
   const afkDate = new Date(afkData.afktime);
-  const time = afkDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const now = new Date();
+
+  let timeString;
+
+  const hours = afkDate.getHours();
+  const minutes = afkDate.getMinutes();
+  const formattedTime = `${((hours % 12) || 12)
+    .toString()
+    .padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
+
+  const afkDay = new Date(afkDate.getFullYear(), afkDate.getMonth(), afkDate.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.floor((today - afkDay) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    timeString = `Today at ${formattedTime}`;
+  } else if (diffDays === 1) {
+    timeString = `Yesterday at ${formattedTime}`;
+  } else if (diffDays <= 7) {
+    const weekdays = [
+      'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+    ];
+    const dayName = weekdays[afkDate.getDay()];
+    timeString = `${dayName} at ${formattedTime}`;
+  } else {
+    const dateString = `${afkDate.getDate().toString().padStart(2, '0')}:${
+      (afkDate.getMonth() + 1).toString().padStart(2, '0')
+    }:${afkDate.getFullYear()}`;
+    timeString = `${formattedTime} on ${dateString}`;
+  }
 
   const isGroup = msg.key.remoteJid.endsWith('@g.us');
   let shouldRespond = false;
@@ -77,14 +106,12 @@ export async function handleAfkMessages(msg, sock) {
       shouldRespond = true;
     }
   } else {
-    // Direct Message to you
     shouldRespond = true;
   }
 
   if (shouldRespond) {
     await sock.sendMessage(msg.key.remoteJid, {
-      text: `*I am AFK!*\nReason: ${reason}\nSince: ${time}`,
+      text: `*I am AFK!*\nReason: ${reason}\nSince: ${timeString}`,
     }, { quoted: msg });
   }
 }
-
