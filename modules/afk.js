@@ -59,20 +59,46 @@ export default {
 export async function handleAfkMessages(msg, sock) {
   setupAfkCollection();
 
+  // Skip own messages
   if (msg.key.fromMe) return;
 
-  const myId = sock.user.id.split(':')[0];
+  const myId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
 
   const afkData = await afkCollection.findOne({
-    user: myId,
+    user: sock.user.id.split(':')[0],
     isafk: true,
   });
 
-  if (afkData) {
-    const reason = afkData.afkreason || 'No reason provided';
-    const afkDate = new Date(afkData.afktime);
-    const time = afkDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  if (!afkData) return;
 
+  const reason = afkData.afkreason || 'No reason provided';
+  const afkDate = new Date(afkData.afktime);
+  const time = afkDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  const isGroup = msg.key.remoteJid.endsWith('@g.us');
+  let shouldRespond = false;
+
+  if (isGroup) {
+    // Check if the message mentions me
+    const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+    if (mentionedJids.includes(myId)) {
+      shouldRespond = true;
+    }
+
+    // Check if it's a reply to my message
+    const repliedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
+    const repliedStanzaId = msg.message?.extendedTextMessage?.contextInfo?.stanzaId;
+
+    if (repliedParticipant === myId || repliedStanzaId) {
+      shouldRespond = true;
+    }
+  } else {
+    // It’s a DM, so respond always
+    shouldRespond = true;
+  }
+
+  if (shouldRespond) {
     await sock.sendMessage(msg.key.remoteJid, {
       text: `*I am AFK!*\nReason: ${reason}\nSince: ${time}`,
     }, { quoted: msg });
