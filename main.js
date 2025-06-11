@@ -30,7 +30,9 @@ import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
 import './app.js';
-import { handleAfkMessages } from './modules/afk.js';  
+import { handleAfkMessages } from './modules/afk.js'; 
+import { startAutoBio } from './modules/autobio.js';
+import { startAutoDP } from './modules/autodp.js';
 
 dotenv.config();
 
@@ -247,8 +249,7 @@ async function startBot() {
     
       autoDPStarted = true;
       try {
-        const autoDPModule = await import('./modules/autodp.js');
-        await autoDPModule.default.startAutoDP(sock, sock.user.id);
+        await startAutoDP(sock, sock.user.id);
       } catch (error) {
         console.error(`AutoDP Error: ${error.message}`);
       }
@@ -259,8 +260,7 @@ async function startBot() {
 
       autoBioStarted = true;
       try {
-        const autoBioModule = await import('./modules/autobio.js');
-        await autoBioModule.default.startAutoBio(sock);
+        await startAutoBio(sock);
       } catch (error) {
         console.error(`AutoBio Error: ${error.message}`);
       }
