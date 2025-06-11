@@ -194,24 +194,19 @@ async function startBot() {
       console.error('Last Disconnect Reason:', lastDisconnect.error);
     }
 
-    // Cleanup global intervals
-    if (globalThis.autobioInterval) {
-      clearInterval(globalThis.autobioInterval);
-      globalThis.autobioInterval = null;
-      globalThis.autobioRunning = false;
-      autoBioStarted = false;
-    }
-    if (globalThis.autodpInterval) {
-      clearInterval(globalThis.autodpInterval);
-      globalThis.autodpInterval = null;
-      globalThis.autodpRunning = false;
-      autoDPStarted = false;
-    }
+    clearInterval(globalThis.autodpInterval);
+    globalThis.autodpInterval = null;
+    globalThis.autodpRunning = false;
+    autoDPStarted = false;
+    clearInterval(globalThis.autobioInterval);
+    globalThis.autobioInterval = null;
+    globalThis.autobioRunning = false;
+    autoBioStarted = false;
 
     if (shouldReconnect) {
       if (!globalThis.reconnecting) {
         globalThis.reconnecting = true;
-        console.log('Reconnecting in 5 seconds...');
+        //console.log('Reconnecting in 5 seconds...');
         setTimeout(() => {
           globalThis.reconnecting = false;
           startBot();
@@ -222,7 +217,6 @@ async function startBot() {
     }
 
   } else if (connection === 'open') {
-    console.log('Connection established.');
     if (initialConnect) {
       console.log('Authenticated with WhatsApp');
     }
@@ -251,9 +245,7 @@ async function startBot() {
 
     initialConnect = false;
 
-    while (!sock.user?.id) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Start AutoDP if enabled
     if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
