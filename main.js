@@ -174,101 +174,119 @@ async function startBot() {
     }, 1000)
   );
 
-  sock.ev.on(
-    'connection.update',
-    async ({ connection, lastDisconnect, qr }) => {
-      if (qr && initialConnect) {
-        console.log('Scan the QR code below: ');
-        qrcode.generate(qr, { small: true });
-      }
-
-      if (connection === 'close') {
-        commandsLoaded = false; 
-        const shouldReconnect =
-          lastDisconnect?.error instanceof Boom &&
-          lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log('Connection closed. Reconnecting ...');
-        if (shouldReconnect) {
-          if (globalThis.autobioInterval) {
-             clearInterval(globalThis.autobioInterval);
-             globalThis.autobioRunning = false;
-             autoBioStarted = false;
-          }
-          if (globalThis.autodpInterval) {
-             clearInterval(globalThis.autodpInterval);
-             globalThis.autodpRunning = false;
-             autoDPStarted = false;
-          }
-          startBot();
-        }
-
-      } else if (connection === 'open') {        
-      
-        if (initialConnect) {
-          console.log('Authenticated with WhatsApp');
-        }
-
-        if (!commandsLoaded) {
-          const modulesPath = path.join(__dirname, 'modules');
-          const moduleFiles = fs
-            .readdirSync(modulesPath)
-            .filter(file => file.endsWith('.js'));
-        
-          for (const file of moduleFiles) {
-            const module = await import(`./modules/${file}`);
-            if (module.default?.name && module.default?.execute) {
-              commands.set(module.default.name, module.default);
-              // Only log during initial startup
-              if (initialConnect) {
-                console.log(`Loaded command: ${module.default.name}`);
-              }
-            }
-          }
-          commandsLoaded = true; 
-        }
-
-        if (initialConnect) {
-          console.log('WahBuddy is Online !');
-        }
-        
-        initialConnect = false;
-        
-        while (!sock.user.id) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-        if (globalThis.autodpInterval) {
-          clearInterval(globalThis.autodpInterval);
-          globalThis.autodpInterval = null;
-          globalThis.autodpRunning = false;
-        }
-        autoDPStarted = true;
-        try {
-          const autoDPModule = await import('./modules/autodp.js');
-          await autoDPModule.default.startAutoDP(sock, sock.user.id);
-        } catch (error) {
-          console.error(`AutoDP Error: ${error.message}`);
-        }
-        }
-      
-        if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-        if (globalThis.autobioInterval) {
-          clearInterval(globalThis.autobioInterval);
-          globalThis.autobioInterval = null;
-          globalThis.autobioRunning = false;
-        }
-        autoBioStarted = true;
-        try {
-          const autoBioModule = await import('./modules/autobio.js');
-          await autoBioModule.default.startAutoBio(sock);
-        } catch (error) {
-          console.error(`AutoBio Error: ${error.message}`);
-        }
-      }
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+  if (qr && initialConnect) {
+    console.log('Scan the QR code below:');
+    qrcode.generate(qr, { small: true });
   }
-  }  
- ); 
+
+  if (connection === 'close') {
+    console.log('Connection closed.');
+    commandsLoaded = false;
+
+    const shouldReconnect =
+      lastDisconnect?.error instanceof Boom &&
+      lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
+
+    // Print lastDisconnect reason for debugging
+    if (lastDisconnect?.error) {
+      console.error('Last Disconnect Reason:', lastDisconnect.error);
+    }
+
+    // Cleanup global intervals
+    if (globalThis.autobioInterval) {
+      clearInterval(globalThis.autobioInterval);
+      globalThis.autobioInterval = null;
+      globalThis.autobioRunning = false;
+      autoBioStarted = false;
+    }
+    if (globalThis.autodpInterval) {
+      clearInterval(globalThis.autodpInterval);
+      globalThis.autodpInterval = null;
+      globalThis.autodpRunning = false;
+      autoDPStarted = false;
+    }
+
+    if (shouldReconnect) {
+      if (!globalThis.reconnecting) {
+        globalThis.reconnecting = true;
+        console.log('Reconnecting in 5 seconds...');
+        setTimeout(() => {
+          globalThis.reconnecting = false;
+          startBot();
+        }, 5000);
+      }
+    } else {
+      console.log('Logged out or permanent error. Manual restart required.');
+    }
+
+  } else if (connection === 'open') {
+    console.log('Connection established.');
+    if (initialConnect) {
+      console.log('Authenticated with WhatsApp');
+    }
+
+    if (!commandsLoaded) {
+      const modulesPath = path.join(__dirname, 'modules');
+      const moduleFiles = fs
+        .readdirSync(modulesPath)
+        .filter(file => file.endsWith('.js'));
+
+      for (const file of moduleFiles) {
+        const module = await import(`./modules/${file}`);
+        if (module.default?.name && module.default?.execute) {
+          commands.set(module.default.name, module.default);
+          if (initialConnect) {
+            console.log(`Loaded command: ${module.default.name}`);
+          }
+        }
+      }
+      commandsLoaded = true;
+    }
+
+    if (initialConnect) {
+      console.log('WahBuddy is Online!');
+    }
+
+    initialConnect = false;
+
+    while (!sock.user?.id) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // Start AutoDP if enabled
+    if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+      if (globalThis.autodpInterval) {
+        clearInterval(globalThis.autodpInterval);
+        globalThis.autodpInterval = null;
+        globalThis.autodpRunning = false;
+      }
+      autoDPStarted = true;
+      try {
+        const autoDPModule = await import('./modules/autodp.js');
+        await autoDPModule.default.startAutoDP(sock, sock.user.id);
+      } catch (error) {
+        console.error(`AutoDP Error: ${error.message}`);
+      }
+    }
+
+    // Start AutoBio if enabled
+    if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+      if (globalThis.autobioInterval) {
+        clearInterval(globalThis.autobioInterval);
+        globalThis.autobioInterval = null;
+        globalThis.autobioRunning = false;
+      }
+      autoBioStarted = true;
+      try {
+        const autoBioModule = await import('./modules/autobio.js');
+        await autoBioModule.default.startAutoBio(sock);
+      } catch (error) {
+        console.error(`AutoBio Error: ${error.message}`);
+      }
+    }
+  }
+  });
 
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
