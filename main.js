@@ -182,17 +182,12 @@ async function startBot() {
   }
 
   if (connection === 'close') {
-    console.log('Connection closed.');
+    //console.log('Connection closed.');
     commandsLoaded = false;
 
     const shouldReconnect =
       lastDisconnect?.error instanceof Boom &&
       lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
-
-    // Print lastDisconnect reason for debugging
-    if (lastDisconnect?.error) {
-      console.error('Last Disconnect Reason:', lastDisconnect.error);
-    }
 
     clearInterval(globalThis.autodpInterval);
     globalThis.autodpInterval = null;
