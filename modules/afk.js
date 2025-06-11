@@ -15,7 +15,11 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { db } from '../main.js';
+import dotenv from 'dotenv';
 
+dotenv.config();
+
+const TIME_ZONE = process.env.TIME_ZONE || 'Asia/Kolkata';
 const collectionName = 'afk';
 let afkCollection;
 
@@ -88,14 +92,28 @@ export async function handleAfkMessages(msg, sock) {
 
   let timeString;
 
-  const hours = afkDate.getHours();
-  const minutes = afkDate.getMinutes();
-  const formattedTime = `${((hours % 12) || 12)
-    .toString()
-    .padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
+  const formattedTime = afkDate.toLocaleString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: TIME_ZONE
+  });
 
-  const afkDay = new Date(afkDate.getFullYear(), afkDate.getMonth(), afkDate.getDate());
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Calculate difference in days
+  const afkDateInCity = new Date(afkDate.toLocaleString('en-US', { timeZone: TIME_ZONE }));
+  const nowInCity = new Date(now.toLocaleString('en-US', { timeZone: TIME_ZONE }));
+
+  const afkDay = new Date(
+    afkDateInCity.getFullYear(),
+    afkDateInCity.getMonth(),
+    afkDateInCity.getDate()
+  );
+  const today = new Date(
+    nowInCity.getFullYear(),
+    nowInCity.getMonth(),
+    nowInCity.getDate()
+  );
+
   const diffDays = Math.floor((today - afkDay) / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
@@ -106,12 +124,12 @@ export async function handleAfkMessages(msg, sock) {
     const weekdays = [
       'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
     ];
-    const dayName = weekdays[afkDate.getDay()];
+    const dayName = weekdays[afkDateInCity.getDay()];
     timeString = `${dayName} at ${formattedTime}`;
   } else {
-    const dateString = `${afkDate.getDate().toString().padStart(2, '0')}:${
-      (afkDate.getMonth() + 1).toString().padStart(2, '0')
-    }:${afkDate.getFullYear()}`;
+    const dateString = `${afkDateInCity.getDate().toString().padStart(2, '0')}:${
+      (afkDateInCity.getMonth() + 1).toString().padStart(2, '0')
+    }:${afkDateInCity.getFullYear()}`;
     timeString = `${formattedTime} on ${dateString}`;
   }
 
