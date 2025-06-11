@@ -191,14 +191,14 @@ async function startBot() {
       lastDisconnect?.error instanceof Boom &&
       lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
 
-    clearInterval(globalThis.autodpInterval);
+    //clearInterval(globalThis.autodpInterval);
     //globalThis.autodpInterval = null;
-    globalThis.autodpRunning = false;
-    autoDPStarted = false;
-    clearInterval(globalThis.autobioInterval);
+    //globalThis.autodpRunning = false;
+    //autoDPStarted = false;
+    //clearInterval(globalThis.autobioInterval);
     //globalThis.autobioInterval = null;
-    globalThis.autobioRunning = false;
-    autoBioStarted = false;
+    //globalThis.autobioRunning = false;
+    //autoBioStarted = false;
 
     if (shouldReconnect) {
       if (!globalThis.reconnecting) {
