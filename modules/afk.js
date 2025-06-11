@@ -60,7 +60,7 @@ export async function handleAfkMessages(msg, sock) {
   const afkData = await afkCollection.findOne({ isafk: true });
   if (!afkData) return;
 
-  const reason = afkData.afkreason || 'No reason provided';
+  const reason = afkData.afkreason || 'No reason';
   const afkDate = new Date(afkData.afktime);
   const time = afkDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
