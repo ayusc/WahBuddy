@@ -51,7 +51,7 @@ async function runQuoteUpdate() {
   }
 }
 
-async function startAutoBio(sock) {
+export async function startAutoBio(sock) {
   if (globalThis.autobioRunning) return;
 
   globalThis.autobioRunning = true;
