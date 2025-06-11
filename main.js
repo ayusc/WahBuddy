@@ -189,6 +189,12 @@ async function startBot() {
           lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
         console.log('Connection closed. Reconnecting ...');
         if (shouldReconnect) {
+          if (globalThis.autobioInterval) {
+             clearInterval(globalThis.autobioInterval);
+             globalThis.autobioInterval = null;
+             globalThis.autobioRunning = false;
+             autoBioStarted = false;
+          }
           startBot();
         }
 
