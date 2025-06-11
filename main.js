@@ -30,6 +30,7 @@ import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
 import './app.js';
+import { handleAfkMessages } from './modules/afk.js';  
 
 dotenv.config();
 
@@ -313,7 +314,15 @@ async function startBot() {
   
     const msg = messages[0];
     if (!msg.message) return;
-  
+
+    if (!msg.key.fromMe) {
+    try {
+      await handleAfkMessages(msg, sock);
+    } catch (err) {
+      console.error('Error in AFK module:', err);
+    }
+    }
+    
     if (msg.key.fromMe) {
       const messageContent =
         msg.message.conversation ||
