@@ -79,14 +79,12 @@ export async function handleAfkMessages(msg, sock) {
   let shouldRespond = false;
 
   if (isGroup) {
-    // Check if the message mentions me
     const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
     if (mentionedJids.includes(myId)) {
       shouldRespond = true;
     }
-
-    // Check if it's a reply to my message
+    
     const repliedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
     const repliedStanzaId = msg.message?.extendedTextMessage?.contextInfo?.stanzaId;
 
