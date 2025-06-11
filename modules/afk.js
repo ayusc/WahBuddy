@@ -1,0 +1,82 @@
+import { db } from './main.js';  // adjust path as needed
+
+const collectionName = 'afk';
+let afkCollection;
+
+// Setup collection (only once)
+function setupAfkCollection() {
+  if (!afkCollection) {
+    afkCollection = db.collection(collectionName);
+  }
+}
+
+// Command module
+export default {
+  name: '.afk',
+  description: 'Sets or removes AFK status with optional reason.',
+  usage: '.afk on/yes [reason] | .afk off/no',
+
+  async execute(msg, args, sock) {
+    setupAfkCollection();
+
+    const jid = msg.key.participant || msg.key.remoteJid;
+    const senderId = msg.key.participant || msg.key.remoteJid.split('@')[0];
+
+    const subCommand = (args[0] || '').toLowerCase();
+
+    if (subCommand === 'on' || subCommand === 'yes') {
+      const reason = args.slice(1).join(' ') || 'No reason provided';
+      const afkData = {
+        user: senderId,
+        isafk: true,
+        afkreason: reason,
+        afktime: new Date(),
+      };
+
+      await afkCollection.updateOne(
+        { user: senderId },
+        { $set: afkData },
+        { upsert: true }
+      );
+
+      await sock.sendMessage(jid, { text: `You are now AFK.\nReason: ${reason}` }, { quoted: msg });
+    } else if (subCommand === 'off' || subCommand === 'no') {
+      await afkCollection.updateOne(
+        { user: senderId },
+        { $set: { isafk: false } },
+        { upsert: true }
+      );
+
+      await sock.sendMessage(jid, { text: `Welcome back!\nYou are no longer AFK.` }, { quoted: msg });
+    } else {
+      await sock.sendMessage(jid, {
+        text: `Usage:\n.afk on/yes [reason] - set AFK status\n.afk off/no - remove AFK status`,
+      }, { quoted: msg });
+    }
+  },
+};
+
+// Middleware function
+export async function handleAfkMessages(msg, sock) {
+  setupAfkCollection();
+
+  const senderId = msg.key.remoteJid.split('@')[0];
+
+  // Skip own messages
+  if (msg.key.fromMe) return;
+
+  const afkData = await afkCollection.findOne({
+    user: senderId,
+    isafk: true,
+  });
+
+  if (afkData) {
+    const reason = afkData.afkreason || 'No reason provided';
+    const afkDate = new Date(afkData.afktime);
+    const time = afkDate.toLocaleDateString('en-GB');
+
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `*My master is AFK!*\nAFK reason: ${reason}\nLast seen: ${time}`,
+    }, { quoted: msg });
+  }
+}
