@@ -56,27 +56,25 @@ export default {
   },
 };
 
-// Middleware function
 export async function handleAfkMessages(msg, sock) {
   setupAfkCollection();
 
-  const senderId = msg.key.remoteJid.split('@')[0];
-
-  // Skip own messages
   if (msg.key.fromMe) return;
 
+  const myId = sock.user.id.split(':')[0];
+
   const afkData = await afkCollection.findOne({
-    user: senderId,
+    user: myId,
     isafk: true,
   });
 
   if (afkData) {
     const reason = afkData.afkreason || 'No reason provided';
     const afkDate = new Date(afkData.afktime);
-    const time = afkDate.toLocaleDateString('en-IN');
+    const time = afkDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
     await sock.sendMessage(msg.key.remoteJid, {
-      text: `*My master is AFK!*\nAFK reason: ${reason}\nLast seen: ${time}`,
+      text: `*I am AFK!*\nReason: ${reason}\nSince: ${time}`,
     }, { quoted: msg });
   }
 }
