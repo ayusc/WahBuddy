@@ -191,13 +191,11 @@ async function startBot() {
         if (shouldReconnect) {
           if (globalThis.autobioInterval) {
              clearInterval(globalThis.autobioInterval);
-             globalThis.autobioInterval = null;
              globalThis.autobioRunning = false;
              autoBioStarted = false;
           }
           if (globalThis.autodpInterval) {
              clearInterval(globalThis.autodpInterval);
-             globalThis.autodpInterval = null;
              globalThis.autodpRunning = false;
              autoDPStarted = false;
           }
@@ -235,11 +233,16 @@ async function startBot() {
         
         initialConnect = false;
         
-        while (!sock.user || !sock.user.id) {
+        while (!sock.user.id) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+        if (globalThis.autodpInterval) {
+          clearInterval(globalThis.autodpInterval);
+          globalThis.autodpInterval = null;
+          globalThis.autodpRunning = false;
+        }
         autoDPStarted = true;
         try {
           const autoDPModule = await import('./modules/autodp.js');
@@ -250,6 +253,11 @@ async function startBot() {
         }
       
         if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+        if (globalThis.autobioInterval) {
+          clearInterval(globalThis.autobioInterval);
+          globalThis.autobioInterval = null;
+          globalThis.autobioRunning = false;
+        }
         autoBioStarted = true;
         try {
           const autoBioModule = await import('./modules/autobio.js');
