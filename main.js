@@ -195,6 +195,12 @@ async function startBot() {
              globalThis.autobioRunning = false;
              autoBioStarted = false;
           }
+          if (globalThis.autodpInterval) {
+             clearInterval(globalThis.autodpInterval);
+             globalThis.autodpInterval = null;
+             globalThis.autodpRunning = false;
+             autoDPStarted = false;
+          }
           startBot();
         }
 
