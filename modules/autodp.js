@@ -371,7 +371,6 @@ export default {
 
   async execute(msg, _args, sock) {
     const jid = msg.key.remoteJid;
-    const intervalMs = parseInt(process.env.AUTO_DP_INTERVAL_MS, 10) || 60000;
 
     if (globalThis.autodpRunning) {
       if (!msg.fromStartup) {
