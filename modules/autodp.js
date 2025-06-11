@@ -321,7 +321,7 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
   //console.log('Image generated successfully!');
 }
 
-async function startAutoDP(sock, jid) {
+export async function startAutoDP(sock, jid) {
   if (globalThis.autodpRunning) return;
 
   globalThis.autodpRunning = true;
