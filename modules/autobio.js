@@ -56,6 +56,16 @@ async function runQuoteUpdate() {
       quote = data.quote;
       attempts++;
 
+      if (!quote) {
+        console.log(`Attempt ${attempts}: Skipped - Empty quote`);
+      } else if (quote === lastQuote) {
+        console.log(`Attempt ${attempts}: Skipped - Duplicate quote`);
+      } else if (quote.length > 139) {
+        console.log(
+          `Attempt ${attempts}: Skipped - Quote too long (${quote.length} chars)`
+        );
+      }
+
       if (attempts >= 10) {
         console.warn(
           'Failed to find a new quote after 10 attempts. Skipping...'
@@ -65,12 +75,14 @@ async function runQuoteUpdate() {
     }
 
     lastQuote = quote;
+    //console.log(`Selected quote (attempt ${attempts}): "${quote}"`);
     return quote;
   } catch (error) {
     console.error('Error fetching quote:', error.message);
     return null;
   }
 }
+
 
 export async function startAutoBio(sock) {
   if (globalThis.autobioRunning) return;
