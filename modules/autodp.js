@@ -107,8 +107,20 @@ async function downloadImage(imagePath) {
       }
 
       const buffer = await response.arrayBuffer();
-      fs.writeFileSync(imagePath, Buffer.from(buffer));
-      return true;
+      const buf = Buffer.from(buffer);
+
+      try {
+        await sharp(buf).metadata(); // throws if invalid
+        fs.writeFileSync(imagePath, buf);
+        return true;
+      } catch (err) {
+        console.warn(`Attempt ${attempt} - Invalid image buffer:`, err.message);
+        if (attempt < MAX_RETRIES) {
+          return await tryRandomImage(attempt + 1);
+        }
+        return false;
+      }
+
     } catch (error) {
       console.error(
         `Attempt ${attempt} - Failed to fetch random image:`,
