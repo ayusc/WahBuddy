@@ -167,6 +167,7 @@ async function startBot() {
     qrTimeout: 2147483647,
     defaultQueryTimeoutMs: undefined,
     keepAliveIntervalMs: 5000,
+    markOnlineOnConnect: false,
   });
 
   sock.ev.on(
@@ -214,6 +215,7 @@ async function startBot() {
     }
 
   } else if (connection === 'open') {
+
     if (initialConnect) {
       console.log('Authenticated with WhatsApp');
     }
