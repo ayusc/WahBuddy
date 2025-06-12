@@ -112,6 +112,11 @@ async function downloadImage(imagePath) {
       try {
         await sharp(buf).metadata(); // throws if invalid
         fs.writeFileSync(imagePath, buf);
+        if (fs.statSync(imagePath).size === 0) {
+          console.warn(`Attempt ${attempt} - Zero-size image`);
+          if (attempt < MAX_RETRIES) return await tryRandomImage(attempt + 1);
+          return false;
+        }
         return true;
       } catch (err) {
         console.warn(`Attempt ${attempt} - Invalid image buffer:`, err.message);
@@ -348,12 +353,14 @@ export async function startAutoDP(sock, jid) {
   nextMinute.setMinutes(nextMinute.getMinutes() + 1);
   const delay = new Date(nextMinute) - new Date(now);
 
-  const intervalMs = parseInt(process.env.AUTO_DP_INTERVAL_MS, 10) || 60000;
-
   setTimeout(() => {
     globalThis.autodpInterval = setInterval(async () => {
       try {
         await generateImage();
+        if (!fs.existsSync(outputImage) || fs.statSync(outputImage).size === 0) {
+          console.error('DP update skipped: output image is empty or missing');
+          return;
+        }
         const buffer = fs.readFileSync(outputImage);
         await sock.updateProfilePicture(jid, buffer);
         console.log('DP updated');
@@ -366,6 +373,10 @@ export async function startAutoDP(sock, jid) {
     (async () => {
       try {
         await generateImage();
+        if (!fs.existsSync(outputImage) || fs.statSync(outputImage).size === 0) {
+          console.error('DP update skipped: output image is empty or missing');
+          return;
+        }
         const buffer = fs.readFileSync(outputImage);
         await sock.updateProfilePicture(jid, buffer);
         console.log('DP updated');
