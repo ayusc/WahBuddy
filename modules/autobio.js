@@ -100,7 +100,12 @@ export async function startAutoBio(sock) {
   globalThis.autobioInterval = setInterval(async () => {
     const q = await runQuoteUpdate();
     if (q) {
-      await sock.updateProfileStatus(q);
+      try {
+        await sock.updateProfileStatus(quote);
+        console.log('About updated');
+      } catch (err) {
+        console.error('About update failed:', err.message);
+      }
     }
   }, AUTO_BIO_INTERVAL);
 
