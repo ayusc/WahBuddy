@@ -397,6 +397,4 @@ export default {
 
     await startAutoDP(sock, jid);
   },
-
-  startAutoDP
 };
