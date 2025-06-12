@@ -101,7 +101,7 @@ export async function startAutoBio(sock) {
     const q = await runQuoteUpdate();
     if (q) {
       try {
-        await sock.updateProfileStatus(quote);
+        await sock.updateProfileStatus(q);
         console.log('About updated');
       } catch (err) {
         console.error('About update failed:', err.message);
