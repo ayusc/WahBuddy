@@ -94,14 +94,15 @@ export async function handleAfkMessages(msg, sock) {
   if (!afkData) return;
 
   const senderJid = msg.key.participant || msg.key.remoteJid;
-
-  const alreadyReplied = afkData.afkRespondedUsers?.includes(senderJid);
+  const contextJid = msg.key.remoteJid;
+  const contextKey = `${senderJid}__${contextJid}`;
+  
+  const alreadyReplied = afkData.afkRespondedUsers?.includes(contextKey);
   if (alreadyReplied) return;
-
-  // Add this JID to the responded list
+  
   await afkCollection.updateOne(
     {},
-    { $addToSet: { afkRespondedUsers: senderJid } }
+    { $addToSet: { afkRespondedUsers: contextKey } }
   );
 
   const reason = afkData.afkreason;
