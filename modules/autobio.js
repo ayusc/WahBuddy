@@ -109,6 +109,4 @@ export default {
 
     await startAutoBio(sock);
   },
-
-  startAutoBio
 };
