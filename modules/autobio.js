@@ -96,29 +96,27 @@ export async function startAutoBio(sock) {
   nextMinute.setMinutes(nextMinute.getMinutes() + 1);
   const delay = nextMinute - now;
 
+  setTimeout(() => {
   globalThis.autobioInterval = setInterval(async () => {
     const q = await runQuoteUpdate();
     if (q) {
-      try {
-        await sock.updateProfileStatus(q);
-        console.log('About updated');
-      } catch (error) {
-        console.error('About update failed:', error.message);
-      }
+      await sock.updateProfileStatus(q);
     }
   }, AUTO_BIO_INTERVAL);
 
-  setTimeout(async () => {
+  // immediate first run
+  (async () => {
     const quote = await runQuoteUpdate();
     if (quote) {
       try {
         await sock.updateProfileStatus(quote);
         console.log('About updated');
-      } catch (error) {
-        console.error('About update failed:', error.message);
+      } catch (err) {
+        console.error('About update failed:', err.message);
       }
     }
-  }, delay);
+  })();
+}, delay);
 }
 
 export default {
