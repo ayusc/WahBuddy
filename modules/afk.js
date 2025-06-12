@@ -41,12 +41,14 @@ export default {
     const subCommand = (args[0] || '').toLowerCase();
 
     if (subCommand === 'on' || subCommand === 'yes') {
-      const reason = args.slice(1).join(' ') || 'No reason provided';
+      const reason = args.slice(1).join(' ').trim() || null;
 
       // Check if already AFK
       const afkData = await afkCollection.findOne({ isafk: true });
       if (afkData) {
-        await sock.sendMessage(jid, { text: `You are already AFK!\nReason: ${afkData.afkreason}` }, { quoted: msg });
+        await sock.sendMessage(jid, {
+          text: `You are already AFK!\nReason: ${afkData.afkreason || 'No reason provided'}`,
+        }, { quoted: msg });
         return;
       }
 
@@ -56,23 +58,16 @@ export default {
         afktime: new Date(),
       };
 
-      await afkCollection.updateOne(
-        {}, 
-        { $set: newAfkData },
-        { upsert: true }
-      );
+      await afkCollection.updateOne({}, { $set: newAfkData }, { upsert: true });
 
-      await sock.sendMessage(jid, { text: `You are now AFK.\nReason: ${reason}` }, { quoted: msg });
+      await sock.sendMessage(jid, {
+        text: `You are now AFK.\n${reason ? `Reason: ${reason}` : 'No reason provided.'}`,
+      }, { quoted: msg });
+
     } else if (subCommand === 'off' || subCommand === 'no') {
       await afkCollection.updateOne(
         {},
-        {
-          $set: {
-            isafk: false,
-            afktime: null,
-            afkreason: null
-          }
-        },
+        { $set: { isafk: false, afktime: null, afkreason: null } },
         { upsert: true }
       );
 
@@ -93,11 +88,9 @@ export async function handleAfkMessages(msg, sock) {
   const afkData = await afkCollection.findOne({ isafk: true });
   if (!afkData) return;
 
-  const reason = afkData.afkreason || 'No reason';
+  const reason = afkData.afkreason;
   const afkDate = new Date(afkData.afktime);
   const now = new Date();
-
-  let timeString;
 
   const formattedTime = afkDate.toLocaleString('en-IN', {
     hour: '2-digit',
@@ -106,7 +99,6 @@ export async function handleAfkMessages(msg, sock) {
     timeZone: TIME_ZONE
   });
 
-  // Calculate difference in days
   const afkDateInCity = new Date(afkDate.toLocaleString('en-US', { timeZone: TIME_ZONE }));
   const nowInCity = new Date(now.toLocaleString('en-US', { timeZone: TIME_ZONE }));
 
@@ -122,15 +114,14 @@ export async function handleAfkMessages(msg, sock) {
   );
 
   const diffDays = Math.floor((today - afkDay) / (1000 * 60 * 60 * 24));
+  let timeString;
 
   if (diffDays === 0) {
     timeString = `Today at ${formattedTime}`;
   } else if (diffDays === 1) {
     timeString = `Yesterday at ${formattedTime}`;
   } else if (diffDays <= 7) {
-    const weekdays = [
-      'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
-    ];
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dayName = weekdays[afkDateInCity.getDay()];
     timeString = `${dayName} at ${formattedTime}`;
   } else {
@@ -142,7 +133,6 @@ export async function handleAfkMessages(msg, sock) {
 
   const isGroup = msg.key.remoteJid.endsWith('@g.us');
   let shouldRespond = false;
-
   const myId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
 
   if (isGroup) {
@@ -157,8 +147,14 @@ export async function handleAfkMessages(msg, sock) {
   }
 
   if (shouldRespond) {
+    let afkText = `*Hi there, this is a userbot !*\n\nMy master is AFK now.\n\n`;
+    if (reason) {
+      afkText += `He gave me this reason: ${reason}\n\n`;
+    }
+    afkText += `I last saw him: ${timeString}`;
+
     await sock.sendMessage(msg.key.remoteJid, {
-      text: `*I am AFK!*\nReason: ${reason}\nSince: ${timeString}`,
+      text: afkText,
     }, { quoted: msg });
   }
 }
