@@ -24,6 +24,27 @@ const AUTO_BIO_INTERVAL = parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 6000
 
 let lastQuote = '';
 
+function getTimeInTimeZone(timeZone) {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+    .formatToParts(now)
+    .reduce((acc, part) => {
+      if (part.type !== 'literal') acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  return new Date(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`);
+}
+
 async function runQuoteUpdate() {
   try {
     let quote = '';
@@ -56,12 +77,12 @@ export async function startAutoBio(sock) {
 
   globalThis.autobioRunning = true;
 
-  const now = new Date().toLocaleString('en-US', { timeZone: TIME_ZONE });
+  const now = getTimeInTimeZone(TIME_ZONE);
   const nextMinute = new Date(now);
   nextMinute.setSeconds(0);
   nextMinute.setMilliseconds(0);
   nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-  const delay = new Date(nextMinute) - new Date(now);
+  const delay = nextMinute - now;
 
   globalThis.autobioInterval = setInterval(async () => {
     const q = await runQuoteUpdate();
