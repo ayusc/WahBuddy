@@ -39,22 +39,19 @@ export default {
       W.repeat(4) + R + W.repeat(4),
       W.repeat(9),
     ];
+
     const joinedHeart = heartList.join("\n");
-    const heartletLen = (joinedHeart.match(/❤️/g) || []).length;
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    // Send initial message
     const sent = await sock.sendMessage(jid, { text: joinedHeart }, { quoted: msg });
 
-    // Phase 1: Big Scroll
     for (let heart of BIG_SCROLL) {
       const newText = joinedHeart.replace(/❤️/g, heart);
       await sock.sendMessage(jid, { text: newText, edit: sent.key });
       await delay(SLEEP);
     }
 
-    // Phase 2: Randomize hearts
     const formatHeart = joinedHeart.replace(/❤️/g, "{}");
     for (let i = 0; i < 5; i++) {
       const filled = formatHeart.replace(/\{\}/g, () => ALL[Math.floor(Math.random() * ALL.length)]);
@@ -62,13 +59,20 @@ export default {
       await delay(SLEEP);
     }
 
-    // Phase 3: Fill up matrix
-    let repl = joinedHeart;
-    for (let i = 0; i < (repl.match(/🤍/g) || []).length; i++) {
-     repl = repl.replace("🤍", "❤️");
-     await sock.sendMessage(jid, { text: repl, edit: sent.key });
-     await delay(SLEEP);
+    let fillMatrix = joinedHeart;
+    const totalWhites = (fillMatrix.match(/🤍/g) || []).length;
+
+    for (let i = 0; i < totalWhites; i++) {
+      fillMatrix = fillMatrix.replace("🤍", "❤️");
+      await sock.sendMessage(jid, { text: fillMatrix, edit: sent.key });
+      await delay(SLEEP);
     }
-    await sock.sendMessage(jid, { text: "❤️", edit: sent.key });    
-  }
+
+    for (let i = 7; i > 0; i--) {
+      const shrink = Array(i).fill(R.repeat(i)).join("\n");
+      await sock.sendMessage(jid, { text: shrink, edit: sent.key });
+      await delay(SLEEP);
+    }
+    }
 };
+                                   
