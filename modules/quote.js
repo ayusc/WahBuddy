@@ -166,13 +166,24 @@ async function sendQuoteSticker(messages, sock, jid, quotedMsg) {
   }
 }
 
-async function getProfilePicUrl(sock, id) {
-  try {
-    return await sock.profilePictureUrl(id, 'image');
-  } catch {
-    return 'https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png';
+async function getProfilePicUrl(sock, id, retries = 5, delay = 300) {
+  const fallbackUrl = 'https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png';
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const url = await sock.profilePictureUrl(id, 'image');
+      if (url) return url;
+    } catch (err) {
+      if (attempt === retries) {
+        console.warn(`Failed to get profile pic for ${id} after ${retries} attempts.`);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
+  return fallbackUrl;
 }
+
 
 /**
  * Normalize JID by removing device suffix if present
