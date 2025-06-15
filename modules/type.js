@@ -1,21 +1,27 @@
 export default {
   name: '.type',
   description: 'Simulates typing effect like a typewriter',
-  usage: '.type <text>',
+  usage: '.type [text] (or reply to a message)',
 
   async execute(msg, args, sock) {
     const jid = msg.key.remoteJid;
-    const text = args.join(" ");
-    if (!text) return sock.sendMessage(jid, { text: "Give me something to type!" }, { quoted: msg });
+
+    // Try to get text from arguments or replied message
+    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text;
+    const text = args.length ? args.join(" ") : quotedText;
+
+    if (!text) {
+      return sock.sendMessage(jid, { text: "Give me something to type or reply to a text message." }, { quoted: msg });
+    }
 
     let typed = "";
     const typingSymbol = "|";
-    const SLEEP = 200; 
-
+    const SLEEP = 200;
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    // Initial message
-    let sent = await sock.sendMessage(jid, { text: typingSymbol }, { quoted: msg });
+    // Send initial message
+    const sent = await sock.sendMessage(jid, { text: typingSymbol }, { quoted: msg });
 
     for (const char of text) {
       await sock.sendMessage(jid, { text: typed + typingSymbol, edit: sent.key });
