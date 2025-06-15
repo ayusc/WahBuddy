@@ -50,20 +50,10 @@ export default {
     // Phase 3: Fill up matrix
     let repl = joinedHeart;
     for (let i = 0; i < (repl.match(/🤍/g) || []).length; i++) {
-      repl = repl.replace("🤍", "❤️");
-      await sock.sendMessage(jid, { text: repl, edit: sent.key });
-      await delay(SLEEP);
+     repl = repl.replace("🤍", "❤️");
+     await sock.sendMessage(jid, { text: repl, edit: sent.key });
+     await delay(SLEEP);
     }
-
-    // Phase 4: Shrinking
-    for (let i = 7; i > 0; i--) {
-      const shrink = Array(i).fill(R.repeat(i)).join("\n");
-      await sock.sendMessage(jid, { text: shrink, edit: sent.key });
-      await delay(SLEEP);
-    }
-
-    // Final caption
-    const finalText = _args.length ? _args.join(" ") : "💕 by your WhatsApp bot";
-    await sock.sendMessage(jid, { text: finalText, edit: sent.key });
+    await sock.sendMessage(jid, { text: "❤️", edit: sent.key });    
   }
 };
