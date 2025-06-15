@@ -174,25 +174,33 @@ async function getProfilePicUrl(sock, id) {
   }
 }
 
+/**
+ * Normalize JID by removing device suffix if present
+ * e.g. "12345:33@s.whatsapp.net" → "12345@s.whatsapp.net"
+ */
+function normalizeJid(jid) {
+  return jid.replace(/:\d+@/, '@')
+}
+
 async function getName(sock, id, useNumber) {
   if (useNumber) {
-    return `+${id.split('@')[0]}`;
+    return `+${id.split('@')[0]}`
   }
 
-  const jid = id.includes('@s.whatsapp.net') ? id : `${id}@s.whatsapp.net`;
+  const rawJid = id.includes('@s.whatsapp.net') ? id : `${id}@s.whatsapp.net`
+  const jid = normalizeJid(rawJid)
+  const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null
 
-  // Handle userbot owner specially
-  if (jid === sock.user?.id) {
-    return sock.user?.name || '+' + jid.split('@')[0];
+  if (ownerJid && jid === ownerJid) {
+    return sock.user?.name || `+${jid.split('@')[0]}`
   }
 
-  // Lookup in contacts collection
-  const contact = await contactsCollection.findOne({ id: jid });
+  const contact = await contactsCollection.findOne({ id: jid })
 
   return (
     contact?.pushName ||
     contact?.name ||
     contact?.notify ||
-    '+' + jid.split('@')[0]
-  );
+    `+${jid.split('@')[0]}`
+  )
 }
