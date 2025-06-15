@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { getContentType } from 'baileys';
 import sharp from 'sharp';
 import { messagesCollection } from '../main.js';
+import { contactsCollection } from '../main.js'; 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -177,7 +178,21 @@ async function getName(sock, id, useNumber) {
   if (useNumber) {
     return `+${id.split('@')[0]}`;
   }
-  const waInfo = (await sock.onWhatsApp(id))?.[0];
-  const name = waInfo?.notify || waInfo?.pushname || '';
-  return name || `+${id.split('@')[0]}`;
+
+  const jid = id.includes('@s.whatsapp.net') ? id : `${id}@s.whatsapp.net`;
+
+  // Handle userbot owner specially
+  if (jid === sock.user?.id) {
+    return sock.user?.name || '+' + jid.split('@')[0];
+  }
+
+  // Lookup in contacts collection
+  const contact = await contactsCollection.findOne({ id: jid });
+
+  return (
+    contact?.pushName ||
+    contact?.name ||
+    contact?.notify ||
+    '+' + jid.split('@')[0]
+  );
 }
