@@ -21,7 +21,7 @@ export default {
 
   async execute(msg, _args, sock) {
     const jid = msg.key.remoteJid;
-    const SLEEP = 100;
+    const SLEEP = 200;
 
     const R = "❤️";
     const W = "🤍";
