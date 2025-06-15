@@ -45,7 +45,7 @@ const autobio = process.env.ALWAYS_AUTO_BIO || 'False';
 const mongoUri = process.env.MONGO_URI;
 const authDir = './wahbuddy-auth';
 const dbName = 'wahbuddy';
-let db, sessionCollection
+let db, sessionCollection;
 
 const debounce = (fn, delay) => {
   let timer;
