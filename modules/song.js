@@ -59,11 +59,10 @@ export default {
         contextInfo: {
           externalAdReply: {
             title: songName,
-            body: 'From Saavn',
+            body: 'Uploaded From Saavn',
             thumbnailUrl: thumbUrl,
             mediaType: 1,
             renderLargerThumbnail: true,
-            sourceUrl: songUrl
           }
         }
       }, { quoted: msg });
