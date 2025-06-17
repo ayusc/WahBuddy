@@ -1,166 +1,88 @@
-import axios from 'axios';
-import yts from 'yt-search';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
-import { execFile } from 'child_process';
-import util from 'util';
-import ffmpegPath from 'ffmpeg-static';
-
-function formatTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return h > 0
-    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    : `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function formatViews(number) {
-  if (number >= 10000000) {
-    return (number / 10000000).toFixed(2) + ' Cr';
-  } else if (number >= 100000) {
-    return (number / 100000).toFixed(2) + ' Lakh';
-  } else if (number >= 1000) {
-    return (number / 1000).toFixed(2) + ' K';
-  } else {
-    return number.toString();
-  }
-}
-
-function withCommas(number) {
-  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
 
 export default {
   name: '.song',
-  description: 'Searches and sends a song from YouTube as an MP3.',
-  usage: 'Type .song <song name> to upload the requested song in the chat',
+  description: 'Searches and sends a song from Saavn as an MP3.',
+  usage: '.song <song name>',
 
   async execute(msg, _args, sock) {
     const jid = msg.key.remoteJid;
-    const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-    const query = body.split(' ').slice(1).join(' ').trim();
+    const query = _args.join(' ').trim();
 
     if (!query) {
-      return await sock.sendMessage(jid, { text: 'Please enter a song name to download' });
+      return await sock.sendMessage(jid, { text: 'Please enter a song name to download.' });
     }
 
     try {
-      const search = await yts(query);
-      const result = search.videos[0];
-      const views = formatViews(result.views);
-      
-      if (!result) {
-        return await sock.sendMessage(jid, { text: 'No matching songs found.' });
+      const progressMsg = await sock.sendMessage(jid, { text: `Searching for "${query}" on Saavn...` }, { quoted: msg });
+
+      const res = await fetch(`https://rsjiprivate-api.vercel.app/api/search/songs?query=${encodeURIComponent(query)}`);
+      const json = await res.json();
+
+      if (!json.success || !json.data?.results?.length) {
+        return await sock.sendMessage(jid, { text: `No results found for "${query}".`, edit: progressMsg.key }, { quoted: msg });
       }
-      
+
+      const song = json.data.results[0];
+      const songName = song.name;
+      const songUrl = song.downloadUrl?.slice(-1)[0]?.url;
+      const thumbUrl = song.image?.slice(-1)[0]?.url;
+
+      if (!songUrl) {
+        return await sock.sendMessage(jid, { text: 'Failed to get a valid download URL.', edit: progressMsg.key }, { quoted: msg });
+      }
+
       const tempDir = path.resolve('./temp');
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
       const timeStamp = Date.now();
-      const rawAudio = path.join(tempDir, `${timeStamp}.m4a`);
-      const finalAudio = path.join(tempDir, `${timeStamp}.mp3`);
-      const link = result.url;
+      const audioPath = path.join(tempDir, `${timeStamp}.mp3`);
+      const thumbPath = path.join(tempDir, `${timeStamp}.jpg`);
 
-      const apis = [
-        `https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(link)}`,
-        `https://api.zenkey.my.id/api/download/ytmp3?apikey=zenkey&url=${encodeURIComponent(link)}`,
-      ];
+      const audioBuffer = await fetch(songUrl).then(r => r.buffer());
+      fs.writeFileSync(audioPath, audioBuffer);
 
-      let downloaded = false;
+      if (thumbUrl) {
+        const thumbBuffer = await fetch(thumbUrl).then(r => r.buffer());
+        fs.writeFileSync(thumbPath, thumbBuffer);
+      }
 
-      let progressMsg = await sock.sendMessage(
-            jid,
-            {
-              text: `*Song Information:*\n\nName: ${result.title}\n\nDuration: ${result.timestamp}\n\nViews: ${views}\n\n_Downloading your song ..._`
-            },
-            { quoted: msg }
-      );    
+      await sock.sendMessage(jid, { text: `Uploading "${songName}"...`, edit: progressMsg.key }, { quoted: msg });
 
-      for (const api of apis) {
-        try {
-          const res = await fetch(api);
-          const json = await res.json();
-          const downloadUrl = json?.data?.dl || json?.result?.downloadUrl;
-          if (!downloadUrl) continue;
-
-          const audioBuffer = await fetch(downloadUrl).then(r => r.buffer());
-          fs.writeFileSync(rawAudio, audioBuffer);
-
-          const execFileAsync = util.promisify(execFile);
-
-          await sock.sendMessage(
-          jid,
-          { text: `*Song Information:*\n\nName: ${result.title}\n\nDuration: ${result.timestamp}\n\nViews: ${views}\n\n_Converting to MP3 ..._`, edit: progressMsg.key }, 
-          { quoted: msg }
-          );       
-
-          await execFileAsync(ffmpegPath, [
-            '-i', rawAudio,
-            '-vn',
-            '-acodec', 'libmp3lame',
-            '-ac', '2',
-            '-b:a', '192k',
-            '-ar', '44100',
-            finalAudio
-          ]);
-                    
-          if (fs.statSync(finalAudio).size < 1024) {
-            console.error('Corrupt song file');
-            await sock.sendMessage(jid, 
-            { text: 'Some Error Occured !', edit: progressMsg.key },
-            { quoted: msg },                
-            );
+      await sock.sendMessage(jid, {
+        audio: { url: audioPath },
+        mimetype: 'audio/mpeg',
+        fileName: `${songName}.mp3`,
+        ptt: false,
+        contextInfo: {
+          externalAdReply: {
+            title: songName,
+            body: 'From Saavn',
+            thumbnailUrl: thumbUrl,
+            mediaType: 1,
+            renderLargerThumbnail: true,
+            sourceUrl: songUrl
           }
-          
-          await sock.sendMessage(
-          jid,
-          { text: `*Song Information:*\n\nName: ${result.title}\n\nDuration: ${result.timestamp}\n\nViews: ${views}\n\n_Uploading your song ..._`, edit: progressMsg.key }, 
-          { quoted: msg }
-          );
-          
-          await sock.sendMessage(
-            jid,
-            {
-              audio: { url: finalAudio },
-              mimetype: 'audio/mpeg',
-              fileName: `${result.title}.mp3`,
-              ptt: false
-            },
-            { quoted: msg }
-          );
-          
-          downloaded = true;
-          await sock.sendMessage(jid, {
-            delete: {
-              remoteJid: jid,
-              fromMe: true,
-              id: progressMsg.key.id
-            }
-          });
-          break;
-        } catch (err) {
-          console.error('Error with API:', api, err.message);
         }
-      }
+      }, { quoted: msg });
 
-      if (!downloaded) {
-        console.error('All sources failed.');
-        await sock.sendMessage(jid, 
-        { text: 'Unable to download the song.\nAPI Down !', edit: progressMsg.key },
-        { quoted: msg },                
-        );
-      }
-      
-      [rawAudio, finalAudio].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
-      
+      await sock.sendMessage(jid, {
+        delete: {
+          remoteJid: jid,
+          fromMe: true,
+          id: progressMsg.key.id
+        }
+      });
+
+      [audioPath, thumbPath].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
+
     } catch (err) {
       console.error('Song command error:', err);
-      await sock.sendMessage(jid, 
-        { text: 'Unable to download the song !\nTry again later or try with a different song name.', edit: progressMsg.key },
-        { quoted: msg },                
-      );
+      await sock.sendMessage(jid, {
+        text: 'Failed to download or send the song. Please try again later.',
+      }, { quoted: msg });
     }
   }
 };
