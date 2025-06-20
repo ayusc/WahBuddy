@@ -67,14 +67,6 @@ export default {
         }
       }, { quoted: msg });
 
-      await sock.sendMessage(jid, {
-        delete: {
-          remoteJid: jid,
-          fromMe: true,
-          id: progressMsg.key.id
-        }
-      });
-
       [audioPath, thumbPath].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
 
     } catch (err) {
