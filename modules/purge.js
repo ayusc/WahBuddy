@@ -60,13 +60,12 @@ export default {
         await sock.sendMessage(jid, { delete: key });
 
         // Small delay to ensure delete for everyone is processed
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 500));
 
         // Delete for self to remove "you deleted this message"
         await sock.sendMessage(jid, {
           delete: {
             remoteJid: jid,
-            fromMe: true,
             id: key.id,
             participant: sock.user.id,
           }
