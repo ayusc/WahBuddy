@@ -159,7 +159,7 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS('Safari'),
+    browser: Browsers.baileys('Chrome'),
     syncFullHistory: true,
     getMessage,
     generateHighQualityLinkPreview: true,
