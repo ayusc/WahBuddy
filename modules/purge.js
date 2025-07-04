@@ -1,11 +1,12 @@
+import { messagesCollection } from '../main.js';
+
 export default {
   name: '.purge',
   description: 'Deletes a replied message and optionally following messages.',
   usage: '.purge [count|all]\nReply to a message and type .purge, .purge n, or .purge all to delete the message or delete n messages after that (including that message) or delete all the messages after that (including that message)',
 
-  async execute(msg, args, sock, db) {
+  async execute(msg, args, sock) {
     const jid = msg.key.remoteJid;
-    const messagesCollection = db.collection('messages');
 
     const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
     const quotedMsgId = contextInfo?.stanzaId;
