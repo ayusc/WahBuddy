@@ -8,6 +8,7 @@ RUN npm install --omit=dev --legacy-peer-deps
 
 COPY . .
 
-EXPOSE 8000 # uncomment this line if not using web process
+# uncomment this line if not using web process
+EXPOSE 8000
 
 CMD ["node", "main.js"]
