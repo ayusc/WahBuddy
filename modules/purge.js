@@ -67,7 +67,7 @@ export default {
           delete: {
             remoteJid: jid,
             id: key.id,
-            participant: sock.user.id,
+            participant: quotedParticipant,
           }
         });
       } catch (err) {
