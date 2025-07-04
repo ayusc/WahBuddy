@@ -25,7 +25,7 @@ export default {
     
     while (!repliedMsg && Date.now() - startTime < maxWaitTime) {
       repliedMsg = await messagesCollection.findOne({ 'key.id': quotedMsgId, 'key.remoteJid': jid });
-      if (!repliedMsg) await new Promise(resolve => setTimeout(resolve, 1000);
+      if (!repliedMsg) await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     if (!repliedMsg) {
