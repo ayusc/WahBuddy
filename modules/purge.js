@@ -69,7 +69,7 @@ export default {
           await sock.chatModify(
             {
               deleteForMe: {
-                deleteMedia: false,
+                deleteMedia: true,
                 key: {
                   id: key.id,
                   remoteJid: jid,
