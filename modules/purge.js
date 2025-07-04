@@ -19,14 +19,22 @@ export default {
       return;
     }
 
-    // Fetch replied message from DB
-    const repliedMsg = await messagesCollection.findOne({ 'key.id': quotedMsgId, 'key.remoteJid': jid });
+    let repliedMsg = null;
+    const maxWaitTime = 60_000; 
+    const startTime = Date.now();
+    
+    while (!repliedMsg && Date.now() - startTime < maxWaitTime) {
+      repliedMsg = await messagesCollection.findOne({ 'key.id': quotedMsgId, 'key.remoteJid': jid });
+      if (!repliedMsg) await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+    
     if (!repliedMsg) {
       await sock.sendMessage(jid, {
-        text: 'Could not find the replied message in history.',
+        text: 'Could not find the replied message in history.\nPerhaps it has been deleted ?',
       }, { quoted: msg });
       return;
     }
+
 
     // Sync fresh history to avoid missing messages
     await sock.fetchMessageHistory(1000, repliedMsg.key, repliedMsg.messageTimestamp);
