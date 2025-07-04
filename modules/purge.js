@@ -42,7 +42,7 @@ export default {
     await sock.fetchMessageHistory(50, repliedMsg.key, repliedMsg.messageTimestamp);
 
     const purgeAll = args[0] === 'all';
-    const purgeCount = purgeAll ? 999999 : parseInt(args[0] || '1');
+    const purgeCount = purgeAll ? 999999 : parseInt(args[0] || '1') + 1;
 
     const targetMessages = await messagesCollection.find({
       'key.remoteJid': jid,
@@ -59,12 +59,9 @@ export default {
       const key = message.key;
 
       try {
-        // Delete for everyone
-        await sock.sendMessage(jid, { delete: key });
 
         await new Promise(r => setTimeout(r, 500));
-
-        // Then delete for self to remove "you deleted this message"
+        
         if (key.fromMe) {
           await sock.chatModify(
             {
