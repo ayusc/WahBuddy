@@ -18,13 +18,16 @@ export default {
       }, { quoted: msg });
       return;
     }
-    
+
     let repliedMsg = null;
     const maxWaitTime = 60_000;
     const startTime = Date.now();
 
     while (!repliedMsg && Date.now() - startTime < maxWaitTime) {
-      repliedMsg = await messagesCollection.findOne({ 'key.id': quotedMsgId, 'key.remoteJid': jid });
+      repliedMsg = await messagesCollection.findOne({
+        'key.id': quotedMsgId,
+        'key.remoteJid': jid,
+      });
       if (!repliedMsg) await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
@@ -36,44 +39,50 @@ export default {
     }
 
     // Sync history to avoid missing messages
-    await sock.fetchMessageHistory(1000, repliedMsg.key, repliedMsg.messageTimestamp);
+    await sock.fetchMessageHistory(50, repliedMsg.key, repliedMsg.messageTimestamp);
 
     const purgeAll = args[0] === 'all';
     const purgeCount = purgeAll ? 999999 : parseInt(args[0] || '1');
 
     const targetMessages = await messagesCollection.find({
       'key.remoteJid': jid,
-      'messageTimestamp': { $gte: repliedMsg.messageTimestamp }
+      'messageTimestamp': { $gte: repliedMsg.messageTimestamp },
     })
       .sort({ messageTimestamp: 1 })
       .limit(purgeCount)
       .toArray();
+    
+      const allMessagesToDelete = [...targetMessages, msg];
 
-    for (const message of targetMessages) {
+      for (const message of allMessagesToDelete) {
+
       const key = message.key;
 
       try {
-    
+        // Delete for everyone
         await sock.sendMessage(jid, { delete: key });
 
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 500));
 
-        await sock.chatModify(
-          {
-            clear: {
-              messages: [
-                {
+        // Then delete for self to remove "you deleted this message"
+        if (key.fromMe) {
+          await sock.chatModify(
+            {
+              deleteForMe: {
+                deleteMedia: false,
+                key: {
                   id: key.id,
-                  fromMe: key.fromMe,
-                  timestamp: message.messageTimestamp
-                }
-              ]
-            }
-          },
-          jid
-        );
+                  remoteJid: jid,
+                  fromMe: true,
+                },
+                timestamp: Number(message.messageTimestamp),
+              },
+            },
+            jid
+          );
+        }
       } catch (err) {
-        // Ignore errors (message too old, already deleted, etc)
+        console.log("Purge failed: " + err);
       }
     }
   }
