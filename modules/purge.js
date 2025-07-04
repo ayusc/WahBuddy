@@ -80,6 +80,21 @@ export default {
             },
             jid
           );
+        } else {
+          await sock.chatModify(
+            {
+              deleteForMe: {
+                deleteMedia: true,
+                key: {
+                  id: key.id,
+                  remoteJid: jid,
+                  fromMe: false,
+                },
+                timestamp: Number(message.messageTimestamp),
+              },
+            },
+            jid
+          );
         }
       } catch (err) {
         console.log("Purge failed: " + err);
