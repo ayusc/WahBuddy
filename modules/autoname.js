@@ -41,6 +41,7 @@ export async function startAutoName(sock) {
     const name = NAME_PREFIX.replace('{autoname}', time);
     try {
       await sock.updateProfileName(name);
+      console.log('Profile name updated');
     } catch (err) {
       console.error('Failed to update name:', err);
     }
