@@ -19,7 +19,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const TIME_ZONE = process.env.TIME_ZONE || 'Asia/Kolkata';
-const AUTO_NAME_INTERVAL = parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
+const AUTO_NAME_INTERVAL = parseInt(process.env.AUTO_NAME_INTERVAL_MS, 10) || 60000;
 const NAME_PREFIX = process.env.NAME_PREFIX || 'root@wahbuddy[{autoname}]:~$';
 
 function getCurrentTimeInZone() {
