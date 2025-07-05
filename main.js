@@ -149,7 +149,7 @@ async function loadCommands() {
         const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
         for (const name of names) {
           commands.set(name, cmd);
-          if (initialConnect) console.log(`Loaded command: ${name}`);
+          if (initialConnect) console.log(`Loaded Module: ${name}`);
         }
       }
     }
@@ -157,7 +157,7 @@ async function loadCommands() {
   commandsLoaded = true;
   return commands;
 }
-s
+
 export function getAllCommands() {
   const seen = new Set();
   const uniqueCommands = [];
