@@ -52,7 +52,7 @@ export default {
     );
     
     // Send initial message
-    const sent = await sock.sendMessage(jid, { text: typingSymbol }, { quoted: msg });
+    const sent = await sock.sendMessage(jid, { text: typingSymbol });
 
     for (const char of text) {
       await sock.sendMessage(jid, { text: typed + typingSymbol, edit: sent.key });
