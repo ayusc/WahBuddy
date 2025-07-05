@@ -23,6 +23,9 @@ export default {
     const maxWaitTime = 60_000;
     const startTime = Date.now();
 
+    // Sync history to avoid missing messages
+    await sock.fetchMessageHistory(50, repliedMsg.key, repliedMsg.messageTimestamp);
+
     while (!repliedMsg && Date.now() - startTime < maxWaitTime) {
       repliedMsg = await messagesCollection.findOne({
         'key.id': quotedMsgId,
@@ -37,9 +40,6 @@ export default {
       }, { quoted: msg });
       return;
     }
-
-    // Sync history to avoid missing messages
-    await sock.fetchMessageHistory(50, repliedMsg.key, repliedMsg.messageTimestamp);
 
     const purgeAll = args[0] === 'all';
     const purgeCount = purgeAll ? 999999 : parseInt(args[0] || '1') + 1;
