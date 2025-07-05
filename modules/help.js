@@ -50,8 +50,9 @@ export default {
     text += 'To know command usage please type `.help {command}`\n\n';
 
     for (const cmd of commands) {
-      const names = Array.isArray(cmd.name) ? cmd.name.join(', ') : cmd.name;
-      text += `• ${names} — ${cmd.description}\n`;
+      const namesArray = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
+      const displayNames = namesArray.map(name => name.startsWith('.') ? name.slice(1) : name);
+      text += `• \`${displayNames.join(', ')}\` — ${cmd.description}\n\n`;
     }
 
     await sock.sendMessage(chatId, { text: text.trim() }, { quoted: msg });
