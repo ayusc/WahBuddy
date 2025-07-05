@@ -336,6 +336,5 @@ export default [
 
       await sock.sendMessage(jid, { text: `Imported ${imported} notes into this chat.` }, { quoted: msg });
     },
-  },
-
+  }
 ];
