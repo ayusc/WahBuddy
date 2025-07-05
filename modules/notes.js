@@ -1,8 +1,5 @@
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
 import { db } from '../main.js';
-import { downloadMediaMessage } from 'baileys';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 
 let notesCollection;
 function setupNotesCollection() {
@@ -11,99 +8,86 @@ function setupNotesCollection() {
   }
 }
 
-function generateFileName(jid, name, ext) {
-  const hash = crypto.createHash('md5').update(jid + name).digest('hex');
-  return `${hash}.${ext}`;
-}
-
-async function saveMedia(msg, sock, name, jid) {
-  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  const type = Object.keys(quoted || {})[0]; // e.g. 'imageMessage', 'audioMessage'
-  const media = quoted[type];
-
-  const buffer = await downloadMediaMessage(
-    { key: msg.message.extendedTextMessage.contextInfo.stanzaId, message: quoted },
-    'buffer',
-    {},
-    { logger: console, reuploadRequest: sock.updateMediaMessage }
-  );
-
-  const extMap = {
-    imageMessage: 'jpg',
-    videoMessage: media.gifPlayback ? 'gif' : 'mp4',
-    audioMessage: 'mp3',
-    stickerMessage: 'webp',
-    documentMessage: media.fileName?.split('.').pop() || 'bin',
-  };
-  const ext = extMap[type] || 'bin';
-
-  const filename = generateFileName(jid, name, ext);
-  const filePath = path.join('./notes_media/', filename);
-  fs.writeFileSync(filePath, buffer);
-
-  return { path: filePath, type };
-}
-
 export default [
   {
     name: '.save',
-    description: 'Save a note by replying or passing text or media.',
+    description: 'Save a note (text/media) by name.',
     usage: '.save <name> [text or reply to message]',
     async execute(msg, args, sock) {
       setupNotesCollection();
       const jid = msg.key.remoteJid;
 
       if (!args[0]) {
-        await sock.sendMessage(jid, { text: 'Please provide a note name.\n\nExample: `.save hi hello`' }, { quoted: msg });
+        await sock.sendMessage(jid, {
+          text: 'Please provide a note name.\n\nExample: `.save hi hello`',
+        }, { quoted: msg });
         return;
       }
 
       const name = args[0].toLowerCase();
       const existing = await notesCollection.findOne({ name, jid });
+
       if (existing) {
         await sock.sendMessage(jid, { text: `Note "${name}" already exists in this chat.` }, { quoted: msg });
         return;
       }
 
+      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       let content = null;
       let media = null;
 
-      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (quoted) {
         const text = quoted?.conversation || quoted?.extendedTextMessage?.text || quoted?.imageMessage?.caption || quoted?.videoMessage?.caption;
         if (text) content = text.trim();
 
-        const mediaTypes = ['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage', 'documentMessage'];
-        const hasMedia = mediaTypes.find(t => quoted[t]);
+        const type = Object.keys(quoted)[0];
+        const hasMedia = ['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage', 'documentMessage'].includes(type);
         if (hasMedia) {
-          media = await saveMedia(msg, sock, name, jid);
+          const buffer = await downloadMediaMessage(
+            { message: quoted },
+            'buffer',
+            {},
+            { logger: console, reuploadRequest: sock.updateMediaMessage }
+          );
+
+          media = {
+            type,
+            mimetype: quoted[type].mimetype || null,
+            data: buffer,
+          };
         }
 
         if (!content && !media) {
-          await sock.sendMessage(jid, { text: 'Cannot save an empty or unsupported message.' }, { quoted: msg });
+          await sock.sendMessage(jid, { text: 'Cannot save empty or unsupported message.' }, { quoted: msg });
           return;
         }
       } else if (args.length > 1) {
         content = args.slice(1).join(' ').trim();
       } else {
-        await sock.sendMessage(jid, { text: 'Reply to a message or provide text.\n\nExample: `.save hi hello`' }, { quoted: msg });
+        await sock.sendMessage(jid, {
+          text: 'Please reply to a message or provide text.\n\nExample: `.save hi hello`',
+        }, { quoted: msg });
         return;
       }
 
       await notesCollection.insertOne({ name, jid, content, media, createdAt: new Date() });
-      await sock.sendMessage(jid, { text: `Note "${name}" saved successfully.` }, { quoted: msg });
+
+      await sock.sendMessage(jid, { text: `Note "${name}" saved.` }, { quoted: msg });
     },
   },
 
   {
-    name: '.get',
+    name: '.note',
     description: 'Send a saved note.',
-    usage: '.get <name>',
+    usage: '.note <name>',
     async execute(msg, args, sock) {
       setupNotesCollection();
       const jid = msg.key.remoteJid;
+
       if (!args[0]) {
-        await sock.sendMessage(jid, { text: 'Usage: `.note <name>`\n\nExample: `.note hi`' }, { quoted: msg });
+        await sock.sendMessage(jid, {
+          text: 'Usage: `.note <name>`\n\nExample: `.note hi`',
+        }, { quoted: msg });
         return;
       }
 
@@ -116,24 +100,24 @@ export default [
       }
 
       if (note.media) {
-        const stream = fs.readFileSync(note.media.path);
-        const options = { caption: note.content || '', quoted: msg };
+        const options = { quoted: msg };
+        const data = note.media.data.buffer; // BSON binary
 
         switch (note.media.type) {
           case 'imageMessage':
-            await sock.sendMessage(jid, { image: stream, ...options });
+            await sock.sendMessage(jid, { image: data, caption: note.content || '', ...options });
             break;
           case 'videoMessage':
-            await sock.sendMessage(jid, { video: stream, gifPlayback: note.media.path.endsWith('.gif'), ...options });
+            await sock.sendMessage(jid, { video: data, caption: note.content || '', gifPlayback: note.media.mimetype === 'image/gif', ...options });
             break;
           case 'audioMessage':
-            await sock.sendMessage(jid, { audio: stream, mimetype: 'audio/mpeg', ...options });
+            await sock.sendMessage(jid, { audio: data, mimetype: 'audio/mpeg', ...options });
             break;
           case 'stickerMessage':
-            await sock.sendMessage(jid, { sticker: stream, ...options });
+            await sock.sendMessage(jid, { sticker: data, ...options });
             break;
           case 'documentMessage':
-            await sock.sendMessage(jid, { document: stream, fileName: path.basename(note.media.path), ...options });
+            await sock.sendMessage(jid, { document: data, fileName: `${name}.bin`, mimetype: note.media.mimetype || 'application/octet-stream', ...options });
             break;
           default:
             await sock.sendMessage(jid, { text: 'Unknown media type.' }, { quoted: msg });
@@ -151,10 +135,11 @@ export default [
     async execute(msg, _args, sock) {
       setupNotesCollection();
       const jid = msg.key.remoteJid;
+
       const notes = await notesCollection.find({ jid }).toArray();
 
       if (!notes.length) {
-        await sock.sendMessage(jid, { text: 'No saved notes found in this chat.' }, { quoted: msg });
+        await sock.sendMessage(jid, { text: 'No saved notes in this chat.' }, { quoted: msg });
         return;
       }
 
@@ -165,30 +150,45 @@ export default [
 
   {
     name: '.clear',
-    description: 'Delete a saved note.',
+    description: 'Delete a specific note by name.',
     usage: '.clear <name>',
     async execute(msg, args, sock) {
       setupNotesCollection();
       const jid = msg.key.remoteJid;
+
       if (!args[0]) {
-        await sock.sendMessage(jid, { text: 'Usage: `.clear <name>`\n\nExample: `.clear hi`' }, { quoted: msg });
+        await sock.sendMessage(jid, {
+          text: 'Usage: `.clear <name>`\n\nExample: `.clear hi`',
+        }, { quoted: msg });
         return;
       }
 
       const name = args[0].toLowerCase();
-      const note = await notesCollection.findOne({ name, jid });
+      const result = await notesCollection.deleteOne({ name, jid });
 
-      if (!note) {
-        await sock.sendMessage(jid, { text: `No note found with name "${name}".` }, { quoted: msg });
-        return;
+      if (result.deletedCount > 0) {
+        await sock.sendMessage(jid, { text: `Note "${name}" deleted.` }, { quoted: msg });
+      } else {
+        await sock.sendMessage(jid, { text: `No note named "${name}" in this chat.` }, { quoted: msg });
       }
+    },
+  },
 
-      if (note.media?.path && fs.existsSync(note.media.path)) {
-        fs.unlinkSync(note.media.path);
+  {
+    name: '.clearnotes',
+    description: 'Delete all saved notes in this chat.',
+    usage: '.clearnotes',
+    async execute(msg, _args, sock) {
+      setupNotesCollection();
+      const jid = msg.key.remoteJid;
+
+      const result = await notesCollection.deleteMany({ jid });
+
+      if (result.deletedCount > 0) {
+        await sock.sendMessage(jid, { text: `Cleared ${result.deletedCount} notes from this chat.` }, { quoted: msg });
+      } else {
+        await sock.sendMessage(jid, { text: 'There are no notes to clear in this chat.' }, { quoted: msg });
       }
-
-      await notesCollection.deleteOne({ name, jid });
-      await sock.sendMessage(jid, { text: `Note "${name}" deleted.` }, { quoted: msg });
     },
   },
 ];
