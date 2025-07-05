@@ -185,6 +185,7 @@ async function startBot() {
   }
   db = mongoClient.db(dbName);
   sessionCollection = db.collection('wahbuddy_sessions');
+  stagingsessionCollection = db.collection('wahbuddy_sessions_staging')
   chatsCollection = db.collection('chats');
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
@@ -264,6 +265,7 @@ async function startBot() {
     } else {
       console.log('Logged out or permanent error. Manual restart required !');
       await sessionCollection.drop();
+      await stagingsessionCollection.drop();
     }
 
   } else if (connection === 'open') {
