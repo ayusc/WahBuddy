@@ -35,7 +35,22 @@ export default {
     const typingSymbol = "|";
     const SLEEP = 200;
     const delay = ms => new Promise(res => setTimeout(res, ms));
-
+    
+    await sock.chatModify(
+            {
+              deleteForMe: {
+                deleteMedia: true,
+                key: {
+                  id: msg.key.id,
+                  remoteJid: jid,
+                  fromMe: true,
+                },
+                timestamp: Number(msg.messageTimestamp),
+              },
+            },
+            jid
+    );
+    
     // Send initial message
     const sent = await sock.sendMessage(jid, { text: typingSymbol }, { quoted: msg });
 
