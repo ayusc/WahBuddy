@@ -15,7 +15,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 export default {
-  name: '.hearts',
+  name: ['.hearts'],
   description: 'Sends an animated heart animation',
   usage: 'Send .hearts in any chat to show a colourful heart animation',
 

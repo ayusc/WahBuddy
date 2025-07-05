@@ -129,6 +129,47 @@ let initialConnect = true;
 
 const commands = new Map(); 
 
+async function loadCommands() {
+  if (commandsLoaded) return commands;
+
+  const modulesPath = path.join(__dirname, 'modules');
+  const moduleFiles = fs
+    .readdirSync(modulesPath)
+    .filter(file => file.endsWith('.js'));
+
+  for (const file of moduleFiles) {
+    const module = await import(`./modules/${file}`);
+
+    const entries = Array.isArray(module.default)
+      ? module.default
+      : [module.default];
+
+    for (const cmd of entries) {
+      if (cmd.name && cmd.execute) {
+        const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
+        for (const name of names) {
+          commands.set(name, cmd);
+          if (initialConnect) console.log(`Loaded command: ${name}`);
+        }
+      }
+    }
+  }
+  commandsLoaded = true;
+  return commands;
+}
+s
+export function getAllCommands() {
+  const seen = new Set();
+  const uniqueCommands = [];
+  for (const cmd of commands.values()) {
+    if (!seen.has(cmd)) {
+      uniqueCommands.push(cmd);
+      seen.add(cmd);
+    }
+  }
+  return uniqueCommands;
+}
+
 async function startBot() {
   const mongoClient = new MongoClient(mongoUri);
   if (!mongoConnected) {
@@ -221,21 +262,7 @@ async function startBot() {
     }
 
     if (!commandsLoaded) {
-      const modulesPath = path.join(__dirname, 'modules');
-      const moduleFiles = fs
-        .readdirSync(modulesPath)
-        .filter(file => file.endsWith('.js'));
-
-      for (const file of moduleFiles) {
-        const module = await import(`./modules/${file}`);
-        if (module.default?.name && module.default?.execute) {
-          commands.set(module.default.name, module.default);
-          if (initialConnect) {
-            console.log(`Loaded command: ${module.default.name}`);
-          }
-        }
-      }
-      commandsLoaded = true;
+      await loadCommands();
     }
 
     if (initialConnect) {

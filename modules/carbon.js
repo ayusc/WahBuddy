@@ -17,7 +17,7 @@
 import fetch from 'node-fetch';
 
 export default {
-  name: '.carbon',
+  name: ['.carbon'],
   description: 'Generate a code snippet image using carbon.now.sh',
   usage:
     'Type .carbon in reply to a code block to Generate a code snippet image using carbon.now.sh',

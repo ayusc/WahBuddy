@@ -51,7 +51,7 @@ function getContentFromMsg(message) {
 }
 
 export default {
-  name: '.node',
+  name: ['.node'],
   description: 'Executes Node.js code with WhatsApp context (msg, sock)',
 
   async execute(msg, arguments_, sock) {

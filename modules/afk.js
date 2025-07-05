@@ -30,7 +30,7 @@ function setupAfkCollection() {
 }
 
 export default {
-  name: '.afk',
+  name: ['.afk'],
   description: 'Sets or removes AFK status with optional reason.',
   usage: '.afk on/yes [reason] | .afk off/no',
   async execute(msg, args, sock) {

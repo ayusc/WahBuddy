@@ -18,7 +18,7 @@ import { translate } from '@vitalets/google-translate-api';
 import { getContentType, downloadContentFromMessage } from 'baileys';
 
 export default {
-  name: '.tr',
+  name: ['.tr'],
   description:
     'Translates given text or replied message to the specified language.',
   usage:

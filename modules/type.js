@@ -15,7 +15,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 export default {
-  name: '.type',
+  name: ['.type'],
   description: 'Simulates typing effect like a typewriter',
   usage: '.type [text] (or reply to a message)',
 

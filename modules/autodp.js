@@ -387,7 +387,8 @@ export async function startAutoDP(sock, jid) {
   }, delay);
 }
 
-export default {
+export default [
+ {
   name: '.autodp',
   description: 'Start updating WhatsApp Profile Picture with clock, temperature, and horoscope',
   usage: 'Type .autodp in any chat to start auto-updating your DP every X seconds',
@@ -407,5 +408,31 @@ export default {
     }
 
     await startAutoDP(sock, jid);
-  },
-};
+  }
+ },
+ {
+  name: '.stopdp',
+  description: 'Stop updating WhatsApp profile picture automatically.',
+  usage:
+    'Type .stopdp in any chat to stop updating WhatsApp profile picture automatically.',
+
+  async execute(message, args, sock) {
+    if (globalThis.autodpInterval) {
+      clearInterval(globalThis.autodpInterval);
+      globalThis.autodpInterval = null;
+      globalThis.autodpRunning = false;
+      await sock.sendMessage(
+        message.key.remoteJid,
+        { text: 'AutoDP stopped' },
+        { quoted: message }
+      );
+    } else {
+      await sock.sendMessage(
+        message.key.remoteJid,
+        { text: 'AutoDP is not running' },
+        { quoted: message }
+      );
+    }
+  }
+ }
+];

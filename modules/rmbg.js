@@ -32,7 +32,7 @@ if (!RMBG_API_KEY) {
 }
 
 export default {
-  name: '.rmbg',
+  name: ['.rmbg'],
   description: 'Removes background from an image using remove.bg',
   usage: '.rmbg in reply to an image',
 

@@ -15,7 +15,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 export default {
-  name: '.ping',
+  name: ['.ping'],
   description: 'Replies with Pong and response time',
   usage: 'Type .ping in any chat to check bot status and response time.',
 

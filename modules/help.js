@@ -14,61 +14,47 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load all other command modules in this folder
-const commandsList = [];
-const commandFiles = fs
-  .readdirSync(__dirname)
-  .filter(file => file.endsWith('.js') && file !== 'help.js');
-
-for (const file of commandFiles) {
-  const filePath = path.join(__dirname, file);
-  const { default: command } = await import(`file://${filePath}`);
-  if (command?.name && command?.description) {
-    commandsList.push(command);
-  }
-}
+import { getAllCommands } from '../loader.js';
 
 export default {
-  name: '.help',
+  name: ['.help'],
   description: 'Lists all commands or shows usage for a specific command',
 
   async execute(msg, args, sock) {
     const prefix = '.';
     const chatId = msg.key.remoteJid;
+    const commands = getAllCommands();
 
     if (args.length > 0) {
       const query = prefix + args[0];
-      const cmd = commandsList.find(c => c.name === query);
+      const cmd = commands.find(c => {
+        const names = Array.isArray(c.name) ? c.name : [c.name];
+        return names.includes(query);
+      });
 
       if (!cmd) {
-        const text = 'Command not found: ' + args[0];
-        await sock.sendMessage(chatId, { text }, { quoted: msg });
-        return;
+        return await sock.sendMessage(chatId, { text: `Command not found: ${args[0]}` }, { quoted: msg });
       }
 
       const usage = cmd.usage || cmd.description;
-      const text = `Usage for ${cmd.name}:\n\n${usage}`;
-      await sock.sendMessage(chatId, { text }, { quoted: msg });
-      return;
+      const names = Array.isArray(cmd.name) ? cmd.name.join(', ') : cmd.name;
+      const text = `Usage for ${names}:\n\n${usage}`;
+
+      return await sock.sendMessage(chatId, { text }, { quoted: msg });
     }
 
-    // No argument: list all commands
     let text = 'Hi there, welcome to WahBuddy\n\n';
+    text += 'Here are all available commands:\n\n';
     text += 'A userbot for WhatsApp written in pure JavaScript\n\n';
     text += 'Here are all the bot commands:\n';
     text += 'To know command usage please type `.help {command}`\n\n';
 
-    for (const c of commandsList) {
-      text += `\`${c.name}\`: ${c.description}\n\n`;
+    for (const cmd of commands) {
+      const names = Array.isArray(cmd.name) ? cmd.name.join(', ') : cmd.name;
+      text += `• ${names} — ${cmd.description}\n`;
     }
 
     await sock.sendMessage(chatId, { text: text.trim() }, { quoted: msg });
   },
 };
+

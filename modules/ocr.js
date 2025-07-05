@@ -32,7 +32,7 @@ if (!OCR_SPACE_API_KEY) {
 }
 
 export default {
-  name: '.ocr',
+  name: ['.ocr'],
   description: 'Extracts text from an image using OCR',
   usage: '.ocr <lang> in reply to an image. Defaults to eng if not specified.',
 

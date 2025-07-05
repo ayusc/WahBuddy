@@ -24,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, 'term_output.txt');
 
 export default {
-  name: '.term',
+  name: ['.term'],
   description: 'Executes terminal commands with root shell access',
 
   async execute(msg, args, sock) {

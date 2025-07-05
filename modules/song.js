@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 export default {
-  name: '.song',
+  name: ['.song'],
   description: 'Searches and sends a song from Saavn as an MP3.',
   usage: '.song <song name>',
 
