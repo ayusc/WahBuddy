@@ -1,5 +1,21 @@
+//  WahBuddy - A simple whatsapp userbot written in pure js
+//  Copyright (C) 2025-present Ayus Chatterjee
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import { db } from '../main.js';
-import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import { downloadMediaMessage } from 'baileys';
 
 let notesCollection;
 function setupNotesCollection() {
@@ -11,7 +27,7 @@ function setupNotesCollection() {
 export default [
   {
     name: '.save',
-    description: 'Save a note (text/media) by name.',
+    description: 'Save a note (text/media) by name in the chat.',
     usage: '.save <name> [text or reply to message]',
     async execute(msg, args, sock) {
       setupNotesCollection();
@@ -78,7 +94,7 @@ export default [
 
   {
     name: '.note',
-    description: 'Send a saved note.',
+    description: 'Send a saved note in the chat.',
     usage: '.note <name>',
     async execute(msg, args, sock) {
       setupNotesCollection();
@@ -130,7 +146,7 @@ export default [
 
   {
     name: '.notes',
-    description: 'List all saved notes in this chat.',
+    description: 'List all saved notes in the chat.',
     usage: '.notes',
     async execute(msg, _args, sock) {
       setupNotesCollection();
@@ -150,7 +166,7 @@ export default [
 
   {
     name: '.clear',
-    description: 'Delete a specific note by name.',
+    description: 'Delete a specific note by name in the chat.',
     usage: '.clear <name>',
     async execute(msg, args, sock) {
       setupNotesCollection();
@@ -176,7 +192,7 @@ export default [
 
   {
     name: '.clearnotes',
-    description: 'Delete all saved notes in this chat.',
+    description: 'Delete all saved notes in the chat.',
     usage: '.clearnotes',
     async execute(msg, _args, sock) {
       setupNotesCollection();
@@ -191,4 +207,135 @@ export default [
       }
     },
   },
+
+  {
+    name: '.rename',
+    description: 'Rename a note in the chat.',
+    usage: '.rename <old_name> <new_name>',
+    async execute(msg, args, sock) {
+      setupNotesCollection();
+      const jid = msg.key.remoteJid;
+
+      if (args.length < 2) {
+        await sock.sendMessage(jid, {
+          text: 'Usage: `.rename <old_name> <new_name>`\n\nExample: `.rename hi hello`',
+        }, { quoted: msg });
+        return;
+      }
+
+      const [oldName, newName] = [args[0].toLowerCase(), args[1].toLowerCase()];
+      const note = await notesCollection.findOne({ name: oldName, jid });
+
+      if (!note) {
+        await sock.sendMessage(jid, { text: `Note "${oldName}" not found.` }, { quoted: msg });
+        return;
+      }
+
+      const exists = await notesCollection.findOne({ name: newName, jid });
+      if (exists) {
+        await sock.sendMessage(jid, { text: `Note "${newName}" already exists.` }, { quoted: msg });
+        return;
+      }
+
+      await notesCollection.updateOne({ name: oldName, jid }, { $set: { name: newName } });
+      await sock.sendMessage(jid, { text: `Renamed note "${oldName}" to "${newName}".` }, { quoted: msg });
+    },
+  },  
+
+  {
+    name: '.exportnotes',
+    description: 'Export all notes from the chat into a export file.',
+    usage: '.exportnotes',
+    async execute(msg, _args, sock) {
+      setupNotesCollection();
+      const jid = msg.key.remoteJid;
+
+      const notes = await notesCollection.find({ jid }).toArray();
+      if (!notes.length) {
+        await sock.sendMessage(jid, { text: 'No notes to export in this chat.' }, { quoted: msg });
+        return;
+      }
+
+      const exportData = notes.map(n => ({
+        name: n.name,
+        content: n.content || null,
+        media: n.media ? {
+          type: n.media.type,
+          mimetype: n.media.mimetype || null,
+          data: bufferToBase64(n.media.data.buffer),
+        } : null,
+      }));
+
+      const jsonBuffer = Buffer.from(JSON.stringify(exportData, null, 2));
+      await sock.sendMessage(jid, {
+        document: jsonBuffer,
+        fileName: 'notes_export.json',
+        mimetype: 'application/json',
+      }, { quoted: msg });
+    },
+  },
+
+  {
+    name: '.importnotes',
+    description: 'Import notes in the chat by replying to a export file.',
+    usage: '.importnotes (reply to file)',
+    async execute(msg, _args, sock) {
+      setupNotesCollection();
+      const jid = msg.key.remoteJid;
+
+      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const doc = quoted?.documentMessage;
+      if (!doc) {
+        await sock.sendMessage(jid, { text: 'Please reply to a valid exported notes file (.json).' }, { quoted: msg });
+        return;
+      }
+
+      const buffer = await downloadMediaMessage(
+        { message: quoted },
+        'buffer',
+        {},
+        { logger: console, reuploadRequest: sock.updateMediaMessage }
+      );
+
+      let data;
+      try {
+        data = JSON.parse(buffer.toString());
+      } catch (err) {
+        await sock.sendMessage(jid, { text: 'Invalid JSON format.' }, { quoted: msg });
+        return;
+      }
+
+      if (!Array.isArray(data)) {
+        await sock.sendMessage(jid, { text: 'Invalid format: expected an array of notes.' }, { quoted: msg });
+        return;
+      }
+
+      let imported = 0;
+      for (const n of data) {
+        if (!n.name) continue;
+
+        const doc = {
+          name: n.name.toLowerCase(),
+          jid,
+          content: n.content || null,
+          media: n.media ? {
+            type: n.media.type,
+            mimetype: n.media.mimetype || null,
+            data: base64ToBuffer(n.media.data),
+          } : null,
+          createdAt: new Date(),
+        };
+
+        await notesCollection.updateOne(
+          { name: doc.name, jid },
+          { $set: doc },
+          { upsert: true }
+        );
+        imported++;
+      }
+
+      await sock.sendMessage(jid, { text: `Imported ${imported} notes into this chat.` }, { quoted: msg });
+    },
+  },
+
 ];
