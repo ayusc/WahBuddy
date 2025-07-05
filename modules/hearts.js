@@ -59,7 +59,7 @@ export default {
             jid
     );
 
-    const sent = await sock.sendMessage(jid, { text: joinedHeart }, { quoted: msg });
+    const sent = await sock.sendMessage(jid, { text: joinedHeart });
 
     for (let heart of BIG_SCROLL) {
       const newText = joinedHeart.replace(/❤️/g, heart);
