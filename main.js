@@ -262,7 +262,8 @@ async function startBot() {
         }, 5000);
       }
     } else {
-      console.log('Logged out or permanent error. Manual restart required.');
+      console.log('Logged out or permanent error. Manual restart required !');
+      await sessionCollection.drop();
     }
 
   } else if (connection === 'open') {
