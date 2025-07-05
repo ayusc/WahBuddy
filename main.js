@@ -33,6 +33,7 @@ import './app.js';
 import { handleAfkMessages } from './modules/afk.js'; 
 import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
+import { startAutoName } from './modules/autoname.js';
 
 dotenv.config();
 
@@ -147,14 +148,17 @@ async function loadCommands() {
       : [module.default];
 
     for (const cmd of entries) {
-      if (cmd.name && cmd.execute) {
-        const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
-        for (const name of names) {
-          commands.set(name, cmd);
-          if (initialConnect) console.log(`Loaded Module: ${name}`);
+    if (cmd.name && cmd.execute) {
+      const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
+      for (const name of names) {
+        commands.set(name, cmd);
+        if (initialConnect) {
+          const cleanName = name.startsWith('.') ? name.slice(1) : name;
+          console.log(`Loaded Module: ${cleanName}`);
         }
       }
     }
+  }
   }
   commandsLoaded = true;
   return commands;
