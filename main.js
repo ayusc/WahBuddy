@@ -38,10 +38,9 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-let autoDPStarted = false;
-let autoBioStarted = false;
 const autoDP = process.env.ALWAYS_AUTO_DP || 'False';
 const autobio = process.env.ALWAYS_AUTO_BIO || 'False';
+const autoname = process.env.ALWAYS_AUTO_NAME || 'False';
 const mongoUri = process.env.MONGO_URI;
 const authDir = './wahbuddy-auth';
 const dbName = 'wahbuddy';
@@ -235,12 +234,16 @@ async function startBot() {
 
     clearInterval(globalThis.autodpInterval);
     clearInterval(globalThis.autobioInterval);
+    clearInterval(globalThis.autonameInterval);
     globalThis.autodpInterval = null;
     globalThis.autodpRunning = false;
     globalThis.autobioInterval = null;
     globalThis.autobioRunning = false;
+    globalThis.autonameInterval = null;
+    globalThis.autonameRunning = false;
     autoDPStarted = false;
     autoBioStarted = false;
+    autoNameStarted = false;
 
     if (shouldReconnect) {
       if (!globalThis.reconnecting) {
@@ -281,6 +284,17 @@ async function startBot() {
         await startAutoDP(sock, sock.user.id);
       } catch (error) {
         console.error(`AutoDP Error: ${error.message}`);
+      }
+    }
+    
+    // Start AutoName if enabled
+    if (!autoNameStarted && autoDP === 'True' && commands.has('.autoname')) {
+    
+      autoNameStarted = true;
+      try {
+        await startAutoName(sock);
+      } catch (error) {
+        console.error(`AutoName Error: ${error.message}`);
       }
     }
 
