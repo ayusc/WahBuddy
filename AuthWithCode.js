@@ -40,9 +40,20 @@ function prompt(query) {
 
 async function checkIfSessionExists(db) {
   const sessionCollection = db.collection('wahbuddy_sessions');
-  const count = await sessionCollection.countDocuments();
-  return count > 0;
+  const credsDoc = await sessionCollection.findOne({ _id: 'creds.json' });
+  if (!credsDoc) return false;
+  try {
+    const creds = JSON.parse(credsDoc.data);
+    if (!creds || typeof creds !== 'object') return false;
+  } catch {
+    return false;
+  }
+  const keysExist = await sessionCollection.findOne({
+    _id: { $regex: /^keys\// }
+  });
+  return !!keysExist;
 }
+
 
 async function saveSessionToMongo(db) {
   const sessionCollection = db.collection('wahbuddy_sessions');
