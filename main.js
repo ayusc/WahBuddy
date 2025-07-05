@@ -38,6 +38,9 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+let autoDPStarted = false;
+let autoBioStarted = false;
+let autoNameStarted = false;
 const autoDP = process.env.ALWAYS_AUTO_DP || 'False';
 const autobio = process.env.ALWAYS_AUTO_BIO || 'False';
 const autoname = process.env.ALWAYS_AUTO_NAME || 'False';
