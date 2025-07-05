@@ -44,6 +44,21 @@ export default {
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
+    await sock.chatModify(
+            {
+              deleteForMe: {
+                deleteMedia: true,
+                key: {
+                  id: msg.key.id,
+                  remoteJid: jid,
+                  fromMe: true,
+                },
+                timestamp: Number(msg.messageTimestamp),
+              },
+            },
+            jid
+    );
+
     const sent = await sock.sendMessage(jid, { text: joinedHeart }, { quoted: msg });
 
     for (let heart of BIG_SCROLL) {
