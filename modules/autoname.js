@@ -41,13 +41,19 @@ export async function startAutoName(sock) {
     const name = NAME_PREFIX.replace('{autoname}', time);
     try {
       await sock.updateProfileName(name);
-      console.log('Profile name updated');
     } catch (err) {
-      console.error('Failed to update profile name:', err);
+      console.error('Failed to update name:', err);
     }
   };
-  await updateName();
-  globalThis.autonameInterval = setInterval(updateName, AUTO_NAME_INTERVAL);
+
+  const now = Date.now();
+  const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL); // ms until next full minute
+
+  // Align to next hh:mm:00
+  setTimeout(() => {
+    updateName();
+    globalThis.autonameInterval = setInterval(updateName, AUTO_NAME_INTERVAL);
+  }, delayToNextMinute);
 }
 
 export default [
