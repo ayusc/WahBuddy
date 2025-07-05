@@ -88,8 +88,11 @@ async function getPairingCode() {
     browser: Browsers.macOS('Safari'),
     printQRInTerminal: false,
     //syncFullHistory: true, # we can't sync the history on a browser environment we need a Desktop environment for that
-    defaultQueryTimeoutMs: 0,
+    defaultQueryTimeoutMs: undefined,
     logger: pino({ level: 'silent' }),
+    keepAliveIntervalMs: 5000,
+    generateHighQualityLinkPreview: true,
+    markOnlineOnConnect: false,
   });
 
   if (!state.creds.registered) {
