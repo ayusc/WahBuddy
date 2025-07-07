@@ -23,8 +23,13 @@ export default {
     const maxWaitTime = 60_000;
     const startTime = Date.now();
 
-    // Sync history to avoid missing messages
-    await sock.fetchMessageHistory(50, repliedMsg.key, repliedMsg.messageTimestamp);
+    const oldestMsgKey = {
+     remoteJid: jid,
+     id: quotedMsgId,
+     participant: quotedParticipant,
+    };
+
+    await sock.fetchMessageHistory(50, oldestMsgKey, Date.now());
 
     while (!repliedMsg && Date.now() - startTime < maxWaitTime) {
       repliedMsg = await messagesCollection.findOne({
@@ -33,7 +38,7 @@ export default {
       });
       if (!repliedMsg) await new Promise(resolve => setTimeout(resolve, 1000));
     }
-
+    
     if (!repliedMsg) {
       await sock.sendMessage(jid, {
         text: 'Could not find the replied message in history.\nPerhaps it has been deleted ?',
