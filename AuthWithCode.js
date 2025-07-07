@@ -127,7 +127,6 @@ async function getPairingCode() {
     console.log('\nUploading session to MongoDB ....');
     await saveSessionToMongo(db);
     console.log('\nCode completed successfully !');  
-    process.exit(0); 
   });
  }
 
