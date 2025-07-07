@@ -266,6 +266,14 @@ async function startBot() {
       console.log('Logged out or permanent error. Manual restart required !');
       await sessionCollection.drop();
       await stagingsessionCollection.drop();
+      if (!globalThis.reconnecting) {
+        globalThis.reconnecting = true;
+        //console.log('Reconnecting in 5 seconds...');
+        setTimeout(() => {
+          globalThis.reconnecting = false;
+          startBot();
+        }, 5000);
+      }
     }
 
   } else if (connection === 'open') {
