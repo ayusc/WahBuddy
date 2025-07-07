@@ -263,7 +263,7 @@ async function startBot() {
         }, 5000);
       }
     } else {
-      console.log('Logged out or permanent error. Manual restart required !');
+      console.log('\nLogged out or permanent error. Restarting the bot in 5 seconds ...\n');
       await sessionCollection.drop();
       await stagingsessionCollection.drop();
       if (!globalThis.reconnecting) {
