@@ -19,8 +19,9 @@
     "node-fetch": "^3.3.2",
     "package.json": "^2.0.1",
     "qrcode-terminal": "^0.12.0",
-    "sharp": "^0.33.4",
-    "weather-js": "latest"
+    "sharp": "^0.34.2",
+    "weather-js": "latest",
+    "jimp": "^1.6.0"
   },
   "engines": {
     "node": "20.x"
