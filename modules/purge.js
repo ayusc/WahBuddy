@@ -59,48 +59,37 @@ export default {
     
       const allMessagesToDelete = [...targetMessages, msg];
 
-      for (const message of allMessagesToDelete) {
-
-      const key = message.key;
-
-      try {
-
-        await new Promise(r => setTimeout(r, 500));
-        
-        if (key.fromMe) {
-          await sock.chatModify(
-            {
-              deleteForMe: {
-                deleteMedia: true,
-                key: {
-                  id: key.id,
-                  remoteJid: jid,
-                  fromMe: true,
+      const parallelLimit = 5;
+      const delayBetweenBatches = 300; 
+      
+      for (let i = 0; i < allMessagesToDelete.length; i += parallelLimit) {
+        const batch = allMessagesToDelete.slice(i, i + parallelLimit);
+      
+        await Promise.all(batch.map(async message => {
+          const key = message.key;
+          try {
+            await sock.chatModify(
+              {
+                deleteForMe: {
+                  deleteMedia: true,
+                  key: {
+                    id: key.id,
+                    remoteJid: jid,
+                    fromMe: key.fromMe,
+                  },
+                  timestamp: Number(message.messageTimestamp),
                 },
-                timestamp: Number(message.messageTimestamp),
               },
-            },
-            jid
-          );
-        } else {
-          await sock.chatModify(
-            {
-              deleteForMe: {
-                deleteMedia: true,
-                key: {
-                  id: key.id,
-                  remoteJid: jid,
-                  fromMe: false,
-                },
-                timestamp: Number(message.messageTimestamp),
-              },
-            },
-            jid
-          );
+              jid
+            );
+          } catch (err) {
+            console.log("Purge failed: " + err);
+          }
+        }));
+      
+        if (i + parallelLimit < allMessagesToDelete.length) {
+          await new Promise(res => setTimeout(res, delayBetweenBatches));
         }
-      } catch (err) {
-        console.log("Purge failed: " + err);
       }
-    }
   }
 };
