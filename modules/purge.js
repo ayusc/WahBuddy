@@ -1,5 +1,36 @@
 import { messagesCollection } from '../main.js';
 
+async function deleteMessageWithRetry(sock, jid, message, maxRetries = 10) {
+  const key = message.key;
+  const msgTimestamp = Number(message.messageTimestamp);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await sock.chatModify(
+        {
+          deleteForMe: {
+            deleteMedia: true,
+            key: {
+              id: key.id,
+              remoteJid: jid,
+              fromMe: key.fromMe,
+            },
+            timestamp: msgTimestamp,
+          },
+        },
+        jid
+      );
+      return true; 
+    } catch (err) {
+      console.warn(`Retry ${attempt}/${maxRetries} failed for ${key.id}`);
+      if (attempt === maxRetries) {
+        console.error(`Message ${key.id} failed to delete after ${maxRetries} attempts`);
+        return false;
+      }
+    }
+  }
+}
+
 export default {
   name: ['.purge'],
   description: 'Deletes a replied message and optionally following messages.',
@@ -59,37 +90,12 @@ export default {
     
       const allMessagesToDelete = [...targetMessages, msg];
 
-      const parallelLimit = 5;
-      const delayBetweenBatches = 300; 
-      
-      for (let i = 0; i < allMessagesToDelete.length; i += parallelLimit) {
-        const batch = allMessagesToDelete.slice(i, i + parallelLimit);
-      
-        await Promise.all(batch.map(async message => {
-          const key = message.key;
-          try {
-            await sock.chatModify(
-              {
-                deleteForMe: {
-                  deleteMedia: true,
-                  key: {
-                    id: key.id,
-                    remoteJid: jid,
-                    fromMe: key.fromMe,
-                  },
-                  timestamp: Number(message.messageTimestamp),
-                },
-              },
-              jid
-            );
-          } catch (err) {
-            console.log("Purge failed: " + err);
-          }
-        }));
-      
-        if (i + parallelLimit < allMessagesToDelete.length) {
-          await new Promise(res => setTimeout(res, delayBetweenBatches));
-        }
+      const batchSize = 5;
+      for (let i = 0; i < allMessagesToDelete.length; i += batchSize) {
+        const batch = allMessagesToDelete.slice(i, i + batchSize);
+        await Promise.all(batch.map(msg =>
+          deleteMessageWithRetry(sock, jid, msg)
+        ));
       }
   }
 };
