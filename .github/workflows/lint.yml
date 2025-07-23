@@ -9,10 +9,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -25,5 +25,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           eslint: true
           prettier: true
+          eslint_dir: '.'       
+          prettier_dir: '.' 
           auto_fix: true
           commit: true
