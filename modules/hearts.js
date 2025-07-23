@@ -23,10 +23,10 @@ export default {
     const jid = msg.key.remoteJid;
     const SLEEP = 200;
 
-    const R = "❤️";
-    const W = "🤍";
-    const ALL = ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤎"];
-    const BIG_SCROLL = ["🧡", "💛", "💚", "💙", "💜", "🖤", "🤎"];
+    const R = '❤️';
+    const W = '🤍';
+    const ALL = ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤎'];
+    const BIG_SCROLL = ['🧡', '💛', '💚', '💙', '💜', '🖤', '🤎'];
 
     const heartList = [
       W.repeat(9),
@@ -40,23 +40,23 @@ export default {
       W.repeat(9),
     ];
 
-    const joinedHeart = heartList.join("\n");
+    const joinedHeart = heartList.join('\n');
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
     await sock.chatModify(
-            {
-              deleteForMe: {
-                deleteMedia: true,
-                key: {
-                  id: msg.key.id,
-                  remoteJid: jid,
-                  fromMe: true,
-                },
-                timestamp: Number(msg.messageTimestamp),
-              },
-            },
-            jid
+      {
+        deleteForMe: {
+          deleteMedia: true,
+          key: {
+            id: msg.key.id,
+            remoteJid: jid,
+            fromMe: true,
+          },
+          timestamp: Number(msg.messageTimestamp),
+        },
+      },
+      jid
     );
 
     const sent = await sock.sendMessage(jid, { text: joinedHeart });
@@ -67,9 +67,12 @@ export default {
       await delay(SLEEP);
     }
 
-    const formatHeart = joinedHeart.replace(/❤️/g, "{}");
+    const formatHeart = joinedHeart.replace(/❤️/g, '{}');
     for (let i = 0; i < 5; i++) {
-      const filled = formatHeart.replace(/\{\}/g, () => ALL[Math.floor(Math.random() * ALL.length)]);
+      const filled = formatHeart.replace(
+        /\{\}/g,
+        () => ALL[Math.floor(Math.random() * ALL.length)]
+      );
       await sock.sendMessage(jid, { text: filled, edit: sent.key });
       await delay(SLEEP);
     }
@@ -78,16 +81,15 @@ export default {
     const totalWhites = (fillMatrix.match(/🤍/g) || []).length;
 
     for (let i = 0; i < totalWhites; i++) {
-      fillMatrix = fillMatrix.replace("🤍", "❤️");
+      fillMatrix = fillMatrix.replace('🤍', '❤️');
       await sock.sendMessage(jid, { text: fillMatrix, edit: sent.key });
       await delay(SLEEP);
     }
 
     for (let i = 7; i > 0; i--) {
-      const shrink = Array(i).fill(R.repeat(i)).join("\n");
+      const shrink = Array(i).fill(R.repeat(i)).join('\n');
       await sock.sendMessage(jid, { text: shrink, edit: sent.key });
       await delay(SLEEP);
     }
-    }
+  },
 };
-                                   

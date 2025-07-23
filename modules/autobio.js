@@ -20,7 +20,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const TIME_ZONE = process.env.TIME_ZONE || 'Asia/Kolkata';
-const AUTO_BIO_INTERVAL = parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
+const AUTO_BIO_INTERVAL =
+  parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
 
 let lastQuote = '';
 
@@ -42,7 +43,9 @@ function getTimeInTimeZone(timeZone) {
       return acc;
     }, {});
 
-  return new Date(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`);
+  return new Date(
+    `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`
+  );
 }
 
 async function runQuoteUpdate() {
@@ -83,7 +86,6 @@ async function runQuoteUpdate() {
   }
 }
 
-
 export async function startAutoBio(sock) {
   if (globalThis.autobioRunning) return;
 
@@ -97,79 +99,90 @@ export async function startAutoBio(sock) {
   const delay = nextMinute - now;
 
   setTimeout(() => {
-  globalThis.autobioInterval = setInterval(async () => {
-    const q = await runQuoteUpdate();
-    if (q) {
-      try {
-        await sock.updateProfileStatus(q);
-        console.log('About updated');
-      } catch (err) {
-        console.error('About update failed:', err.message);
+    globalThis.autobioInterval = setInterval(async () => {
+      const q = await runQuoteUpdate();
+      if (q) {
+        try {
+          await sock.updateProfileStatus(q);
+          console.log('About updated');
+        } catch (err) {
+          console.error('About update failed:', err.message);
+        }
       }
-    }
-  }, AUTO_BIO_INTERVAL);
+    }, AUTO_BIO_INTERVAL);
 
-  // immediate first run
-  (async () => {
-    const quote = await runQuoteUpdate();
-    if (quote) {
-      try {
-        await sock.updateProfileStatus(quote);
-        console.log('About updated');
-      } catch (err) {
-        console.error('About update failed:', err.message);
+    // immediate first run
+    (async () => {
+      const quote = await runQuoteUpdate();
+      if (quote) {
+        try {
+          await sock.updateProfileStatus(quote);
+          console.log('About updated');
+        } catch (err) {
+          console.error('About update failed:', err.message);
+        }
       }
-    }
-  })();
-}, delay);
+    })();
+  }, delay);
 }
 
 export default [
- {
-  name: '.autobio',
-  description: 'Start updating WhatsApp About with motivational quotes every X seconds',
-  usage: 'Type .autobio in any chat to start updating WhatsApp "About"...',
-  
-  async execute(msg, _args, sock) {
-    const jid = msg.key.remoteJid;
+  {
+    name: '.autobio',
+    description:
+      'Start updating WhatsApp About with motivational quotes every X seconds',
+    usage: 'Type .autobio in any chat to start updating WhatsApp "About"...',
 
-    if (globalThis.autobioRunning) {
-      if (!msg.fromStartup) {
-        await sock.sendMessage(jid, { text: 'AutoBio is already running!' }, { quoted: msg });
+    async execute(msg, _args, sock) {
+      const jid = msg.key.remoteJid;
+
+      if (globalThis.autobioRunning) {
+        if (!msg.fromStartup) {
+          await sock.sendMessage(
+            jid,
+            { text: 'AutoBio is already running!' },
+            { quoted: msg }
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    if (!msg.fromStartup) {
-      await sock.sendMessage(jid, { text: `AutoBio started. Updating every ${AUTO_BIO_INTERVAL / 1000}s` }, { quoted: msg });
-    }
+      if (!msg.fromStartup) {
+        await sock.sendMessage(
+          jid,
+          {
+            text: `AutoBio started. Updating every ${AUTO_BIO_INTERVAL / 1000}s`,
+          },
+          { quoted: msg }
+        );
+      }
 
-    await startAutoBio(sock);
-  }
+      await startAutoBio(sock);
+    },
   },
   {
-  name: '.stopbio',
-  description: 'Stop updating WhatsApp "About" automatically.',
-  usage:
-    'Type .stopbio in any chat to stop updating WhatsApp About automatically.',
+    name: '.stopbio',
+    description: 'Stop updating WhatsApp "About" automatically.',
+    usage:
+      'Type .stopbio in any chat to stop updating WhatsApp About automatically.',
 
-  async execute(message, args, sock) {
-    if (globalThis.autobioInterval) {
-      clearInterval(globalThis.autobioInterval);
-      globalThis.autobioInterval = null;
-      globalThis.autobioRunning = false;
-      await sock.sendMessage(
-        message.key.remoteJid,
-        { text: 'AutoBio stopped' },
-        { quoted: message }
-      );
-    } else {
-      await sock.sendMessage(
-        message.key.remoteJid,
-        { text: 'AutoBio is not running' },
-        { quoted: message }
-      );
-    }
-  }
-  }
+    async execute(message, args, sock) {
+      if (globalThis.autobioInterval) {
+        clearInterval(globalThis.autobioInterval);
+        globalThis.autobioInterval = null;
+        globalThis.autobioRunning = false;
+        await sock.sendMessage(
+          message.key.remoteJid,
+          { text: 'AutoBio stopped' },
+          { quoted: message }
+        );
+      } else {
+        await sock.sendMessage(
+          message.key.remoteJid,
+          { text: 'AutoBio is not running' },
+          { quoted: message }
+        );
+      }
+    },
+  },
 ];

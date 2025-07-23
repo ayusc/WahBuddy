@@ -125,7 +125,6 @@ async function downloadImage(imagePath) {
         }
         return false;
       }
-
     } catch (error) {
       console.error(
         `Attempt ${attempt} - Failed to fetch random image:`,
@@ -226,7 +225,9 @@ async function getHoroscopes() {
   }
 
   try {
-    const response = await fetch(`https://api.api-ninjas.com/v1/horoscope?zodiac=${ZODIAC_SIGN}`);
+    const response = await fetch(
+      `https://api.api-ninjas.com/v1/horoscope?zodiac=${ZODIAC_SIGN}`
+    );
     const data = await response.json();
     const daily = data?.horoscope || 'N/A';
     const sign = data?.sign || 'N/A';
@@ -357,7 +358,10 @@ export async function startAutoDP(sock, jid) {
     globalThis.autodpInterval = setInterval(async () => {
       try {
         await generateImage();
-        if (!fs.existsSync(outputImage) || fs.statSync(outputImage).size === 0) {
+        if (
+          !fs.existsSync(outputImage) ||
+          fs.statSync(outputImage).size === 0
+        ) {
           console.error('DP update skipped: output image is empty or missing');
           return;
         }
@@ -373,7 +377,10 @@ export async function startAutoDP(sock, jid) {
     (async () => {
       try {
         await generateImage();
-        if (!fs.existsSync(outputImage) || fs.statSync(outputImage).size === 0) {
+        if (
+          !fs.existsSync(outputImage) ||
+          fs.statSync(outputImage).size === 0
+        ) {
           console.error('DP update skipped: output image is empty or missing');
           return;
         }
@@ -388,51 +395,61 @@ export async function startAutoDP(sock, jid) {
 }
 
 export default [
- {
-  name: '.autodp',
-  description: 'Start updating WhatsApp Profile Picture with clock, temperature, and horoscope',
-  usage: 'Type .autodp in any chat to start auto-updating your DP every X seconds',
+  {
+    name: '.autodp',
+    description:
+      'Start updating WhatsApp Profile Picture with clock, temperature, and horoscope',
+    usage:
+      'Type .autodp in any chat to start auto-updating your DP every X seconds',
 
-  async execute(msg, _args, sock) {
-    const jid = msg.key.remoteJid;
+    async execute(msg, _args, sock) {
+      const jid = msg.key.remoteJid;
 
-    if (globalThis.autodpRunning) {
-      if (!msg.fromStartup) {
-        await sock.sendMessage(jid, { text: 'AutoDP is already running!' }, { quoted: msg });
+      if (globalThis.autodpRunning) {
+        if (!msg.fromStartup) {
+          await sock.sendMessage(
+            jid,
+            { text: 'AutoDP is already running!' },
+            { quoted: msg }
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    if (!msg.fromStartup) {
-      await sock.sendMessage(jid, { text: `AutoDP started.\nUpdating every ${intervalMs / 1000}s` }, { quoted: msg });
-    }
+      if (!msg.fromStartup) {
+        await sock.sendMessage(
+          jid,
+          { text: `AutoDP started.\nUpdating every ${intervalMs / 1000}s` },
+          { quoted: msg }
+        );
+      }
 
-    await startAutoDP(sock, jid);
-  }
- },
- {
-  name: '.stopdp',
-  description: 'Stop updating WhatsApp profile picture automatically.',
-  usage:
-    'Type .stopdp in any chat to stop updating WhatsApp profile picture automatically.',
+      await startAutoDP(sock, jid);
+    },
+  },
+  {
+    name: '.stopdp',
+    description: 'Stop updating WhatsApp profile picture automatically.',
+    usage:
+      'Type .stopdp in any chat to stop updating WhatsApp profile picture automatically.',
 
-  async execute(message, args, sock) {
-    if (globalThis.autodpInterval) {
-      clearInterval(globalThis.autodpInterval);
-      globalThis.autodpInterval = null;
-      globalThis.autodpRunning = false;
-      await sock.sendMessage(
-        message.key.remoteJid,
-        { text: 'AutoDP stopped' },
-        { quoted: message }
-      );
-    } else {
-      await sock.sendMessage(
-        message.key.remoteJid,
-        { text: 'AutoDP is not running' },
-        { quoted: message }
-      );
-    }
-  }
- }
+    async execute(message, args, sock) {
+      if (globalThis.autodpInterval) {
+        clearInterval(globalThis.autodpInterval);
+        globalThis.autodpInterval = null;
+        globalThis.autodpRunning = false;
+        await sock.sendMessage(
+          message.key.remoteJid,
+          { text: 'AutoDP stopped' },
+          { quoted: message }
+        );
+      } else {
+        await sock.sendMessage(
+          message.key.remoteJid,
+          { text: 'AutoDP is not running' },
+          { quoted: message }
+        );
+      }
+    },
+  },
 ];

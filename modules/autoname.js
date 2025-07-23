@@ -19,7 +19,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const TIME_ZONE = process.env.TIME_ZONE || 'Asia/Kolkata';
-const AUTO_NAME_INTERVAL = parseInt(process.env.AUTO_NAME_INTERVAL_MS, 10) || 60000;
+const AUTO_NAME_INTERVAL =
+  parseInt(process.env.AUTO_NAME_INTERVAL_MS, 10) || 60000;
 const NAME_PREFIX = process.env.NAME_PREFIX || 'root@wahbuddy[{autoname}]:~$';
 
 function getCurrentTimeInZone() {
@@ -68,15 +69,23 @@ export default [
 
       if (globalThis.autonameRunning) {
         if (!msg.fromStartup) {
-          await sock.sendMessage(jid, { text: 'AutoName is already running!' }, { quoted: msg });
+          await sock.sendMessage(
+            jid,
+            { text: 'AutoName is already running!' },
+            { quoted: msg }
+          );
         }
         return;
       }
 
       if (!msg.fromStartup) {
-        await sock.sendMessage(jid, {
-          text: `AutoName started. Updating every ${AUTO_NAME_INTERVAL / 1000}s`,
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: `AutoName started. Updating every ${AUTO_NAME_INTERVAL / 1000}s`,
+          },
+          { quoted: msg }
+        );
       }
       await startAutoName(sock);
     },
@@ -92,15 +101,22 @@ export default [
         globalThis.autonameInterval = null;
         globalThis.autonameRunning = false;
 
-        await sock.sendMessage(msg.key.remoteJid, {
-          text: 'AutoName stopped',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          msg.key.remoteJid,
+          {
+            text: 'AutoName stopped',
+          },
+          { quoted: msg }
+        );
       } else {
-        await sock.sendMessage(msg.key.remoteJid, {
-          text: 'AutoName is not running',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          msg.key.remoteJid,
+          {
+            text: 'AutoName is not running',
+          },
+          { quoted: msg }
+        );
       }
     },
   },
 ];
-

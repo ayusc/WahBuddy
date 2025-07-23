@@ -12,17 +12,29 @@ export default {
     const query = _args.join(' ').trim();
 
     if (!query) {
-      return await sock.sendMessage(jid, { text: 'Please enter a song name to download.' });
+      return await sock.sendMessage(jid, {
+        text: 'Please enter a song name to download.',
+      });
     }
 
     try {
-      const progressMsg = await sock.sendMessage(jid, { text: `Searching for "${query}" on Saavn...` }, { quoted: msg });
+      const progressMsg = await sock.sendMessage(
+        jid,
+        { text: `Searching for "${query}" on Saavn...` },
+        { quoted: msg }
+      );
 
-      const res = await fetch(`https://rsjiprivate-api.vercel.app/api/search/songs?query=${encodeURIComponent(query)}`);
+      const res = await fetch(
+        `https://rsjiprivate-api.vercel.app/api/search/songs?query=${encodeURIComponent(query)}`
+      );
       const json = await res.json();
 
       if (!json.success || !json.data?.results?.length) {
-        return await sock.sendMessage(jid, { text: `No results found for "${query}".`, edit: progressMsg.key }, { quoted: msg });
+        return await sock.sendMessage(
+          jid,
+          { text: `No results found for "${query}".`, edit: progressMsg.key },
+          { quoted: msg }
+        );
       }
 
       const song = json.data.results[0];
@@ -31,7 +43,14 @@ export default {
       const thumbUrl = song.image?.slice(-1)[0]?.url;
 
       if (!songUrl) {
-        return await sock.sendMessage(jid, { text: 'Failed to get a valid download URL.', edit: progressMsg.key }, { quoted: msg });
+        return await sock.sendMessage(
+          jid,
+          {
+            text: 'Failed to get a valid download URL.',
+            edit: progressMsg.key,
+          },
+          { quoted: msg }
+        );
       }
 
       const tempDir = path.resolve('./temp');
@@ -49,31 +68,42 @@ export default {
         fs.writeFileSync(thumbPath, thumbBuffer);
       }
 
-      await sock.sendMessage(jid, { text: `Uploading "${songName}"...`, edit: progressMsg.key }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: `Uploading "${songName}"...`, edit: progressMsg.key },
+        { quoted: msg }
+      );
 
-      await sock.sendMessage(jid, {
-        audio: { url: audioPath },
-        mimetype: 'audio/mpeg',
-        fileName: `${songName}.mp3`,
-        ptt: false,
-        contextInfo: {
-          externalAdReply: {
-            title: songName,
-            body: 'Uploaded From Saavn',
-            thumbnailUrl: thumbUrl,
-            mediaType: 1,
-            renderLargerThumbnail: true,
-          }
-        }
-      }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        {
+          audio: { url: audioPath },
+          mimetype: 'audio/mpeg',
+          fileName: `${songName}.mp3`,
+          ptt: false,
+          contextInfo: {
+            externalAdReply: {
+              title: songName,
+              body: 'Uploaded From Saavn',
+              thumbnailUrl: thumbUrl,
+              mediaType: 1,
+              renderLargerThumbnail: true,
+            },
+          },
+        },
+        { quoted: msg }
+      );
 
       [audioPath, thumbPath].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
-
     } catch (err) {
       console.error('Song command error:', err);
-      await sock.sendMessage(jid, {
-        text: 'Failed to download or send the song. Please try again later.',
-      }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        {
+          text: 'Failed to download or send the song. Please try again later.',
+        },
+        { quoted: msg }
+      );
     }
-  }
+  },
 };

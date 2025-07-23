@@ -36,10 +36,10 @@ if (SITE_URL) {
   });
 
   setInterval(async () => {
-      try {
-        await axios.get(`https://${SITE_URL}/health`);
-      } catch (err) {
-        console.error('Error in HTTP server:', err.message);
-      }
+    try {
+      await axios.get(`https://${SITE_URL}/health`);
+    } catch (err) {
+      console.error('Error in HTTP server:', err.message);
+    }
   }, 60 * 1000);
 }

@@ -33,7 +33,11 @@ export default {
       });
 
       if (!cmd) {
-        return await sock.sendMessage(chatId, { text: `Command not found: ${args[0]}` }, { quoted: msg });
+        return await sock.sendMessage(
+          chatId,
+          { text: `Command not found: ${args[0]}` },
+          { quoted: msg }
+        );
       }
 
       const usage = cmd.usage || cmd.description;
@@ -51,11 +55,12 @@ export default {
 
     for (const cmd of commands) {
       const namesArray = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
-      const displayNames = namesArray.map(name => name.startsWith('.') ? name.slice(1) : name);
+      const displayNames = namesArray.map(name =>
+        name.startsWith('.') ? name.slice(1) : name
+      );
       text += `• \`${displayNames.join(', ')}\` — ${cmd.description}\n\n`;
     }
 
     await sock.sendMessage(chatId, { text: text.trim() }, { quoted: msg });
   },
 };
-

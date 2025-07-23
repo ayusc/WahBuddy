@@ -34,9 +34,13 @@ export default [
       const jid = msg.key.remoteJid;
 
       if (!args[0]) {
-        await sock.sendMessage(jid, {
-          text: 'Please provide a note name.\n\nExample: `.save hi hello`',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: 'Please provide a note name.\n\nExample: `.save hi hello`',
+          },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -44,20 +48,35 @@ export default [
       const existing = await notesCollection.findOne({ name, jid });
 
       if (existing) {
-        await sock.sendMessage(jid, { text: `Note "${name}" already exists in this chat.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `Note "${name}" already exists in this chat.` },
+          { quoted: msg }
+        );
         return;
       }
 
-      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quoted =
+        msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       let content = null;
       let media = null;
 
       if (quoted) {
-        const text = quoted?.conversation || quoted?.extendedTextMessage?.text || quoted?.imageMessage?.caption || quoted?.videoMessage?.caption;
+        const text =
+          quoted?.conversation ||
+          quoted?.extendedTextMessage?.text ||
+          quoted?.imageMessage?.caption ||
+          quoted?.videoMessage?.caption;
         if (text) content = text.trim();
 
         const type = Object.keys(quoted)[0];
-        const hasMedia = ['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage', 'documentMessage'].includes(type);
+        const hasMedia = [
+          'imageMessage',
+          'videoMessage',
+          'audioMessage',
+          'stickerMessage',
+          'documentMessage',
+        ].includes(type);
         if (hasMedia) {
           const buffer = await downloadMediaMessage(
             { message: quoted },
@@ -74,21 +93,39 @@ export default [
         }
 
         if (!content && !media) {
-          await sock.sendMessage(jid, { text: 'Cannot save empty or unsupported message.' }, { quoted: msg });
+          await sock.sendMessage(
+            jid,
+            { text: 'Cannot save empty or unsupported message.' },
+            { quoted: msg }
+          );
           return;
         }
       } else if (args.length > 1) {
         content = args.slice(1).join(' ').trim();
       } else {
-        await sock.sendMessage(jid, {
-          text: 'Please reply to a message or provide text.\n\nExample: `.save hi hello`',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: 'Please reply to a message or provide text.\n\nExample: `.save hi hello`',
+          },
+          { quoted: msg }
+        );
         return;
       }
 
-      await notesCollection.insertOne({ name, jid, content, media, createdAt: new Date() });
+      await notesCollection.insertOne({
+        name,
+        jid,
+        content,
+        media,
+        createdAt: new Date(),
+      });
 
-      await sock.sendMessage(jid, { text: `Note "${name}" saved.` }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: `Note "${name}" saved.` },
+        { quoted: msg }
+      );
     },
   },
 
@@ -101,9 +138,13 @@ export default [
       const jid = msg.key.remoteJid;
 
       if (!args[0]) {
-        await sock.sendMessage(jid, {
-          text: 'Usage: `.note <name>`\n\nExample: `.note hi`',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: 'Usage: `.note <name>`\n\nExample: `.note hi`',
+          },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -111,7 +152,11 @@ export default [
       const note = await notesCollection.findOne({ name, jid });
 
       if (!note) {
-        await sock.sendMessage(jid, { text: `Note "${name}" not found in this chat.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `Note "${name}" not found in this chat.` },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -121,22 +166,44 @@ export default [
 
         switch (note.media.type) {
           case 'imageMessage':
-            await sock.sendMessage(jid, { image: data, caption: note.content || '', ...options });
+            await sock.sendMessage(jid, {
+              image: data,
+              caption: note.content || '',
+              ...options,
+            });
             break;
           case 'videoMessage':
-            await sock.sendMessage(jid, { video: data, caption: note.content || '', gifPlayback: note.media.mimetype === 'image/gif', ...options });
+            await sock.sendMessage(jid, {
+              video: data,
+              caption: note.content || '',
+              gifPlayback: note.media.mimetype === 'image/gif',
+              ...options,
+            });
             break;
           case 'audioMessage':
-            await sock.sendMessage(jid, { audio: data, mimetype: 'audio/mpeg', ...options });
+            await sock.sendMessage(jid, {
+              audio: data,
+              mimetype: 'audio/mpeg',
+              ...options,
+            });
             break;
           case 'stickerMessage':
             await sock.sendMessage(jid, { sticker: data, ...options });
             break;
           case 'documentMessage':
-            await sock.sendMessage(jid, { document: data, fileName: `${name}.bin`, mimetype: note.media.mimetype || 'application/octet-stream', ...options });
+            await sock.sendMessage(jid, {
+              document: data,
+              fileName: `${name}.bin`,
+              mimetype: note.media.mimetype || 'application/octet-stream',
+              ...options,
+            });
             break;
           default:
-            await sock.sendMessage(jid, { text: 'Unknown media type.' }, { quoted: msg });
+            await sock.sendMessage(
+              jid,
+              { text: 'Unknown media type.' },
+              { quoted: msg }
+            );
         }
       } else {
         await sock.sendMessage(jid, { text: note.content }, { quoted: msg });
@@ -155,12 +222,20 @@ export default [
       const notes = await notesCollection.find({ jid }).toArray();
 
       if (!notes.length) {
-        await sock.sendMessage(jid, { text: 'No saved notes in this chat.' }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: 'No saved notes in this chat.' },
+          { quoted: msg }
+        );
         return;
       }
 
       const list = notes.map(n => `• ${n.name}`).join('\n');
-      await sock.sendMessage(jid, { text: `*Saved Notes:*\n\n${list}` }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: `*Saved Notes:*\n\n${list}` },
+        { quoted: msg }
+      );
     },
   },
 
@@ -173,9 +248,13 @@ export default [
       const jid = msg.key.remoteJid;
 
       if (!args[0]) {
-        await sock.sendMessage(jid, {
-          text: 'Usage: `.clear <name>`\n\nExample: `.clear hi`',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: 'Usage: `.clear <name>`\n\nExample: `.clear hi`',
+          },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -183,9 +262,17 @@ export default [
       const result = await notesCollection.deleteOne({ name, jid });
 
       if (result.deletedCount > 0) {
-        await sock.sendMessage(jid, { text: `Note "${name}" deleted.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `Note "${name}" deleted.` },
+          { quoted: msg }
+        );
       } else {
-        await sock.sendMessage(jid, { text: `No note named "${name}" in this chat.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `No note named "${name}" in this chat.` },
+          { quoted: msg }
+        );
       }
     },
   },
@@ -201,9 +288,17 @@ export default [
       const result = await notesCollection.deleteMany({ jid });
 
       if (result.deletedCount > 0) {
-        await sock.sendMessage(jid, { text: `Cleared ${result.deletedCount} notes from this chat.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `Cleared ${result.deletedCount} notes from this chat.` },
+          { quoted: msg }
+        );
       } else {
-        await sock.sendMessage(jid, { text: 'There are no notes to clear in this chat.' }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: 'There are no notes to clear in this chat.' },
+          { quoted: msg }
+        );
       }
     },
   },
@@ -217,9 +312,13 @@ export default [
       const jid = msg.key.remoteJid;
 
       if (args.length < 2) {
-        await sock.sendMessage(jid, {
-          text: 'Usage: `.rename <old_name> <new_name>`\n\nExample: `.rename hi hello`',
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: 'Usage: `.rename <old_name> <new_name>`\n\nExample: `.rename hi hello`',
+          },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -227,20 +326,35 @@ export default [
       const note = await notesCollection.findOne({ name: oldName, jid });
 
       if (!note) {
-        await sock.sendMessage(jid, { text: `Note "${oldName}" not found.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `Note "${oldName}" not found.` },
+          { quoted: msg }
+        );
         return;
       }
 
       const exists = await notesCollection.findOne({ name: newName, jid });
       if (exists) {
-        await sock.sendMessage(jid, { text: `Note "${newName}" already exists.` }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: `Note "${newName}" already exists.` },
+          { quoted: msg }
+        );
         return;
       }
 
-      await notesCollection.updateOne({ name: oldName, jid }, { $set: { name: newName } });
-      await sock.sendMessage(jid, { text: `Renamed note "${oldName}" to "${newName}".` }, { quoted: msg });
+      await notesCollection.updateOne(
+        { name: oldName, jid },
+        { $set: { name: newName } }
+      );
+      await sock.sendMessage(
+        jid,
+        { text: `Renamed note "${oldName}" to "${newName}".` },
+        { quoted: msg }
+      );
     },
-  },  
+  },
 
   {
     name: '.exportnotes',
@@ -252,26 +366,36 @@ export default [
 
       const notes = await notesCollection.find({ jid }).toArray();
       if (!notes.length) {
-        await sock.sendMessage(jid, { text: 'No notes to export in this chat.' }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: 'No notes to export in this chat.' },
+          { quoted: msg }
+        );
         return;
       }
 
       const exportData = notes.map(n => ({
         name: n.name,
         content: n.content || null,
-        media: n.media ? {
-          type: n.media.type,
-          mimetype: n.media.mimetype || null,
-          data: bufferToBase64(n.media.data.buffer),
-        } : null,
+        media: n.media
+          ? {
+              type: n.media.type,
+              mimetype: n.media.mimetype || null,
+              data: bufferToBase64(n.media.data.buffer),
+            }
+          : null,
       }));
 
       const jsonBuffer = Buffer.from(JSON.stringify(exportData, null, 2));
-      await sock.sendMessage(jid, {
-        document: jsonBuffer,
-        fileName: 'notes_export.json',
-        mimetype: 'application/json',
-      }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        {
+          document: jsonBuffer,
+          fileName: 'notes_export.json',
+          mimetype: 'application/json',
+        },
+        { quoted: msg }
+      );
     },
   },
 
@@ -283,10 +407,15 @@ export default [
       setupNotesCollection();
       const jid = msg.key.remoteJid;
 
-      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quoted =
+        msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       const doc = quoted?.documentMessage;
       if (!doc) {
-        await sock.sendMessage(jid, { text: 'Please reply to a valid exported notes file (.json).' }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: 'Please reply to a valid exported notes file (.json).' },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -301,12 +430,20 @@ export default [
       try {
         data = JSON.parse(buffer.toString());
       } catch (err) {
-        await sock.sendMessage(jid, { text: 'Invalid JSON format.' }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: 'Invalid JSON format.' },
+          { quoted: msg }
+        );
         return;
       }
 
       if (!Array.isArray(data)) {
-        await sock.sendMessage(jid, { text: 'Invalid format: expected an array of notes.' }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          { text: 'Invalid format: expected an array of notes.' },
+          { quoted: msg }
+        );
         return;
       }
 
@@ -318,11 +455,13 @@ export default [
           name: n.name.toLowerCase(),
           jid,
           content: n.content || null,
-          media: n.media ? {
-            type: n.media.type,
-            mimetype: n.media.mimetype || null,
-            data: base64ToBuffer(n.media.data),
-          } : null,
+          media: n.media
+            ? {
+                type: n.media.type,
+                mimetype: n.media.mimetype || null,
+                data: base64ToBuffer(n.media.data),
+              }
+            : null,
           createdAt: new Date(),
         };
 
@@ -334,7 +473,11 @@ export default [
         imported++;
       }
 
-      await sock.sendMessage(jid, { text: `Imported ${imported} notes into this chat.` }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: `Imported ${imported} notes into this chat.` },
+        { quoted: msg }
+      );
     },
-  }
+  },
 ];

@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { getContentType } from 'baileys';
 import sharp from 'sharp';
 import { messagesCollection } from '../main.js';
-import { contactsCollection } from '../main.js'; 
+import { contactsCollection } from '../main.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,7 +46,8 @@ export default {
 
     const quotedText = (() => {
       if (quotedType === 'conversation') return quoted.conversation;
-      if (quotedType === 'extendedTextMessage') return quoted.extendedTextMessage?.text;
+      if (quotedType === 'extendedTextMessage')
+        return quoted.extendedTextMessage?.text;
       if (quotedType === 'textMessage') return quoted.textMessage?.text;
       return null;
     })();
@@ -66,7 +67,9 @@ export default {
     if (!quoted && count > 1) {
       return await sock.sendMessage(
         jid,
-        { text: 'Please reply to a message if you want to quote multiple messages.' },
+        {
+          text: 'Please reply to a message if you want to quote multiple messages.',
+        },
         { quoted: msg }
       );
     }
@@ -84,11 +87,12 @@ export default {
         if (quotedCtxInfo?.quotedMessage) {
           const qMsg = quotedCtxInfo.quotedMessage;
           const qTextType = getContentType(qMsg);
-          const qText = qTextType === 'conversation'
-            ? qMsg.conversation
-            : qTextType === 'extendedTextMessage'
-              ? qMsg.extendedTextMessage?.text
-              : null;
+          const qText =
+            qTextType === 'conversation'
+              ? qMsg.conversation
+              : qTextType === 'extendedTextMessage'
+                ? qMsg.extendedTextMessage?.text
+                : null;
 
           const qSender = quotedCtxInfo.participant;
           if (qText) {
@@ -126,7 +130,7 @@ export default {
         );
       }
     }
-  }
+  },
 };
 
 async function sendQuoteSticker(messages, sock, jid, quotedMsg) {
@@ -141,16 +145,20 @@ async function sendQuoteSticker(messages, sock, jid, quotedMsg) {
   };
 
   try {
-    const res = await axios.post('https://bot.lyo.su/quote/generate', quoteJson, {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await axios.post(
+      'https://bot.lyo.su/quote/generate',
+      quoteJson,
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const buffer = Buffer.from(res.data.result.image, 'base64');
 
     const webpBuffer = await sharp(buffer)
       .resize(512, 512, {
         fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 0 } 
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
       })
       .webp({ quality: 100 })
       .toBuffer();
@@ -167,7 +175,8 @@ async function sendQuoteSticker(messages, sock, jid, quotedMsg) {
 }
 
 async function getProfilePicUrl(sock, id, retries = 5, delay = 300) {
-  const fallbackUrl = 'https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png';
+  const fallbackUrl =
+    'https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png';
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -175,7 +184,9 @@ async function getProfilePicUrl(sock, id, retries = 5, delay = 300) {
       if (url) return url;
     } catch (err) {
       if (attempt === retries) {
-        console.warn(`Failed to get profile pic for ${id} after ${retries} attempts.`);
+        console.warn(
+          `Failed to get profile pic for ${id} after ${retries} attempts.`
+        );
       } else {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -184,34 +195,33 @@ async function getProfilePicUrl(sock, id, retries = 5, delay = 300) {
   return fallbackUrl;
 }
 
-
 /**
  * Normalize JID by removing device suffix if present
  * e.g. "12345:33@s.whatsapp.net" → "12345@s.whatsapp.net"
  */
 function normalizeJid(jid) {
-  return jid.replace(/:\d+@/, '@')
+  return jid.replace(/:\d+@/, '@');
 }
 
 async function getName(sock, id, useNumber) {
   if (useNumber) {
-    return `+${id.split('@')[0]}`
+    return `+${id.split('@')[0]}`;
   }
 
-  const rawJid = id.includes('@s.whatsapp.net') ? id : `${id}@s.whatsapp.net`
-  const jid = normalizeJid(rawJid)
-  const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null
+  const rawJid = id.includes('@s.whatsapp.net') ? id : `${id}@s.whatsapp.net`;
+  const jid = normalizeJid(rawJid);
+  const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null;
 
   if (ownerJid && jid === ownerJid) {
-    return sock.user?.name || `+${jid.split('@')[0]}`
+    return sock.user?.name || `+${jid.split('@')[0]}`;
   }
 
-  const contact = await contactsCollection.findOne({ id: jid })
+  const contact = await contactsCollection.findOne({ id: jid });
 
   return (
     contact?.pushName ||
     contact?.name ||
     contact?.notify ||
     `+${jid.split('@')[0]}`
-  )
+  );
 }

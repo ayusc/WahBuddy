@@ -19,7 +19,12 @@ import path from 'path';
 import readline from 'readline';
 import dotenv from 'dotenv';
 import { MongoClient } from 'mongodb';
-import { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } from 'baileys';
+import {
+  makeWASocket,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+  Browsers,
+} from 'baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
@@ -31,11 +36,16 @@ const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = 'wahbuddy';
 
 function prompt(query) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise(resolve => rl.question(query, ans => {
-    rl.close();
-    resolve(ans);
-  }));
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise(resolve =>
+    rl.question(query, ans => {
+      rl.close();
+      resolve(ans);
+    })
+  );
 }
 
 async function checkIfSessionExists(db) {
@@ -49,11 +59,10 @@ async function checkIfSessionExists(db) {
     return false;
   }
   const keysExist = await sessionCollection.findOne({
-    _id: { $regex: /^keys\// }
+    _id: { $regex: /^keys\// },
   });
   return !!keysExist;
 }
-
 
 async function saveSessionToMongo(db) {
   const sessionCollection = db.collection('wahbuddy_sessions');
@@ -63,12 +72,20 @@ async function saveSessionToMongo(db) {
   for (const file of files) {
     const filePath = path.join(authDir, file);
     const data = fs.readFileSync(filePath, 'utf-8');
-    await staging.updateOne({ _id: file }, { $set: { data } }, { upsert: true });
+    await staging.updateOne(
+      { _id: file },
+      { $set: { data } },
+      { upsert: true }
+    );
   }
 
   const staged = await staging.find({}).toArray();
   for (const doc of staged) {
-    await sessionCollection.updateOne({ _id: doc._id }, { $set: { data: doc.data } }, { upsert: true });
+    await sessionCollection.updateOne(
+      { _id: doc._id },
+      { $set: { data: doc.data } },
+      { upsert: true }
+    );
   }
 
   await staging.deleteMany({});
@@ -80,9 +97,9 @@ async function getPairingCode() {
   const mongo = new MongoClient(MONGO_URI);
   await mongo.connect();
   console.log('Connected to MongoDB');
-  
+
   const db = mongo.db(DB_NAME);
-  
+
   const sessionExists = await checkIfSessionExists(db);
   if (sessionExists) {
     console.log('Found existing session files for Wahbuddy!\nExiting ....');
@@ -104,12 +121,13 @@ async function getPairingCode() {
   });
 
   if (!state.creds.registered) {
-    const phone = await prompt('Enter your phone number (in E.164 format, no "+"): ');
+    const phone = await prompt(
+      'Enter your phone number (in E.164 format, no "+"): '
+    );
     try {
       const code = await sock.requestPairingCode(phone);
       const formattedCode = code.match(/.{1,4}/g).join('-');
       console.log(`Pairing code: ${formattedCode}`);
-
     } catch (err) {
       console.error('Failed to get pairing code:', err);
       process.exit(1);
@@ -126,8 +144,8 @@ async function getPairingCode() {
     await saveCreds();
     console.log('\nUploading session to MongoDB ....');
     await saveSessionToMongo(db);
-    console.log('\nCode completed successfully !');  
+    console.log('\nCode completed successfully !');
   });
- }
+}
 
 getPairingCode();

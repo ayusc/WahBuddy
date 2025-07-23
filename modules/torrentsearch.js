@@ -18,8 +18,10 @@ import axios from 'axios';
 
 export default {
   name: ['.trs'],
-  description: 'Fetch torrents from PirateBay and return top magnet links or specific one',
-  usage: 'Type .trs <search-term> to search for a torrent and use .trs <number> <search-term> to get the magnet link for that torrent',
+  description:
+    'Fetch torrents from PirateBay and return top magnet links or specific one',
+  usage:
+    'Type .trs <search-term> to search for a torrent and use .trs <number> <search-term> to get the magnet link for that torrent',
 
   async execute(msg, args, sock) {
     const sender = msg.key.remoteJid;
@@ -43,7 +45,8 @@ export default {
     }
 
     const query = queryArgs.join(' ');
-    const baseUrl = 'https://news-api-six-navy.vercel.app/api/torrent/piratebay';
+    const baseUrl =
+      'https://news-api-six-navy.vercel.app/api/torrent/piratebay';
 
     try {
       const res = await axios.get(`${baseUrl}/${encodeURIComponent(query)}/1`);
@@ -72,7 +75,7 @@ export default {
         await sock.sendMessage(
           sender,
           {
-           text: `${selected.Magnet || 'N/A'}`
+            text: `${selected.Magnet || 'N/A'}`,
           },
           { quoted: msg }
         );

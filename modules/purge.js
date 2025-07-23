@@ -20,11 +20,13 @@ async function deleteMessageWithRetry(sock, jid, message, maxRetries = 10) {
         },
         jid
       );
-      return true; 
+      return true;
     } catch (err) {
       console.warn(`Retry ${attempt}/${maxRetries} failed for ${key.id}`);
       if (attempt === maxRetries) {
-        console.error(`Message ${key.id} failed to delete after ${maxRetries} attempts`);
+        console.error(
+          `Message ${key.id} failed to delete after ${maxRetries} attempts`
+        );
         return false;
       }
     }
@@ -34,7 +36,8 @@ async function deleteMessageWithRetry(sock, jid, message, maxRetries = 10) {
 export default {
   name: ['.purge'],
   description: 'Deletes a replied message and optionally following messages.',
-  usage: '.purge [count|all]\nReply to a message and type .purge, .purge n, or .purge all to delete the message or delete n messages after that (including that message) or delete all the messages after that (including that message)',
+  usage:
+    '.purge [count|all]\nReply to a message and type .purge, .purge n, or .purge all to delete the message or delete n messages after that (including that message) or delete all the messages after that (including that message)',
 
   async execute(msg, args, sock) {
     const jid = msg.key.remoteJid;
@@ -44,9 +47,13 @@ export default {
     const quotedParticipant = contextInfo?.participant || msg.participant;
 
     if (!quotedMsgId) {
-      await sock.sendMessage(jid, {
-        text: 'Please reply to a message to purge.',
-      }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        {
+          text: 'Please reply to a message to purge.',
+        },
+        { quoted: msg }
+      );
       return;
     }
 
@@ -55,9 +62,9 @@ export default {
     const startTime = Date.now();
 
     const oldestMsgKey = {
-     remoteJid: jid,
-     id: quotedMsgId,
-     participant: quotedParticipant,
+      remoteJid: jid,
+      id: quotedMsgId,
+      participant: quotedParticipant,
     };
 
     await sock.fetchMessageHistory(50, oldestMsgKey, Date.now());
@@ -69,33 +76,38 @@ export default {
       });
       if (!repliedMsg) await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
+
     if (!repliedMsg) {
-      await sock.sendMessage(jid, {
-        text: 'Could not find the replied message in history.\nPerhaps it has been deleted ?',
-      }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        {
+          text: 'Could not find the replied message in history.\nPerhaps it has been deleted ?',
+        },
+        { quoted: msg }
+      );
       return;
     }
 
     const purgeAll = args[0] === 'all';
     const purgeCount = purgeAll ? 999999 : parseInt(args[0] || '1') + 1;
 
-    const targetMessages = await messagesCollection.find({
-      'key.remoteJid': jid,
-      'messageTimestamp': { $gte: repliedMsg.messageTimestamp },
-    })
+    const targetMessages = await messagesCollection
+      .find({
+        'key.remoteJid': jid,
+        messageTimestamp: { $gte: repliedMsg.messageTimestamp },
+      })
       .sort({ messageTimestamp: 1 })
       .limit(purgeCount)
       .toArray();
-    
-      const allMessagesToDelete = [...targetMessages, msg];
 
-      const batchSize = 5;
-      for (let i = 0; i < allMessagesToDelete.length; i += batchSize) {
-        const batch = allMessagesToDelete.slice(i, i + batchSize);
-        await Promise.all(batch.map(msg =>
-          deleteMessageWithRetry(sock, jid, msg)
-        ));
-      }
-  }
+    const allMessagesToDelete = [...targetMessages, msg];
+
+    const batchSize = 5;
+    for (let i = 0; i < allMessagesToDelete.length; i += batchSize) {
+      const batch = allMessagesToDelete.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(msg => deleteMessageWithRetry(sock, jid, msg))
+      );
+    }
+  },
 };

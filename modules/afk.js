@@ -42,31 +42,36 @@ export default {
 
     if (subCommand === 'on' || subCommand === 'yes') {
       const reason = args.slice(1).join(' ').trim() || null;
-    
+
       const afkData = await afkCollection.findOne({ isafk: true });
       if (afkData) {
-        await sock.sendMessage(jid, {
-          text: `You are already AFK!\nReason: ${afkData.afkreason || 'No reason provided'}`,
-        }, { quoted: msg });
+        await sock.sendMessage(
+          jid,
+          {
+            text: `You are already AFK!\nReason: ${afkData.afkreason || 'No reason provided'}`,
+          },
+          { quoted: msg }
+        );
         return;
       }
-    
+
       const newAfkData = {
         isafk: true,
         afkreason: reason,
         afktime: new Date(),
         afkRespondedUsers: [], // Reset replied users on AFK start
       };
-    
+
       await afkCollection.updateOne({}, { $set: newAfkData }, { upsert: true });
-    
-      await sock.sendMessage(jid, {
-        text: `You are now AFK.\n${reason ? `Reason: ${reason}` : 'No reason provided.'}`,
-      }, { quoted: msg });
-    }
 
-
-    else if (subCommand === 'off' || subCommand === 'no') {
+      await sock.sendMessage(
+        jid,
+        {
+          text: `You are now AFK.\n${reason ? `Reason: ${reason}` : 'No reason provided.'}`,
+        },
+        { quoted: msg }
+      );
+    } else if (subCommand === 'off' || subCommand === 'no') {
       await afkCollection.updateOne(
         {},
         {
@@ -75,12 +80,16 @@ export default {
             afktime: null,
             afkreason: null,
             afkRespondedUsers: [], // Clear the responded list
-          }
+          },
         },
         { upsert: true }
       );
-    
-      await sock.sendMessage(jid, { text: `Welcome back!\nYou are no longer AFK.` }, { quoted: msg });
+
+      await sock.sendMessage(
+        jid,
+        { text: `Welcome back!\nYou are no longer AFK.` },
+        { quoted: msg }
+      );
     }
   },
 };
@@ -96,10 +105,10 @@ export async function handleAfkMessages(msg, sock) {
   const senderJid = msg.key.participant || msg.key.remoteJid;
   const contextJid = msg.key.remoteJid;
   const contextKey = `${senderJid}__${contextJid}`;
-  
+
   const alreadyReplied = afkData.afkRespondedUsers?.includes(contextKey);
   if (alreadyReplied) return;
-  
+
   await afkCollection.updateOne(
     {},
     { $addToSet: { afkRespondedUsers: contextKey } }
@@ -113,14 +122,26 @@ export async function handleAfkMessages(msg, sock) {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
-    timeZone: TIME_ZONE
+    timeZone: TIME_ZONE,
   });
 
-  const afkDateInCity = new Date(afkDate.toLocaleString('en-US', { timeZone: TIME_ZONE }));
-  const nowInCity = new Date(now.toLocaleString('en-US', { timeZone: TIME_ZONE }));
+  const afkDateInCity = new Date(
+    afkDate.toLocaleString('en-US', { timeZone: TIME_ZONE })
+  );
+  const nowInCity = new Date(
+    now.toLocaleString('en-US', { timeZone: TIME_ZONE })
+  );
 
-  const afkDay = new Date(afkDateInCity.getFullYear(), afkDateInCity.getMonth(), afkDateInCity.getDate());
-  const today = new Date(nowInCity.getFullYear(), nowInCity.getMonth(), nowInCity.getDate());
+  const afkDay = new Date(
+    afkDateInCity.getFullYear(),
+    afkDateInCity.getMonth(),
+    afkDateInCity.getDate()
+  );
+  const today = new Date(
+    nowInCity.getFullYear(),
+    nowInCity.getMonth(),
+    nowInCity.getDate()
+  );
 
   const diffDays = Math.floor((today - afkDay) / (1000 * 60 * 60 * 24));
   let timeString;
@@ -130,13 +151,23 @@ export async function handleAfkMessages(msg, sock) {
   } else if (diffDays === 1) {
     timeString = `Yesterday at ${formattedTime}`;
   } else if (diffDays <= 7) {
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekdays = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
     const dayName = weekdays[afkDateInCity.getDay()];
     timeString = `${dayName} at ${formattedTime}`;
   } else {
-    const dateString = `${afkDateInCity.getDate().toString().padStart(2, '0')}:${
-      (afkDateInCity.getMonth() + 1).toString().padStart(2, '0')
-    }:${afkDateInCity.getFullYear()}`;
+    const dateString = `${afkDateInCity.getDate().toString().padStart(2, '0')}:${(
+      afkDateInCity.getMonth() + 1
+    )
+      .toString()
+      .padStart(2, '0')}:${afkDateInCity.getFullYear()}`;
     timeString = `${formattedTime} on ${dateString}`;
   }
 
@@ -145,8 +176,10 @@ export async function handleAfkMessages(msg, sock) {
   const myId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
 
   if (isGroup) {
-    const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-    const repliedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
+    const mentionedJids =
+      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    const repliedParticipant =
+      msg.message?.extendedTextMessage?.contextInfo?.participant;
 
     if (mentionedJids.includes(myId) || repliedParticipant === myId) {
       shouldRespond = true;
@@ -162,8 +195,12 @@ export async function handleAfkMessages(msg, sock) {
     }
     afkText += `I last saw him: ${timeString}`;
 
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: afkText,
-    }, { quoted: msg });
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        text: afkText,
+      },
+      { quoted: msg }
+    );
   }
 }

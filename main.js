@@ -30,7 +30,7 @@ import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
 import './app.js';
-import { handleAfkMessages } from './modules/afk.js'; 
+import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
 import { startAutoName } from './modules/autoname.js';
@@ -109,7 +109,7 @@ async function restoreAuthStateFromMongo() {
   if (!savedCreds.length) {
     console.warn('No session found in MongoDB. Will require QR login.');
     return;
-  } 
+  }
 
   fs.mkdirSync(authDir, { recursive: true });
 
@@ -130,7 +130,7 @@ let mongoConnected = false;
 let commandsLoaded = false;
 let initialConnect = true;
 
-const commands = new Map(); 
+const commands = new Map();
 
 async function loadCommands() {
   if (commandsLoaded) return commands;
@@ -148,17 +148,17 @@ async function loadCommands() {
       : [module.default];
 
     for (const cmd of entries) {
-    if (cmd.name && cmd.execute) {
-      const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
-      for (const name of names) {
-        commands.set(name, cmd);
-        if (initialConnect) {
-          const cleanName = name.startsWith('.') ? name.slice(1) : name;
-          console.log(`Loaded Module: ${cleanName}`);
+      if (cmd.name && cmd.execute) {
+        const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
+        for (const name of names) {
+          commands.set(name, cmd);
+          if (initialConnect) {
+            const cleanName = name.startsWith('.') ? name.slice(1) : name;
+            console.log(`Loaded Module: ${cleanName}`);
+          }
         }
       }
     }
-  }
   }
   commandsLoaded = true;
   return commands;
@@ -185,7 +185,7 @@ async function startBot() {
   }
   db = mongoClient.db(dbName);
   sessionCollection = db.collection('wahbuddy_sessions');
-  stagingsessionCollection = db.collection('wahbuddy_sessions_staging')
+  stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
   chatsCollection = db.collection('chats');
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
@@ -196,12 +196,12 @@ async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
 
   const getMessage = async key => {
-  const message = await messagesCollection.findOne({
-    'key.id': key.id,
-    'key.remoteJid': key.remoteJid,
-    'key.fromMe': key.fromMe,
-  });
-  return message?.message || null;
+    const message = await messagesCollection.findOne({
+      'key.id': key.id,
+      'key.remoteJid': key.remoteJid,
+      'key.fromMe': key.fromMe,
+    });
+    return message?.message || null;
   };
 
   const sock = makeWASocket({
@@ -226,108 +226,113 @@ async function startBot() {
     }, 1000)
   );
 
-  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
-  if (qr && initialConnect) {
-    console.log('Scan the QR code below:');
-    qrcode.generate(qr, { small: true });
-  }
-
-  if (connection === 'close') {
-    //console.log('Connection closed.');
-    commandsLoaded = false;
-
-    const shouldReconnect =
-      lastDisconnect?.error instanceof Boom &&
-      lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
-
-    clearInterval(globalThis.autodpInterval);
-    clearInterval(globalThis.autobioInterval);
-    clearInterval(globalThis.autonameInterval);
-    globalThis.autodpInterval = null;
-    globalThis.autodpRunning = false;
-    globalThis.autobioInterval = null;
-    globalThis.autobioRunning = false;
-    globalThis.autonameInterval = null;
-    globalThis.autonameRunning = false;
-    autoDPStarted = false;
-    autoBioStarted = false;
-    autoNameStarted = false;
-
-    if (shouldReconnect) {
-      if (!globalThis.reconnecting) {
-        globalThis.reconnecting = true;
-        //console.log('Reconnecting in 5 seconds...');
-        setTimeout(() => {
-          globalThis.reconnecting = false;
-          startBot();
-        }, 5000);
+  sock.ev.on(
+    'connection.update',
+    async ({ connection, lastDisconnect, qr }) => {
+      if (qr && initialConnect) {
+        console.log('Scan the QR code below:');
+        qrcode.generate(qr, { small: true });
       }
-    } else {
-      console.log('\nLogged out or permanent error. Restarting the bot in 5 seconds ...\n');
-      await sessionCollection.drop();
-      await stagingsessionCollection.drop();
-      if (!globalThis.reconnecting) {
-        globalThis.reconnecting = true;
-        //console.log('Reconnecting in 5 seconds...');
-        setTimeout(() => {
-          globalThis.reconnecting = false;
-          startBot();
-        }, 5000);
+
+      if (connection === 'close') {
+        //console.log('Connection closed.');
+        commandsLoaded = false;
+
+        const shouldReconnect =
+          lastDisconnect?.error instanceof Boom &&
+          lastDisconnect.error.output?.statusCode !==
+            DisconnectReason.loggedOut;
+
+        clearInterval(globalThis.autodpInterval);
+        clearInterval(globalThis.autobioInterval);
+        clearInterval(globalThis.autonameInterval);
+        globalThis.autodpInterval = null;
+        globalThis.autodpRunning = false;
+        globalThis.autobioInterval = null;
+        globalThis.autobioRunning = false;
+        globalThis.autonameInterval = null;
+        globalThis.autonameRunning = false;
+        autoDPStarted = false;
+        autoBioStarted = false;
+        autoNameStarted = false;
+
+        if (shouldReconnect) {
+          if (!globalThis.reconnecting) {
+            globalThis.reconnecting = true;
+            //console.log('Reconnecting in 5 seconds...');
+            setTimeout(() => {
+              globalThis.reconnecting = false;
+              startBot();
+            }, 5000);
+          }
+        } else {
+          console.log(
+            '\nLogged out or permanent error. Restarting the bot in 5 seconds ...\n'
+          );
+          await sessionCollection.drop();
+          await stagingsessionCollection.drop();
+          if (!globalThis.reconnecting) {
+            globalThis.reconnecting = true;
+            //console.log('Reconnecting in 5 seconds...');
+            setTimeout(() => {
+              globalThis.reconnecting = false;
+              startBot();
+            }, 5000);
+          }
+        }
+      } else if (connection === 'open') {
+        if (initialConnect) {
+          console.log('Authenticated with WhatsApp');
+        }
+
+        if (!commandsLoaded) {
+          await loadCommands();
+        }
+
+        if (initialConnect) {
+          console.log('WahBuddy is Online!');
+        }
+
+        initialConnect = false;
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // Start AutoDP if enabled
+        if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+          autoDPStarted = true;
+          try {
+            await startAutoDP(sock, sock.user.id);
+          } catch (error) {
+            console.error(`AutoDP Error: ${error.message}`);
+          }
+        }
+
+        // Start AutoName if enabled
+        if (
+          !autoNameStarted &&
+          autoDP === 'True' &&
+          commands.has('.autoname')
+        ) {
+          autoNameStarted = true;
+          try {
+            await startAutoName(sock);
+          } catch (error) {
+            console.error(`AutoName Error: ${error.message}`);
+          }
+        }
+
+        // Start AutoBio if enabled
+        if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+          autoBioStarted = true;
+          try {
+            await startAutoBio(sock);
+          } catch (error) {
+            console.error(`AutoBio Error: ${error.message}`);
+          }
+        }
       }
     }
-
-  } else if (connection === 'open') {
-
-    if (initialConnect) {
-      console.log('Authenticated with WhatsApp');
-    }
-
-    if (!commandsLoaded) {
-      await loadCommands();
-    }
-
-    if (initialConnect) {
-      console.log('WahBuddy is Online!');
-    }
-
-    initialConnect = false;
-
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // Start AutoDP if enabled
-    if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-    
-      autoDPStarted = true;
-      try {
-        await startAutoDP(sock, sock.user.id);
-      } catch (error) {
-        console.error(`AutoDP Error: ${error.message}`);
-      }
-    }
-    
-    // Start AutoName if enabled
-    if (!autoNameStarted && autoDP === 'True' && commands.has('.autoname')) {
-    
-      autoNameStarted = true;
-      try {
-        await startAutoName(sock);
-      } catch (error) {
-        console.error(`AutoName Error: ${error.message}`);
-      }
-    }
-
-    // Start AutoBio if enabled
-    if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-
-      autoBioStarted = true;
-      try {
-        await startAutoBio(sock);
-      } catch (error) {
-        console.error(`AutoBio Error: ${error.message}`);
-      }
-    }
-  }
-  });
+  );
 
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
@@ -341,7 +346,7 @@ async function startBot() {
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (!messages || !messages.length) return;
-  
+
     for (const msg of messages) {
       await messagesCollection.updateOne(
         { 'key.id': msg.key.id },
@@ -349,20 +354,20 @@ async function startBot() {
         { upsert: true }
       );
     }
-  
+
     if (type !== 'notify') return;
-  
+
     const msg = messages[0];
     if (!msg.message) return;
 
     if (!msg.key.fromMe) {
-    try {
-      await handleAfkMessages(msg, sock);
-    } catch (err) {
-      console.error('Error in AFK module:', err);
+      try {
+        await handleAfkMessages(msg, sock);
+      } catch (err) {
+        console.error('Error in AFK module:', err);
+      }
     }
-    }
-    
+
     if (msg.key.fromMe) {
       const messageContent =
         msg.message.conversation ||
@@ -370,10 +375,10 @@ async function startBot() {
         msg.message.imageMessage?.caption ||
         msg.message.videoMessage?.caption ||
         '';
-  
+
       const args = messageContent.trim().split(/\s+/);
       const command = args.shift().toLowerCase();
-  
+
       if (commands.has(command)) {
         try {
           await commands.get(command).execute(msg, args, sock);
@@ -421,43 +426,42 @@ async function startBot() {
     console.log('Full sync done !');
   });
 
-  
   sock.ev.on('messages.update', async updates => {
-  for (const update of updates) {
-    if (!update.key?.id) continue;
-    await messagesCollection.updateOne(
-      { 'key.id': update.key.id },
-      { $set: update },
-      { upsert: true }
-    );
-  }
+    for (const update of updates) {
+      if (!update.key?.id) continue;
+      await messagesCollection.updateOne(
+        { 'key.id': update.key.id },
+        { $set: update },
+        { upsert: true }
+      );
+    }
   });
-  
+
   sock.ev.on('messages.delete', async ({ keys }) => {
-  for (const key of keys) {
-    await messagesCollection.deleteOne({ 'key.id': key.id });
-  }
+    for (const key of keys) {
+      await messagesCollection.deleteOne({ 'key.id': key.id });
+    }
   });
- 
+
   sock.ev.on('contacts.update', async updates => {
-  for (const update of updates) {
-    await contactsCollection.updateOne(
-      { id: update.id },
-      { $set: update },
-      { upsert: true }
-    );
-  }
+    for (const update of updates) {
+      await contactsCollection.updateOne(
+        { id: update.id },
+        { $set: update },
+        { upsert: true }
+      );
+    }
   });
 
   sock.ev.on('chats.update', async updates => {
-  for (const update of updates) {
-    if (!update.id) continue;
-    await chatsCollection.updateOne(
-      { id: update.id },
-      { $set: update },
-      { upsert: true }
-    );
-  }
+    for (const update of updates) {
+      if (!update.id) continue;
+      await chatsCollection.updateOne(
+        { id: update.id },
+        { $set: update },
+        { upsert: true }
+      );
+    }
   });
 }
 
