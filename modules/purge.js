@@ -6,22 +6,20 @@ async function deleteMessageWithRetry(sock, jid, message, maxRetries = 10) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const delid = await sock.sendMessage(jid, { delete: originalKey });
-
       await sock.chatModify(
         {
-          clear: {
-            messages: [
-              {
-                id: delid.key.id,
-                fromMe: true,
-                timestamp: Number(delid.messageTimestamp),
-              },
-            ],
+          deleteForMe: {
+            deleteMedia: true,
+            key: {
+              id: delid.key.id,
+              remoteJid: jid,
+              fromMe: true,
+            },
+            timestamp: Number(delid.messageTimestamp),
           },
         },
         jid
       );
-
       return true;
     } catch (err) {
       console.warn(`Retry ${attempt}/${maxRetries} failed for ${originalKey.id}:`, err);
