@@ -1,4 +1,3 @@
-
 //  WahBuddy - A simple whatsapp userbot written in pure js
 //  Copyright (C) 2025-present Ayus Chatterjee
 //
