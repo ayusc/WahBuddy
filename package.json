@@ -17,7 +17,6 @@
     "mongodb": "^6.3.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
-    "package.json": "^2.0.1",
     "qrcode-terminal": "^0.12.0",
     "sharp": "^0.34.2",
     "weather-js": "latest",
@@ -27,7 +26,7 @@
     "node": "20.x"
   },
   "devDependencies": {
-    "eslint": "latest",
+    "eslint": "9.31.0",
     "prettier": "latest"
   },
   "prettier": {
