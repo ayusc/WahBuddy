@@ -40,20 +40,22 @@ export default {
     const SLEEP = 200;
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
+    const delid = await sock.sendMessage(jid, { delete: msg.key })
+
     await sock.chatModify(
       {
         deleteForMe: {
           deleteMedia: true,
           key: {
-            id: msg.key.id,
+            id: delid.key.id,
             remoteJid: jid,
             fromMe: true,
           },
-          timestamp: Number(msg.messageTimestamp),
+          timestamp: Number(delid.messageTimestamp),
         },
       },
       jid
-    ); // Send initial message
+    );
 
     const sent = await sock.sendMessage(jid, { text: typingSymbol });
 
