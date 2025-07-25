@@ -1,3 +1,4 @@
+
 //  WahBuddy - A simple whatsapp userbot written in pure js
 //  Copyright (C) 2025-present Ayus Chatterjee
 //
@@ -43,19 +44,19 @@ export default {
     const delid = await sock.sendMessage(jid, { delete: msg.key })
 
     await sock.chatModify(
-    {
-        clear: {
-            messages: [
-                {
-                    id: delid.key.id,
-                    fromMe: true, 
-                    timestamp: Number(delid.messageTimestamp),
-                }
-            ]
-        }
-    }, 
-    jid
-    )
+      {
+        deleteForMe: {
+          deleteMedia: true,
+          key: {
+            id: delid.key.id,
+            remoteJid: jid,
+            fromMe: true,
+          },
+          timestamp: Number(delid.messageTimestamp),
+        },
+      },
+      jid
+    );
 
     const sent = await sock.sendMessage(jid, { text: typingSymbol });
 
