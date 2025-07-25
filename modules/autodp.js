@@ -194,7 +194,6 @@ async function getAQI(cityName) {
     if (typeof aqi !== 'number') throw new Error('Invalid AQI data');
 
     let status = 'N/A';
-    if (aqi <= 20) status = 'Excellent';
     else if (aqi <= 50) status = 'Good';
     else if (aqi <= 100) status = 'Moderate';
     else if (aqi <= 125) status = 'Poor';
