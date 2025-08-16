@@ -177,40 +177,69 @@ async function getWeather() {
 async function getAQI(cityName) {
   try {
     const geoRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`,
+      {
+        headers: {
+          "User-Agent": "WahBuddy (https://github.com/ayusc/WahBuddy)", // REQUIRED by Nominatim
+        },
+      }
     );
-    const geoData = await geoRes.json();
-    if (geoData.length === 0) throw new Error('City not found');
+
+    if (!geoRes.ok) {
+      throw new Error(`Geocoding API failed: ${geoRes.status}`);
+    }
+
+    let geoData;
+    try {
+      geoData = await geoRes.json();
+    } catch (e) {
+      const text = await geoRes.text();
+      throw new Error(`Geocoding returned non-JSON: ${text.slice(0, 200)}...`);
+    }
+
+    if (!Array.isArray(geoData) || geoData.length === 0) {
+      throw new Error("City not found");
+    }
 
     const { lat, lon } = geoData[0];
 
     const aqiRes = await fetch(
       `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`
     );
-    const aqiData = await aqiRes.json();
+
+    if (!aqiRes.ok) {
+      throw new Error(`AQI API failed: ${aqiRes.status}`);
+    }
+
+    let aqiData;
+    try {
+      aqiData = await aqiRes.json();
+    } catch (e) {
+      const text = await aqiRes.text();
+      throw new Error(`AQI returned non-JSON: ${text.slice(0, 200)}...`);
+    }
 
     const aqi = aqiData?.current?.us_aqi;
+    if (typeof aqi !== "number") throw new Error("Invalid AQI data");
 
-    if (typeof aqi !== 'number') throw new Error('Invalid AQI data');
-
-    let status = 'N/A';
-    if (aqi <= 50) status = 'Good';
-    else if (aqi <= 100) status = 'Moderate';
-    else if (aqi <= 125) status = 'Poor';
-    else if (aqi <= 150) status = 'Unhealthy for Sensitive Groups';
-    else if (aqi <= 200) status = 'Unhealthy';
-    else if (aqi <= 300) status = 'Very Unhealthy';
-    else status = 'Hazardous';
+    // IN ACCORDANCE WITH U.S. AQI (EPA) scale.
+    let status = "N/A";
+    if (aqi <= 50) status = "Good";
+    else if (aqi <= 100) status = "Moderate";
+    else if (aqi <= 150) status = "Unhealthy for Sensitive Groups";
+    else if (aqi <= 200) status = "Unhealthy";
+    else if (aqi <= 300) status = "Very Unhealthy";
+    else status = "Hazardous"; // 301-500
 
     return {
       aqi: aqi.toString(),
       status,
     };
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error("Error:", error.message);
     return {
-      aqi: 'N/A',
-      status: 'N/A',
+      aqi: "N/A",
+      status: "N/A",
     };
   }
 }
