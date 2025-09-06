@@ -14,8 +14,6 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import fetch from 'node-fetch';
-
 export default {
   name: ['.lyrics'],
   description: 'Get lyrics for a song by providing artist and song name',
