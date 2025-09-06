@@ -18,8 +18,7 @@ import axios from 'axios';
 
 export default {
   name: ['.trs'],
-  description:
-    'Fetch torrents from PirateBay and return top results',
+  description: 'Fetch torrents from PirateBay and return top results',
   usage:
     'Type .trs <search-term> to search for a torrent and use .trs <number> <search-term> to get the magnet link for that torrent',
 

@@ -180,7 +180,7 @@ async function getAQI(cityName) {
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`,
       {
         headers: {
-          "User-Agent": "WahBuddy (https://github.com/ayusc/WahBuddy)", // REQUIRED by Nominatim
+          'User-Agent': 'WahBuddy (https://github.com/ayusc/WahBuddy)', // REQUIRED by Nominatim
         },
       }
     );
@@ -198,7 +198,7 @@ async function getAQI(cityName) {
     }
 
     if (!Array.isArray(geoData) || geoData.length === 0) {
-      throw new Error("City not found");
+      throw new Error('City not found');
     }
 
     const { lat, lon } = geoData[0];
@@ -220,26 +220,26 @@ async function getAQI(cityName) {
     }
 
     const aqi = aqiData?.current?.us_aqi;
-    if (typeof aqi !== "number") throw new Error("Invalid AQI data");
+    if (typeof aqi !== 'number') throw new Error('Invalid AQI data');
 
     // IN ACCORDANCE WITH U.S. AQI (EPA) scale.
-    let status = "N/A";
-    if (aqi <= 50) status = "Good";
-    else if (aqi <= 100) status = "Moderate";
-    else if (aqi <= 150) status = "Unhealthy for Sensitive Groups";
-    else if (aqi <= 200) status = "Unhealthy";
-    else if (aqi <= 300) status = "Very Unhealthy";
-    else status = "Hazardous"; // 301-500
+    let status = 'N/A';
+    if (aqi <= 50) status = 'Good';
+    else if (aqi <= 100) status = 'Moderate';
+    else if (aqi <= 150) status = 'Unhealthy for Sensitive Groups';
+    else if (aqi <= 200) status = 'Unhealthy';
+    else if (aqi <= 300) status = 'Very Unhealthy';
+    else status = 'Hazardous'; // 301-500
 
     return {
       aqi: aqi.toString(),
       status,
     };
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error('Error:', error.message);
     return {
-      aqi: "N/A",
-      status: "N/A",
+      aqi: 'N/A',
+      status: 'N/A',
     };
   }
 }

@@ -22,7 +22,10 @@ async function deleteMessageWithRetry(sock, jid, message, maxRetries = 10) {
       );
       return true;
     } catch (err) {
-      console.warn(`Retry ${attempt}/${maxRetries} failed for ${originalKey.id}:`, err);
+      console.warn(
+        `Retry ${attempt}/${maxRetries} failed for ${originalKey.id}:`,
+        err
+      );
       if (attempt === maxRetries) {
         console.error(
           `Message ${originalKey.id} failed to delete after ${maxRetries} attempts`

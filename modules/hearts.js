@@ -44,7 +44,7 @@ export default {
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    const delid = await sock.sendMessage(jid, { delete: msg.key })
+    const delid = await sock.sendMessage(jid, { delete: msg.key });
 
     await sock.chatModify(
       {

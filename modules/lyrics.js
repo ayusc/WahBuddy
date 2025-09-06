@@ -17,7 +17,8 @@
 export default {
   name: ['.lyrics'],
   description: 'Get lyrics for a song by providing artist and song name',
-  usage: '.lyrics <artist name> - <song title>\n\nEg: .lyrics Ed Sheeran - Shape of You',
+  usage:
+    '.lyrics <artist name> - <song title>\n\nEg: .lyrics Ed Sheeran - Shape of You',
 
   async execute(msg, args, sock) {
     const query = args.join(' ').trim();
@@ -26,7 +27,9 @@ export default {
     if (!query.includes('-')) {
       await sock.sendMessage(
         jid,
-        { text: 'Provide artist and song separated by "-". Example: .lyrics Ed Sheeran - Shape of You' },
+        {
+          text: 'Provide artist and song separated by "-". Example: .lyrics Ed Sheeran - Shape of You',
+        },
         { quoted: msg }
       );
       return;
@@ -39,7 +42,9 @@ export default {
     if (!artistName || !trackName) {
       await sock.sendMessage(
         jid,
-        { text: 'Both artist and song are required. Example: .lyrics Ed Sheeran - Shape of You' },
+        {
+          text: 'Both artist and song are required. Example: .lyrics Ed Sheeran - Shape of You',
+        },
         { quoted: msg }
       );
       return;
@@ -51,7 +56,11 @@ export default {
       const bodyText = await res.text();
 
       let data;
-      try { data = JSON.parse(bodyText); } catch { data = {}; }
+      try {
+        data = JSON.parse(bodyText);
+      } catch {
+        data = {};
+      }
 
       const lyrics = data?.lyrics || null;
 
@@ -68,7 +77,9 @@ export default {
     } catch (err) {
       await sock.sendMessage(
         jid,
-        { text: `Error while fetching lyrics for "${artistName} - ${trackName}"` },
+        {
+          text: `Error while fetching lyrics for "${artistName} - ${trackName}"`,
+        },
         { quoted: msg }
       );
     }
