@@ -18,8 +18,8 @@ import fetch from 'node-fetch';
 
 export default {
   name: ['.lyrics'],
-  description: 'Get lyrics for a song by providing artist and title',
-  usage: '.lyrics <artist name> - <song title>',
+  description: 'Get lyrics for a song by providing artist and song name',
+  usage: '.lyrics <song title> - <artist name>\n\nEg: .lyrics Shape of You - Ed Sheeran',
 
   async execute(msg, args, sock) {
     const query = args.join(' ');
@@ -34,7 +34,7 @@ export default {
       return;
     }
 
-    const [artistName, trackName] = query.split('-').map(str => str.trim());
+    const [trackName, artistName] = query.split('-').map(str => str.trim());
 
     try {
       const apiUrl = `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(trackName)}`;
