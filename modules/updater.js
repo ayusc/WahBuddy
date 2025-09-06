@@ -18,6 +18,9 @@ import { exec } from 'node:child_process'
 import util from 'node:util'
 const asyncExec = util.promisify(exec)
 
+const REPO_URL = process.env.REPO_URL || 'https://github.com/ayusc/WahBuddy.git'
+const REPO_BRANCH = process.env.REPO_BRANCH || 'main'
+
 export default [
   {
     name: '.update',
@@ -29,12 +32,18 @@ export default [
       const sent = await sock.sendMessage(jid, { text: '[░░░░░░░░░░] 0% Starting update' }, { quoted: msg })
 
       const step = async (progress, label) => {
-        await sock.sendMessage(jid, { text: `[${'█'.repeat(progress / 10)}${'░'.repeat(10 - progress / 10)}] ${progress}% ${label}`, edit: sent.key })
+        await sock.sendMessage(
+          jid,
+          { text: `[${'█'.repeat(progress / 10)}${'░'.repeat(10 - progress / 10)}] ${progress}% ${label}`, edit: sent.key }
+        )
       }
 
       try {
-        await step(10, 'Fetching changes')
-        await asyncExec('git pull')
+        await step(10, 'Fetching updates')
+        await asyncExec(`git fetch ${REPO_URL} ${REPO_BRANCH}`)
+
+        await step(30, 'Resetting to latest commit')
+        await asyncExec(`git reset --hard FETCH_HEAD`)
 
         await step(50, 'Installing dependencies')
         await asyncExec('npm install')
@@ -45,7 +54,8 @@ export default [
         await step(100, 'Reloading modules')
         const { loadCommands } = await import('../main.js')
         await loadCommands()
-        await sock.sendMessage(jid, { text: '[██████████] 100% Update completed', edit: sent.key })
+
+        await sock.sendMessage(jid, { text: '[██████████] 100% Update complete', edit: sent.key })
       } catch (err) {
         await sock.sendMessage(jid, { text: `Update failed: ${err.message}`, edit: sent.key })
       }
@@ -61,13 +71,16 @@ export default [
       const sent = await sock.sendMessage(jid, { text: '[░░░░░░░░░░] 0% Preparing restart' }, { quoted: msg })
 
       const step = async (progress, label) => {
-        await sock.sendMessage(jid, { text: `[${'█'.repeat(progress / 10)}${'░'.repeat(10 - progress / 10)}] ${progress}% ${label}`, edit: sent.key })
+        await sock.sendMessage(
+          jid,
+          { text: `[${'█'.repeat(progress / 10)}${'░'.repeat(10 - progress / 10)}] ${progress}% ${label}`, edit: sent.key }
+        )
       }
 
       try {
         await step(30, 'Saving state')
         await step(60, 'Closing connections')
-        await step(90, 'Restarting process')
+        await step(90, 'Finalizing')
         await step(100, 'Restarting now')
         process.exit(0)
       } catch (err) {
