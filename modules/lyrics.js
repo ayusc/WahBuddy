@@ -12,7 +12,7 @@ export default {
     if (!query) {
       await sock.sendMessage(
         jid,
-        { text: 'Please provide the title of a song.\nExample: .lyrics Shape of You' },
+        { text: 'Please provide the name of a song.\nExample: .lyrics Shape of You' },
         { quoted: msg }
       );
       return;
