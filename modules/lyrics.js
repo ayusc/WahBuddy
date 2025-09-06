@@ -48,7 +48,7 @@ export default {
     }
 
     try {
-      const apiUrl = `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(trackName)}`;
+      const apiUrl = `https://api.lyrics.ovh/v1/${artistName}/${trackName}`;
       const res = await fetch(apiUrl);
       const bodyText = await res.text();
 
