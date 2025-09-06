@@ -19,52 +19,58 @@ import fetch from 'node-fetch';
 export default {
   name: ['.lyrics'],
   description: 'Get lyrics for a song by providing artist and song name',
-  usage: '.lyrics <song title> - <artist name>\n\nEg: .lyrics Shape of You - Ed Sheeran',
+  usage: '.lyrics <artist name> - <song title>\n\nEg: .lyrics Ed Sheeran - Shape of You',
 
   async execute(msg, args, sock) {
-    const query = args.join(' ');
+    const query = args.join(' ').trim();
     const jid = msg.key.remoteJid;
 
     if (!query.includes('-')) {
       await sock.sendMessage(
         jid,
-        { text: 'Please provide both artist and song name.\nExample: .lyrics Ed Sheeran - Shape of You' },
+        { text: 'Provide artist and song separated by "-". Example: .lyrics Ed Sheeran - Shape of You' },
         { quoted: msg }
       );
       return;
     }
 
-    const [trackName, artistName] = query.split('-').map(str => str.trim());
+    const [artistNameRaw, trackNameRaw] = query.split('-').map(s => s.trim());
+    const artistName = artistNameRaw || '';
+    const trackName = trackNameRaw || '';
+
+    if (!artistName || !trackName) {
+      await sock.sendMessage(
+        jid,
+        { text: 'Both artist and song are required. Example: .lyrics Ed Sheeran - Shape of You' },
+        { quoted: msg }
+      );
+      return;
+    }
 
     try {
       const apiUrl = `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(trackName)}`;
       const res = await fetch(apiUrl);
+      const bodyText = await res.text();
 
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
+      let data;
+      try { data = JSON.parse(bodyText); } catch { data = {}; }
 
-      const data = await res.json();
       const lyrics = data?.lyrics || null;
 
-      if (!lyrics) {
+      if (!res.ok || !lyrics) {
         await sock.sendMessage(
           jid,
-          { text: `No lyrics were found for: "${trackName}" by "${artistName}"` },
+          { text: `No lyrics found for "${artistName} - ${trackName}"` },
           { quoted: msg }
         );
         return;
       }
 
-      const maxChars = 4000;
-      const output = lyrics.length > maxChars ? lyrics.slice(0, maxChars - 3) + '...' : lyrics;
-
-      await sock.sendMessage(jid, { text: output }, { quoted: msg });
+      await sock.sendMessage(jid, { text: lyrics }, { quoted: msg });
     } catch (err) {
-      console.error('Lyrics command error:', err);
       await sock.sendMessage(
         jid,
-        { text: `Something went wrong while fetching lyrics for "${trackName}" by "${artistName}".` },
+        { text: `Error while fetching lyrics for "${artistName} - ${trackName}"` },
         { quoted: msg }
       );
     }
