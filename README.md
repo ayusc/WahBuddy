@@ -14,7 +14,13 @@ Click on the below button to deploy WahBuddy in one click ->
 
 
 ### For koyeb
-After the fill up the environment variables and trigger the build, on first run it will ask to scan the QR Code, the process is simple simply download the logs txt and in open it any text viewer (like gedit on linux or notepad) you can scan the QR Code from your phone.
+After filling up the environment variables and trigger the build, on first run it will ask to scan the QR Code, the process is simple simply download the logs txt and in open it any text viewer (like gedit on linux or notepad) you can scan the QR Code from your phone.
+
+If you want to login with Pairing code then in koyeb console run the command node AuthWithCode.js
+This will prompt you to enter your phone number in E.164 format (For eg: +911234567890 will be 911234567890)
+Once you get the code then simply go to Linked Devices>Link a device>Link with phone number instead
+
+After logged in the userbot is ready to use and the session is successfully saved to your MongoDB Cluster.
 
 ## Setting the environment variables
 
