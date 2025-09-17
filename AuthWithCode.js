@@ -34,6 +34,14 @@ const authDir = './wahbuddy-auth';
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = 'wahbuddy';
 
+try {
+  if (fs.existsSync(authDir)) {
+    fs.rmSync(authDir, { recursive: true, force: true });
+  }
+} catch (err) {
+  // Fail silently
+}
+
 function prompt(query) {
   const rl = readline.createInterface({
     input: process.stdin,
