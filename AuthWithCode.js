@@ -25,7 +25,6 @@ import {
   fetchLatestBaileysVersion,
 } from 'baileys';
 import { Boom } from '@hapi/boom';
-import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 
 dotenv.config();
