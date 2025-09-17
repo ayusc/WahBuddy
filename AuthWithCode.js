@@ -112,7 +112,7 @@ async function getPairingCode() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: ['Mac OS', 'Safari', '18.6'],
+    browser: ['Mac OS', 'Safari', '15.6.1'],
     printQRInTerminal: false,
     //syncFullHistory: true, # we can't sync the history on a browser environment we need a Desktop environment for that
     defaultQueryTimeoutMs: undefined,
