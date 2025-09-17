@@ -23,7 +23,6 @@ import {
   makeWASocket,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
-  Browsers,
 } from 'baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
@@ -113,7 +112,7 @@ async function getPairingCode() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS('Safari'),
+    browser: ['Mac OS', 'Safari', '18.6'],
     printQRInTerminal: false,
     //syncFullHistory: true, # we can't sync the history on a browser environment we need a Desktop environment for that
     defaultQueryTimeoutMs: undefined,
