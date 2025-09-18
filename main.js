@@ -171,6 +171,12 @@ async function saveAuthStateToMongo(attempt = 1) {
 }
 
 async function restoreAuthStateFromMongo() {
+  // Clear local auth folder first
+  if (fs.existsSync(authDir)) {
+    fs.rmSync(authDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(authDir, { recursive: true });
+
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
     console.warn('No session found in MongoDB. Waiting for QR scan...');
@@ -178,7 +184,6 @@ async function restoreAuthStateFromMongo() {
     return false; // indicate no session
   }
 
-  fs.mkdirSync(authDir, { recursive: true });
   for (const { _id, data } of savedCreds) {
     fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
   }
@@ -311,7 +316,7 @@ async function startBot() {
 	    console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
 	  }
       if (connection === 'close') {
-        //console.log('Connection closed.');
+        lastQR = null; 
         commandsLoaded = false;
 
         const shouldReconnect =
