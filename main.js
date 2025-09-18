@@ -333,11 +333,10 @@ async function startBot() {
           }
         }
       } else if (connection === 'open') {
-		    loggedIn = true;
-		    qrCodeData = null; 
-		    io.emit("login-success"); 
-		    console.log("Authenticated with WhatsApp");
-        }
+		loggedIn = true;
+		qrCodeData = null; 
+		io.emit("login-success"); 
+		console.log("Authenticated with WhatsApp");
 
         if (!commandsLoaded) {
           await loadCommands();
