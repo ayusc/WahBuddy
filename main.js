@@ -155,21 +155,18 @@ async function saveAuthStateToMongo(attempt = 1) {
 async function restoreAuthStateFromMongo() {
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
-    console.warn('No session found in MongoDB. Will require QR login.');
-    return;
+    console.warn('No session found in MongoDB. Waiting for QR scan...');
+    initialConnect = true; // force QR mode
+    return false; // indicate no session
   }
 
   fs.mkdirSync(authDir, { recursive: true });
-
   for (const { _id, data } of savedCreds) {
-    const filePath = path.join(authDir, _id);
-    fs.writeFileSync(filePath, data, 'utf-8');
+    fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
   }
-
-  if (initialConnect) {
-	  console.log('Session successfully restored from MongoDB');
-	  loggedIn = true; 
-  }
+  console.log('Session successfully restored from MongoDB');
+  loggedIn = true;
+  return true;
 }
 
 // export these collections
@@ -241,7 +238,10 @@ async function startBot() {
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
 
-  await restoreAuthStateFromMongo();
+  const restored = await restoreAuthStateFromMongo();
+  if (!restored) {
+	  console.log(">> Please open QR page and scan to login.");
+  }
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
@@ -308,16 +308,7 @@ async function startBot() {
         autoBioStarted = false;
         autoNameStarted = false;
 
-        if (shouldReconnect) {
-          if (!globalThis.reconnecting) {
-            globalThis.reconnecting = true;
-            //console.log('Reconnecting in 5 seconds...');
-            setTimeout(() => {
-              globalThis.reconnecting = false;
-              startBot();
-            }, 5000);
-          }
-        } else {
+        if (!shouldReconnect) {
           console.log(
             '\nLogged out or permanent error. Restarting the bot in 5 seconds ...\n'
           );
