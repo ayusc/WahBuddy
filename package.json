@@ -24,7 +24,7 @@
     "base64url": "^3.0.1",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
-    "http": "^0.0.1-security",
+    "http": "^0.0.1-security"
   },
   "engines": {
     "node": "20.x"
