@@ -68,13 +68,17 @@ let qrCodeData = null;
 let loggedIn = false;
 
 app.get("/auth", async (req, res) => {
+  // If already logged in or session exists, deny access
   if (loggedIn) {
     return res.status(404).send("Not Found");
   }
+
+  // If QR not ready yet, block
   if (!qrCodeData) {
     return res.send("QR not generated yet. Try again shortly.");
   }
 
+  // Generate a new QR image on each refresh
   const qrImg = await qrcode.toDataURL(qrCodeData);
 
   res.send(`
@@ -84,14 +88,16 @@ app.get("/auth", async (req, res) => {
         <script src="/socket.io/socket.io.js"></script>
         <script>
           const socket = io();
+
+          // Listen for login success from server
           socket.on("login-success", () => {
-            document.body.innerHTML = "<h1>✅ Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
+            document.body.innerHTML = "<h1>Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
           });
         </script>
       </head>
       <body style="font-family: sans-serif; text-align: center;">
-        <h1>Scan the below QR Code to Login to WhatsApp</h1>
+        <h1>Scan the QR Code below to Login to WhatsApp</h1>
         <img src="${qrImg}" alt="WhatsApp QR Code"/>
       </body>
     </html>
@@ -160,7 +166,10 @@ async function restoreAuthStateFromMongo() {
     fs.writeFileSync(filePath, data, 'utf-8');
   }
 
-  if (initialConnect) console.log('Session successfully restored from MongoDB');
+  if (initialConnect) {
+	  console.log('Session successfully restored from MongoDB');
+	  loggedIn = true; 
+  }
 }
 
 // export these collections
@@ -272,11 +281,9 @@ async function startBot() {
     'connection.update',
     async ({ connection, lastDisconnect, qr }) => {
       if (qr && initialConnect) {
-        console.log('Scan the QR code below:');
-        //qrcode.generate(qr, { small: true });
-        qrCodeData = qr; // Save QR
+        qrCodeData = qr; 
         loggedIn = false;
-        console.log("QR Generated. Open /auth to scan.");
+        console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
       }
 
       if (connection === 'close') {
@@ -326,11 +333,10 @@ async function startBot() {
           }
         }
       } else if (connection === 'open') {
-        if (initialConnect) {
-            loggedIn = true;
-	    qrCodeData = null;
-	    io.emit("login-success"); // Notify browser
-	    console.log("Authenticated with WhatsApp");
+		    loggedIn = true;
+		    qrCodeData = null; 
+		    io.emit("login-success"); 
+		    console.log("Authenticated with WhatsApp");
         }
 
         if (!commandsLoaded) {
