@@ -338,11 +338,19 @@ async function startBot() {
         autoNameStarted = false;
 
         if (!shouldReconnect) {
+			
           console.log(
             '\nLogged out or permanent error. Restarting the bot in 5 seconds ...\n'
           );
+			
           await sessionCollection.drop();
           await stagingsessionCollection.drop();
+			
+		  // Clear local auth folder
+		  if (fs.existsSync(authDir)) {
+		    fs.rmSync(authDir, { recursive: true, force: true });
+		  }
+			
           if (!globalThis.reconnecting) {
             globalThis.reconnecting = true;
             //console.log('Reconnecting in 5 seconds...');
