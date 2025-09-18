@@ -18,7 +18,6 @@ import express from 'express';
 import axios from 'axios';
 
 const SITE_URL = process.env.SITE_URL;
-const PORT = process.env.PORT || 8000;
 
 const app = express();
 
@@ -31,10 +30,6 @@ app.get('/health', (req, res) => {
 });
 
 if (SITE_URL) {
-  app.listen(PORT, () => {
-    console.log(`HTTP server running on ${SITE_URL}`);
-  });
-
   setInterval(async () => {
     try {
       await axios.get(`https://${SITE_URL}/health`);
