@@ -25,7 +25,6 @@ import {
 import { Boom } from '@hapi/boom';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
-import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
 import express from "express";
