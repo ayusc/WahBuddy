@@ -81,13 +81,12 @@ app.get("/auth", (req, res) => {
         <script>
           const socket = io();
 
-          socket.on("qr", async qr => {
-            const res = await fetch("/qr?data=" + encodeURIComponent(qr));
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            document.getElementById("qr").src = url;
+          // Listen for QR Base64 string
+          socket.on("qr", qrDataUrl => {
+            document.getElementById("qr").src = qrDataUrl;
           });
 
+          // Handle login success
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
@@ -286,12 +285,15 @@ async function startBot() {
   sock.ev.on(
     'connection.update',
     async ({ connection, lastDisconnect, qr }) => {
-      if (qr) {
-   	    loggedIn = false;
-        io.emit("qr", qr);
-        console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
-      }
-
+      if (qr && qr !== lastQR) {
+	    lastQR = qr;
+	    loggedIn = false;
+	
+	    const qrDataUrl = await qrcode.toDataURL(qr);
+	    io.emit("qr", qrDataUrl);
+	
+	    console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
+  	  }
       if (connection === 'close') {
         //console.log('Connection closed.');
         commandsLoaded = false;
