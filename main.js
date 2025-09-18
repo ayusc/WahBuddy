@@ -31,7 +31,7 @@ import express from "express";
 import http from "http";
 import qrcode from "qrcode";
 import { Server } from "socket.io";
-import './app.js';
+import app from './app.js';
 import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
@@ -60,8 +60,7 @@ const debounce = (fn, delay) => {
     timer = setTimeout(() => fn(...args), delay);
   };
 };
-
-const app = express();
+      
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -98,6 +97,8 @@ app.get("/auth", async (req, res) => {
     </html>
   `);
 });
+
+server.listen(process.env.PORT || 8000);
 
 async function saveAuthStateToMongo(attempt = 1) {
   try {
