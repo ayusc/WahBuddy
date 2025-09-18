@@ -66,6 +66,7 @@ const io = new Server(server);
 let loggedIn = false;
 let lastQR = null;
 
+// ======= /auth route =======
 app.get("/auth", (req, res) => {
   if (loggedIn) return res.status(404).send("Already logged in!");
 
@@ -74,19 +75,32 @@ app.get("/auth", (req, res) => {
       <head>
         <title>WhatsApp Login</title>
         <script src="/socket.io/socket.io.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+        <style>
+          body { font-family: sans-serif; text-align: center; }
+          #qrcode { margin-top: 20px; }
+        </style>
       </head>
-      <body style="font-family: sans-serif; text-align: center;">
+      <body>
         <h1>Scan QR to Login</h1>
-        <img id="qr" src="" alt="WhatsApp QR Code" style="width:300px;height:300px;"/>
+        <div id="qrcode"></div>
+
         <script>
           const socket = io();
 
-          // Listen for QR Base64 string
-          socket.on("qr", qrDataUrl => {
-            document.getElementById("qr").src = qrDataUrl;
+          // Listen for QR string from server
+          socket.on("qr", qr => {
+            const container = document.getElementById("qrcode");
+            container.innerHTML = ""; // clear old QR if any
+            new QRCode(container, {
+              text: qr,
+              width: 300,
+              height: 300,
+              correctLevel: QRCode.CorrectLevel.L
+            });
           });
 
-          // Handle login success
+          // Login success event
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
@@ -95,19 +109,6 @@ app.get("/auth", (req, res) => {
       </body>
     </html>
   `);
-});
-
-app.get("/qr", async (req, res) => {
-  const data = req.query.data;
-  if (!data) return res.status(400).send("No QR data");
-
-  try {
-    const qrImg = await qrcode.toBuffer(data, { type: 'png' });
-    res.type("png").send(qrImg);
-  } catch (err) {
-    console.error("Failed to generate QR:", err);
-    res.status(500).send("Failed to generate QR");
-  }
 });
 
 server.listen(process.env.PORT || 8000);
@@ -289,9 +290,8 @@ async function startBot() {
 	    lastQR = qr;
 	    loggedIn = false;
 	
-	    const qrDataUrl = await qrcode.toDataURL(qr);
-	    io.emit("qr", qrDataUrl);
-	
+	    // Send raw QR string to client
+	    io.emit("qr", qr);
 	    console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
   	  }
       if (connection === 'close') {
@@ -333,6 +333,7 @@ async function startBot() {
         }
       } else if (connection === 'open') {
 		loggedIn = true;
+		lastQR = null;
 	    io.emit("login-success");
 	    console.log("Authenticated with WhatsApp");
 
