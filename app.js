@@ -18,19 +18,19 @@ import express from 'express';
 import axios from 'axios';
 
 const SITE_URL = process.env.SITE_URL;
+const PORT = process.env.PORT || 8000;
+
+const app = express();
+
+app.get('/', (req, res) => {
+  res.json({ status: 'Running' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'Healthy' });
+});
 
 if (SITE_URL) {
-  const app = express();
-  const PORT = process.env.PORT || 8000;
-
-  app.get('/', (req, res) => {
-    res.json({ status: 'Running' });
-  });
-
-  app.get('/health', (req, res) => {
-    res.json({ status: 'Healthy' });
-  });
-
   app.listen(PORT, () => {
     console.log(`HTTP server running on ${SITE_URL}`);
   });
@@ -43,3 +43,5 @@ if (SITE_URL) {
     }
   }, 60 * 1000);
 }
+
+export default app;
