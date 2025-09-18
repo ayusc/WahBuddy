@@ -298,13 +298,18 @@ async function startBot() {
     'connection.update',
     async ({ connection, lastDisconnect, qr }) => {
       if (qr && qr !== lastQR) {
-	    lastQR = qr;
+  		lastQR = qr;
 	    loggedIn = false;
 	
-	    // Send raw QR string to client
-	    io.emit("qr", qr);
+	    try {
+	      // convert QR string to base64 PNG
+	      const qrDataUrl = await qrcode.toDataURL(qr);
+	      io.emit("qr", qrDataUrl); // send Data URL to client
+	    } catch (err) {
+	      console.error("Failed to generate QR image:", err);
+	    }
 	    console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
-  	  }
+	  }
       if (connection === 'close') {
         //console.log('Connection closed.');
         commandsLoaded = false;
