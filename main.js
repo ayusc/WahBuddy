@@ -14,6 +14,12 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// main.js (modified QR handling + small diagnostics)
+//  WahBuddy - A simple whatsapp userbot written in pure js
+//  Copyright (C) 2025-present Ayus Chatterjee
+//
+//  (License text omitted for brevity in this snippet)
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,7 +70,27 @@ const debounce = (fn, delay) => {
 const server = http.createServer(app);
 const io = new Server(server);
 let loggedIn = false;
-let lastQR = null;
+let lastQR = null;            // raw QR text from Baileys
+let lastQrDataUrl = null;     // server-generated data URL (image) of last QR
+let lastQrTimestamp = 0;      // Date.now() when last QR was generated/emitted
+
+// emit connection logs and send last QR immediately when a client connects
+io.on("connection", socket => {
+  console.log(`[IO] client connected id=${socket.id} total=${io.engine.clientsCount}`);
+  socket.on("disconnect", () => {
+    console.log(`[IO] client disconnected id=${socket.id} total=${io.engine.clientsCount}`);
+  });
+
+  // If we have an image data URL, send it to this new client right away
+  if (lastQrDataUrl) {
+    socket.emit("qr", lastQrDataUrl);
+    socket.emit("qr-meta", { ts: lastQrTimestamp, qrLen: lastQR?.length ?? 0 });
+  } else if (lastQR) {
+    // No server image available but raw QR exists — send raw string as fallback
+    socket.emit("qr-raw", lastQR);
+    socket.emit("qr-meta", { ts: lastQrTimestamp, qrLen: lastQR.length });
+  }
+});
 
 app.get("/auth", (req, res) => {
   if (loggedIn) return res.status(404).send("Already logged in!");
@@ -74,6 +100,7 @@ app.get("/auth", (req, res) => {
       <head>
         <title>WhatsApp Login</title>
         <script src="/socket.io/socket.io.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
         <style>
           body {
             font-family: sans-serif;
@@ -84,14 +111,27 @@ app.get("/auth", (req, res) => {
             height: 100vh;
             text-align: center;
             background-color: #f5f5f5;
+            margin: 0;
           }
           #qr-container {
             margin-top: 20px;
+            width: 320px;
+            height: 320px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
           }
           #status {
             margin-bottom: 10px;
-            font-size: 1.2em;
+            font-size: 1.05em;
             color: #333;
+          }
+          #qr {
+            max-width: 300px;
+            max-height: 300px;
           }
         </style>
       </head>
@@ -104,14 +144,60 @@ app.get("/auth", (req, res) => {
 
         <script>
           const socket = io();
+          const statusEl = document.getElementById("status");
+          const qrImg = document.getElementById("qr");
+          const qrContainer = document.getElementById("qr-container");
 
-          // Listen for QR string from server
-          socket.on("qr", qrDataUrl => {
-            document.getElementById("qr").src = qrDataUrl;
-            document.getElementById("status").textContent = "QR Code ready! Scan with WhatsApp.";
+          socket.on("connect", () => {
+            console.log("[client] connected to socket");
+            statusEl.textContent = "Connected — waiting for QR...";
           });
 
-          // Login success event
+          // Preferred: server sends an image data URL
+          socket.on("qr", qrDataUrl => {
+            // restore img mode
+            qrContainer.innerHTML = '<img id="qr" src="" alt="WhatsApp QR Code" style="width:300px;height:300px;" />';
+            const imgEl = document.getElementById("qr");
+            imgEl.src = qrDataUrl;
+            statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
+            console.log("[client] got qr (dataURL)");
+          });
+
+          // Fallback: server sends raw QR text (use qrcodejs to render)
+          socket.on("qr-raw", qr => {
+            qrContainer.innerHTML = '<div id="qrcodejs"></div>';
+            const cont = document.getElementById("qrcodejs");
+            try {
+              new QRCode(cont, {
+                text: qr,
+                width: 300,
+                height: 300,
+                correctLevel: QRCode.CorrectLevel.L
+              });
+              statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
+              console.log("[client] rendered qr from raw string");
+            } catch (e) {
+              console.error("[client] failed to render qr-raw", e);
+              statusEl.textContent = "Failed to render QR (fallback). Check server logs.";
+            }
+          });
+
+          // meta info (timestamp, length)
+          socket.on("qr-meta", meta => {
+            const ageMs = (Date.now() - meta.ts) || 0;
+            if (ageMs > 45_000) {
+              statusEl.textContent = "QR arrived late — requesting a new one...";
+            } else {
+              statusEl.textContent = \`QR ready (generated \${Math.round(ageMs/1000)}s ago). Scan with WhatsApp.\`;
+            }
+            console.log("[client] qr-meta", meta, "ageMs=", ageMs);
+          });
+
+          socket.on("qr-error", e => {
+            console.error("[client] qr error", e);
+            statusEl.textContent = "Server failed to create QR. Check logs. (Try reloading this page)";
+          });
+
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
@@ -302,21 +388,52 @@ async function startBot() {
   sock.ev.on(
     'connection.update',
     async ({ connection, lastDisconnect, qr }) => {
+      // When Baileys supplies a QR
       if (qr && qr !== lastQR) {
-  		lastQR = qr;
-	    loggedIn = false;
-	
-	    try {
-	      // convert QR string to base64 PNG
-	      const qrDataUrl = await qrcode.toDataURL(qr);
-	      io.emit("qr", qrDataUrl); // send Data URL to client
-	    } catch (err) {
-	      console.error("Failed to generate QR image:", err);
-	    }
-	    console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
-	  }
+        lastQR = qr;
+        loggedIn = false;
+        lastQrTimestamp = Date.now();
+
+        // Only attempt server-side image generation if a client is connected,
+        // otherwise store raw qr and wait for a client to connect.
+        if (io.engine.clientsCount > 0) {
+          try {
+            const qrDataUrl = await qrcode.toDataURL(qr);
+            lastQrDataUrl = qrDataUrl;
+            io.emit("qr", qrDataUrl);
+            io.emit("qr-meta", { ts: lastQrTimestamp, qrLen: qr.length });
+            console.log(`[QR] generated ts=${new Date(lastQrTimestamp).toISOString()} length=${qr.length} dataurl_len=${qrDataUrl.length}`);
+          } catch (err) {
+            console.error("Failed to generate QR image:", err);
+            // fallback: emit raw qr so clients can render using qrcodejs
+            io.emit("qr-raw", qr);
+            io.emit("qr-error", { msg: "qr-generation-failed", err: String(err) });
+          }
+        } else {
+          // No clients connected — store raw QR; a connecting client will receive it via io.on('connection')
+          lastQrDataUrl = null;
+          console.log(`[QR] generated but no clients connected; stored raw QR length=${qr.length}`);
+        }
+
+        console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
+        // schedule a cleanup for old QR after ~65s to avoid sending expired ones
+        setTimeout(() => {
+          if (lastQrTimestamp && (Date.now() - lastQrTimestamp) > 65_000) {
+            // clear only if it's the same QR (avoid clearing if overwritten)
+            if (Date.now() - lastQrTimestamp > 65_000) {
+              lastQR = null;
+              lastQrDataUrl = null;
+              lastQrTimestamp = 0;
+              console.log("[QR] expired and cleared from memory");
+            }
+          }
+        }, 66_000);
+      }
+
       if (connection === 'close') {
-        lastQR = null; 
+        lastQR = null;
+        lastQrDataUrl = null;
+        lastQrTimestamp = 0;
         commandsLoaded = false;
 
         const shouldReconnect =
@@ -361,10 +478,12 @@ async function startBot() {
           }
         }
       } else if (connection === 'open') {
-		loggedIn = true;
-		lastQR = null;
-	    io.emit("login-success");
-	    console.log("Authenticated with WhatsApp");
+        loggedIn = true;
+        lastQR = null;
+        lastQrDataUrl = null;
+        lastQrTimestamp = 0;
+        io.emit("login-success");
+        console.log("Authenticated with WhatsApp");
 
         if (!commandsLoaded) {
           await loadCommands();
