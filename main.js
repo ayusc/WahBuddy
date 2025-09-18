@@ -63,45 +63,46 @@ const debounce = (fn, delay) => {
       
 const server = http.createServer(app);
 const io = new Server(server);
-
-let qrCodeData = null;
 let loggedIn = false;
 
-app.get("/auth", async (req, res) => {
-  // If already logged in or session exists, deny access
-  if (loggedIn) {
-    return res.status(404).send("Not Found");
-  }
-
-  // If QR not ready yet, block
-  if (!qrCodeData) {
-    return res.send("QR not generated yet. Try again shortly.");
-  }
-
-  // Generate a new QR image on each refresh
-  const qrImg = await qrcode.toDataURL(qrCodeData);
+app.get("/auth", (req, res) => {
+  if (loggedIn) return res.status(404).send("Already logged in!");
 
   res.send(`
     <html>
       <head>
         <title>WhatsApp Login</title>
         <script src="/socket.io/socket.io.js"></script>
+      </head>
+      <body style="font-family: sans-serif; text-align: center;">
+        <h1>Scan QR to Login</h1>
+        <img id="qr" src="" alt="WhatsApp QR Code" style="width:300px;height:300px;"/>
         <script>
           const socket = io();
 
-          // Listen for login success from server
+          socket.on("qr", async qr => {
+            const res = await fetch("/qr?data=" + encodeURIComponent(qr));
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            document.getElementById("qr").src = url;
+          });
+
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
           });
         </script>
-      </head>
-      <body style="font-family: sans-serif; text-align: center;">
-        <h1>Scan the QR Code below to Login to WhatsApp</h1>
-        <img src="${qrImg}" alt="WhatsApp QR Code"/>
       </body>
     </html>
   `);
+});
+
+// Serve QR as image (to avoid browser caching issues)
+app.get("/qr", async (req, res) => {
+  const data = req.query.data;
+  if (!data) return res.status(400).send("No QR data");
+  const qrImg = await qrcode.toBuffer(data);
+  res.type("png").send(qrImg);
 });
 
 server.listen(process.env.PORT || 8000);
@@ -263,7 +264,6 @@ async function startBot() {
     getMessage,
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
-    qrTimeout: 2147483647,
     defaultQueryTimeoutMs: undefined,
     keepAliveIntervalMs: 5000,
     markOnlineOnConnect: false,
@@ -280,9 +280,9 @@ async function startBot() {
   sock.ev.on(
     'connection.update',
     async ({ connection, lastDisconnect, qr }) => {
-      if (qr && initialConnect) {
-        qrCodeData = qr; 
-        loggedIn = false;
+      if (qr) {
+   	    loggedIn = false;
+        io.emit("qr", qr);
         console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
       }
 
@@ -325,9 +325,8 @@ async function startBot() {
         }
       } else if (connection === 'open') {
 		loggedIn = true;
-		qrCodeData = null; 
-		io.emit("login-success"); 
-		console.log("Authenticated with WhatsApp");
+	    io.emit("login-success");
+	    console.log("Authenticated with WhatsApp");
 
         if (!commandsLoaded) {
           await loadCommands();
@@ -354,7 +353,7 @@ async function startBot() {
         // Start AutoName if enabled
         if (
           !autoNameStarted &&
-          autoDP === 'True' &&
+          autoname === 'True' &&
           commands.has('.autoname')
         ) {
           autoNameStarted = true;
