@@ -64,6 +64,7 @@ const debounce = (fn, delay) => {
 const server = http.createServer(app);
 const io = new Server(server);
 let loggedIn = false;
+let lastQR = null;
 
 app.get("/auth", (req, res) => {
   if (loggedIn) return res.status(404).send("Already logged in!");
@@ -97,12 +98,17 @@ app.get("/auth", (req, res) => {
   `);
 });
 
-// Serve QR as image (to avoid browser caching issues)
 app.get("/qr", async (req, res) => {
   const data = req.query.data;
   if (!data) return res.status(400).send("No QR data");
-  const qrImg = await qrcode.toBuffer(data);
-  res.type("png").send(qrImg);
+
+  try {
+    const qrImg = await qrcode.toBuffer(data, { type: 'png' });
+    res.type("png").send(qrImg);
+  } catch (err) {
+    console.error("Failed to generate QR:", err);
+    res.status(500).send("Failed to generate QR");
+  }
 });
 
 server.listen(process.env.PORT || 8000);
