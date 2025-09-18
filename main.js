@@ -66,7 +66,6 @@ const io = new Server(server);
 let loggedIn = false;
 let lastQR = null;
 
-// ======= /auth route =======
 app.get("/auth", (req, res) => {
   if (loggedIn) return res.status(404).send("Already logged in!");
 
@@ -75,34 +74,46 @@ app.get("/auth", (req, res) => {
       <head>
         <title>WhatsApp Login</title>
         <script src="/socket.io/socket.io.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
         <style>
-          body { font-family: sans-serif; text-align: center; }
-          #qrcode { margin-top: 20px; }
+          body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+            background-color: #f5f5f5;
+          }
+          #qr-container {
+            margin-top: 20px;
+          }
+          #status {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            color: #333;
+          }
         </style>
       </head>
       <body>
         <h1>Scan QR to Login</h1>
-        <div id="qrcode"></div>
+        <p id="status">Waiting for QR...</p>
+        <div id="qr-container">
+          <img id="qr" src="" alt="WhatsApp QR Code" style="width:300px;height:300px;" />
+        </div>
 
         <script>
           const socket = io();
 
           // Listen for QR string from server
-          socket.on("qr", qr => {
-            const container = document.getElementById("qrcode");
-            container.innerHTML = ""; // clear old QR if any
-            new QRCode(container, {
-              text: qr,
-              width: 300,
-              height: 300,
-              correctLevel: QRCode.CorrectLevel.L
-            });
+          socket.on("qr", qrDataUrl => {
+            document.getElementById("qr").src = qrDataUrl;
+            document.getElementById("status").textContent = "QR Code ready! Scan with WhatsApp.";
           });
 
           // Login success event
           socket.on("login-success", () => {
-            document.body.innerHTML = "<h1>Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
+            document.body.innerHTML = "<h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
           });
         </script>
