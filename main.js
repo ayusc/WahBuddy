@@ -283,7 +283,7 @@ async function startBot() {
       if (qr && initialConnect) {
         qrCodeData = qr; 
         loggedIn = false;
-        console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
+        console.log(`QR Generated. Open https://${SITE_URL}/auth to scan.`);
       }
 
       if (connection === 'close') {
