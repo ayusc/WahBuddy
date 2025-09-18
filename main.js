@@ -28,6 +28,10 @@ import dotenv from 'dotenv';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
+import express from "express";
+import http from "http";
+import qrcode from "qrcode";
+import { Server } from "socket.io";
 import './app.js';
 import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
@@ -45,6 +49,7 @@ const autoDP = process.env.ALWAYS_AUTO_DP || 'False';
 const autobio = process.env.ALWAYS_AUTO_BIO || 'False';
 const autoname = process.env.ALWAYS_AUTO_NAME || 'False';
 const mongoUri = process.env.MONGO_URI;
+const SITE_URL = process.env.SITE_URL;
 const authDir = './wahbuddy-auth';
 const dbName = 'wahbuddy';
 let db, sessionCollection, stagingsessionCollection;
@@ -56,6 +61,44 @@ const debounce = (fn, delay) => {
     timer = setTimeout(() => fn(...args), delay);
   };
 };
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+let qrCodeData = null;
+let loggedIn = false;
+
+app.get("/auth", async (req, res) => {
+  if (loggedIn) {
+    return res.status(404).send("Not Found");
+  }
+  if (!qrCodeData) {
+    return res.send("QR not generated yet. Try again shortly.");
+  }
+
+  const qrImg = await qrcode.toDataURL(qrCodeData);
+
+  res.send(`
+    <html>
+      <head>
+        <title>WhatsApp Login</title>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+          const socket = io();
+          socket.on("login-success", () => {
+            document.body.innerHTML = "<h1>✅ Successfully Logged in to WhatsApp</h1><p>Window will close in 5 seconds...</p>";
+            setTimeout(() => window.close(), 5000);
+          });
+        </script>
+      </head>
+      <body style="font-family: sans-serif; text-align: center;">
+        <h1>Scan the below QR Code to Login to WhatsApp</h1>
+        <img src="${qrImg}" alt="WhatsApp QR Code"/>
+      </body>
+    </html>
+  `);
+});
 
 async function saveAuthStateToMongo(attempt = 1) {
   try {
@@ -230,7 +273,10 @@ async function startBot() {
     async ({ connection, lastDisconnect, qr }) => {
       if (qr && initialConnect) {
         console.log('Scan the QR code below:');
-        qrcode.generate(qr, { small: true });
+        //qrcode.generate(qr, { small: true });
+        qrCodeData = qr; // Save QR
+        loggedIn = false;
+        console.log("QR Generated. Open /auth to scan.");
       }
 
       if (connection === 'close') {
@@ -281,7 +327,10 @@ async function startBot() {
         }
       } else if (connection === 'open') {
         if (initialConnect) {
-          console.log('Authenticated with WhatsApp');
+            loggedIn = true;
+	    qrCodeData = null;
+	    io.emit("login-success"); // Notify browser
+	    console.log("Authenticated with WhatsApp");
         }
 
         if (!commandsLoaded) {
