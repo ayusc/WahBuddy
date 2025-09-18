@@ -266,16 +266,31 @@ async function restoreAuthStateFromMongo() {
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
     console.warn('No session found in MongoDB. Waiting for QR scan...');
-    initialConnect = true; // force QR mode
-    return false; // indicate no session
+    initialConnect = true;
+    return false;
   }
 
-  for (const { _id, data } of savedCreds) {
-    fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
+  try {
+    for (const { _id, data } of savedCreds) {
+      fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
+    }
+    console.log('Session successfully restored from MongoDB');
+    loggedIn = true;
+    return true;
+  } catch (err) {
+    console.error("Failed to restore session from MongoDB, clearing both local and DB:", err);
+
+    // Clear both DB + local if session is broken
+    await sessionCollection.deleteMany({});
+    await stagingsessionCollection.deleteMany({});
+    if (fs.existsSync(authDir)) {
+      fs.rmSync(authDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(authDir, { recursive: true });
+
+    initialConnect = true;
+    return false;
   }
-  console.log('Session successfully restored from MongoDB');
-  loggedIn = true;
-  return true;
 }
 
 // export these collections
