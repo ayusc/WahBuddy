@@ -27,6 +27,7 @@ import {
   makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
+  Browsers,
 } from 'baileys';
 import { Boom } from '@hapi/boom';
 import { MongoClient } from 'mongodb';
@@ -382,7 +383,7 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: ["Ubuntu", "Chrome", "20.0.04"],
+    browser: Browsers.macOS('Firefox'),
     syncFullHistory: true,
     getMessage,
     generateHighQualityLinkPreview: true,
