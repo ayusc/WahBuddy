@@ -485,9 +485,8 @@ async function startBot() {
                 await startBot();
             }, 5000);
         }
-    }
-	}
-      } else if (connection === 'open') {
+    }	
+	} else if (connection === 'open') {
         loggedIn = true;
         lastQR = null;
         lastQrDataUrl = null;
