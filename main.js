@@ -403,8 +403,13 @@ async function startBot() {
 
   sock.ev.on(
     'connection.update',
-    async ({ connection, lastDisconnect, qr }) => {
-      // When Baileys supplies a QR
+    async (update) => {
+	  console.log('[BAILEYS] connection.update =>', JSON.stringify(update, null, 2));
+      const { connection, lastDisconnect, qr } = update;
+      if (lastDisconnect) {
+       console.error('[BAILEYS] lastDisconnect:', lastDisconnect);
+      }
+		
       if (qr && qr !== lastQR) {
         lastQR = qr;
         loggedIn = false;
