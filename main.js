@@ -451,53 +451,43 @@ async function startBot() {
         }, 66_000);
       }
 
-      if (connection === 'close') {
-        lastQR = null;
-        lastQrDataUrl = null;
-        lastQrTimestamp = 0;
-        commandsLoaded = false;
+	  if (connection === 'close') {
+	    lastQR = null;
+	    lastQrDataUrl = null;
+	    lastQrTimestamp = 0;
+	    commandsLoaded = false;
 
-        const shouldReconnect =
-          lastDisconnect?.error instanceof Boom &&
-          lastDisconnect.error.output?.statusCode !==
-            DisconnectReason.loggedOut;
+	    clearInterval(globalThis.autodpInterval);
+	    clearInterval(globalThis.autobioInterval);
+	    clearInterval(globalThis.autonameInterval);
+	    globalThis.autodpInterval = null;
+	    globalThis.autobioInterval = null;
+	    globalThis.autonameInterval = null;
+	    autoDPStarted = false;
+	    autoBioStarted = false;
+	    autoNameStarted = false;
+	
+	    const reason = lastDisconnect?.error?.output?.statusCode;
+	    console.log('[MAIN BOT] Connection closed, reason:', reason);
 
-        clearInterval(globalThis.autodpInterval);
-        clearInterval(globalThis.autobioInterval);
-        clearInterval(globalThis.autonameInterval);
-        globalThis.autodpInterval = null;
-        globalThis.autodpRunning = false;
-        globalThis.autobioInterval = null;
-        globalThis.autobioRunning = false;
-        globalThis.autonameInterval = null;
-        globalThis.autonameRunning = false;
-        autoDPStarted = false;
-        autoBioStarted = false;
-        autoNameStarted = false;
+	    if (reason === DisconnectReason.loggedOut) {
+	        console.log('🚫 Logged out — clearing auth and DB');
+	        if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+	        await sessionCollection.deleteMany({});
+	        await stagingsessionCollection.deleteMany({});
+   	   } else {
+        console.log('Connection closed (not logged out). Will reconnect...');
 
-        if (!shouldReconnect) {
-			
-          console.log(
-            '\nLogged out or permanent error. Restarting the bot in 5 seconds ...\n'
-          );
-			
-          await sessionCollection.drop();
-          await stagingsessionCollection.drop();
-			
-		  // Clear local auth folder
-		  if (fs.existsSync(authDir)) {
-		    fs.rmSync(authDir, { recursive: true, force: true });
-		  }
-			
-          if (!globalThis.reconnecting) {
+        // Only reconnect if not already reconnecting
+        if (!globalThis.reconnecting) {
             globalThis.reconnecting = true;
-            //console.log('Reconnecting in 5 seconds...');
-            setTimeout(() => {
-              globalThis.reconnecting = false;
-              startBot();
+            setTimeout(async () => {
+                globalThis.reconnecting = false;
+                await startBot();
             }, 5000);
-          }
         }
+    }
+	}
       } else if (connection === 'open') {
         loggedIn = true;
         lastQR = null;
