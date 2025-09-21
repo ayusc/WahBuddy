@@ -69,18 +69,15 @@ let lastQrDataUrl = null;
 let lastQrTimestamp = 0;  
 
 io.on("connection", socket => {
-  console.log(`[IO] client connected id=${socket.id}`);
-
   socket.on("request-code", async ({ phone }) => {
     try {
-      // Use running sock or create a temporary one for pairing
-      const { state, saveCreds } = await useMultiFileAuthState(authDir);
+	  const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
 
       const sock = makeWASocket({
         version,
         auth: state,
-        browser: ['Wahbuddy', 'Chrome', '1.0'],
+        browser: ['Wahbuddy', 'Safari', '1.0'],
         logger: pino({ level: 'silent' }),
       });
 
@@ -335,7 +332,7 @@ async function restoreAuthStateFromMongo() {
 
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
-    console.warn('No session found in MongoDB. Waiting for QR scan...');
+    //console.warn('No session found in MongoDB !');
     initialConnect = true;
     return false;
   }
@@ -464,7 +461,6 @@ async function startBot() {
   sock.ev.on(
     'connection.update',
     async (update) => {
-	  //console.log('[BAILEYS] connection.update =>', JSON.stringify(update, null, 2));
       const { connection, lastDisconnect, qr } = update;
 		
       if (qr && qr !== lastQR) {
@@ -495,7 +491,6 @@ async function startBot() {
               lastQR = null;
               lastQrDataUrl = null;
               lastQrTimestamp = 0;
-              //console.log("[QR] expired and cleared from memory");
             }
           }
         }, 66_000);
