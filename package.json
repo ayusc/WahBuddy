@@ -1,0 +1,40 @@
+{
+  "name": "WahBuddy",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "latest",
+    "@vitalets/google-translate-api": "latest",
+    "axios": "^1.6.0",
+    "baileys": "github:WhiskeySockets/Baileys#master",
+    "canvas": "^2.11.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "form-data": "^4.0.0",
+    "mongodb": "^6.3.0",
+    "node-cache": "^5.1.2",
+    "node-fetch": "^3.3.2",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.34.2",
+    "weather-js": "latest",
+    "jimp": "^1.6.0",
+    "base64url": "^3.0.1",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.5"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "devDependencies": {
+    "eslint": "9.31.0",
+    "prettier": "latest"
+  },
+  "prettier": {
+    "arrowParens": "avoid",
+    "singleQuote": true,
+    "trailingComma": "es5"
+  }
+}
