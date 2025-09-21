@@ -66,22 +66,45 @@ const io = new Server(server);
 let loggedIn = false;
 let lastQR = null;     
 let lastQrDataUrl = null;
-let lastQrTimestamp = 0;     
+let lastQrTimestamp = 0;  
 
 io.on("connection", socket => {
-  console.log(`[IO] client connected id=${socket.id} total=${io.engine.clientsCount}`);
-  socket.on("disconnect", () => {
-    console.log(`[IO] client disconnected id=${socket.id} total=${io.engine.clientsCount}`);
-  });
+  console.log(`[IO] client connected id=${socket.id}`);
 
-  if (lastQrDataUrl) {
-    socket.emit("qr", lastQrDataUrl);
-    socket.emit("qr-meta", { ts: lastQrTimestamp, qrLen: lastQR?.length ?? 0 });
-  } else if (lastQR) {
-    // No server image available but raw QR exists — send raw string as fallback
-    socket.emit("qr-raw", lastQR);
-    socket.emit("qr-meta", { ts: lastQrTimestamp, qrLen: lastQR.length });
-  }
+  socket.on("request-code", async ({ phone }) => {
+    try {
+      // Use running sock or create a temporary one for pairing
+      const { state, saveCreds } = await useMultiFileAuthState(authDir);
+      const { version } = await fetchLatestBaileysVersion();
+
+      const sock = makeWASocket({
+        version,
+        auth: state,
+        browser: ['Wahbuddy', 'Chrome', '1.0'],
+        logger: pino({ level: 'silent' }),
+      });
+
+      if (!state.creds.registered) {
+        const code = await sock.requestPairingCode(phone);
+        const formatted = code.match(/.{1,4}/g).join("-");
+        socket.emit("pairing-code", formatted);
+
+        sock.ev.on("connection.update", ({ connection }) => {
+          if (connection === "open") {
+            io.emit("login-success");
+          }
+        });
+
+        sock.ev.on("creds.update", async () => {
+          await saveCreds();
+          await saveAuthStateToMongo();
+        });
+      }
+    } catch (err) {
+      console.error("Pairing code error:", err);
+      socket.emit("pairing-error", String(err));
+    }
+  });
 });
 
 app.get("/auth", (req, res) => {
@@ -93,6 +116,11 @@ app.get("/auth", (req, res) => {
         <title>WhatsApp Login</title>
         <script src="/socket.io/socket.io.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+
+        <!-- intl-tel-input -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/css/intlTelInput.css">
+        <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/intlTelInput.min.js"></script>
+
         <style>
           body {
             font-family: sans-serif;
@@ -101,95 +129,148 @@ app.get("/auth", (req, res) => {
             justify-content: center;
             align-items: center;
             height: 100vh;
-            text-align: center;
-            background-color: #f5f5f5;
             margin: 0;
+            background: #e5ddd5;
           }
-          #qr-container {
+          h1, h2 { color: #075e54; }
+          #qr-container, #phone-section, #code-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             margin-top: 20px;
-            width: 320px;
-            height: 320px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+            text-align: center;
           }
-          #status {
-            margin-bottom: 10px;
-            font-size: 1.05em;
-            color: #333;
+          #qr { width:300px; height:300px; }
+          button {
+            background: #25d366;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
           }
-          #qr {
-            max-width: 300px;
-            max-height: 300px;
+          button:hover { background: #20b858; }
+          input {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            width: 250px;
+          }
+          #pairing-code {
+            font-size: 2em;
+            letter-spacing: 10px;
+            font-weight: bold;
+            color: #128c7e;
           }
         </style>
       </head>
       <body>
-        <h1>Scan QR to Login</h1>
-        <p id="status">Waiting for QR...</p>
-        <div id="qr-container">
-          <img id="qr" src="" alt="WhatsApp QR Code" style="width:300px;height:300px;" />
+        <h1>WhatsApp Login</h1>
+
+        <!-- QR LOGIN -->
+        <div id="qr-section">
+          <p id="status">Waiting for QR...</p>
+          <div id="qr-container">
+            <img id="qr" src="" alt="WhatsApp QR Code" />
+          </div>
+          <button id="switch-to-phone">Login with phone number instead</button>
+        </div>
+
+        <!-- PHONE LOGIN -->
+        <div id="phone-section" style="display:none;">
+          <h2>Enter your phone number</h2>
+          <input id="phone" type="tel" placeholder="Phone number" />
+          <div style="margin-top:10px;">
+            <button id="send-code">Send Pairing Code</button>
+          </div>
+        </div>
+
+        <!-- PAIRING CODE -->
+        <div id="code-section" style="display:none;">
+          <h2>Enter this code in your phone</h2>
+          <div id="pairing-code"></div>
+          <p>Please check your phone for a notification asking to enter the pairing code</p>
         </div>
 
         <script>
           const socket = io();
           const statusEl = document.getElementById("status");
           const qrImg = document.getElementById("qr");
-          const qrContainer = document.getElementById("qr-container");
 
-          socket.on("connect", () => {
-            console.log("[client] connected to socket");
-            statusEl.textContent = "Connected — waiting for QR...";
+          // Switch to phone login
+          document.getElementById("switch-to-phone").onclick = () => {
+            document.getElementById("qr-section").style.display = "none";
+            document.getElementById("phone-section").style.display = "block";
+          };
+
+          // Init intl-tel-input with utilsScript inside config
+          const phoneInput = document.querySelector("#phone");
+          const iti = window.intlTelInput(phoneInput, {
+            separateDialCode: true,
+            preferredCountries: ["in", "us", "gb"],
+            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js" // IMPORTANT
           });
 
-          // Preferred: server sends an image data URL
+          // Prevent '+' in input field
+          phoneInput.addEventListener("keypress", (e) => {
+            if (e.key === "+") {
+              e.preventDefault();
+              alert("Do not enter '+' — it is automatically added based on your selected country.");
+            }
+          });
+          phoneInput.addEventListener("paste", (e) => {
+            const pasted = (e.clipboardData || window.clipboardData).getData("text");
+            if (pasted.includes("+")) {
+              e.preventDefault();
+              alert("Do not paste '+' in the phone number field.");
+            }
+          });
+
+          // Request pairing code
+          document.getElementById("send-code").onclick = () => {
+            const e164 = iti.getNumber(); // e.g. +916291933905
+            if (!iti.isValidNumber()) {
+              alert("Please enter a valid phone number.");
+              return;
+            }
+            const phoneForServer = e164.replace(/^\\+/, ""); // strip leading +
+            socket.emit("request-code", { phone: phoneForServer });
+
+            document.getElementById("phone-section").style.display = "none";
+            document.getElementById("code-section").style.display = "block";
+          };
+
+          // QR from server
           socket.on("qr", qrDataUrl => {
-            // restore img mode
-            qrContainer.innerHTML = '<img id="qr" src="" alt="WhatsApp QR Code" style="width:300px;height:300px;" />';
-            const imgEl = document.getElementById("qr");
-            imgEl.src = qrDataUrl;
+            qrImg.src = qrDataUrl;
             statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
-            console.log("[client] got qr (dataURL)");
           });
 
-          // Fallback: server sends raw QR text (use qrcodejs to render)
           socket.on("qr-raw", qr => {
-            qrContainer.innerHTML = '<div id="qrcodejs"></div>';
-            const cont = document.getElementById("qrcodejs");
-            try {
-              new QRCode(cont, {
-                text: qr,
-                width: 300,
-                height: 300,
-                correctLevel: QRCode.CorrectLevel.L
-              });
-              statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
-              console.log("[client] rendered qr from raw string");
-            } catch (e) {
-              console.error("[client] failed to render qr-raw", e);
-              statusEl.textContent = "Failed to render QR (fallback). Check server logs.";
-            }
+            new QRCode(document.getElementById("qr-container"), {
+              text: qr, width: 300, height: 300,
+              correctLevel: QRCode.CorrectLevel.L
+            });
+            statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
           });
 
-          // meta info (timestamp, length)
-          socket.on("qr-meta", meta => {
-            const ageMs = (Date.now() - meta.ts) || 0;
-            if (ageMs > 45_000) {
-              statusEl.textContent = "QR arrived late — requesting a new one...";
-            } else {
-              statusEl.textContent = \`QR ready (generated \${Math.round(ageMs/1000)}s ago). Scan with WhatsApp.\`;
-            }
-            console.log("[client] qr-meta", meta, "ageMs=", ageMs);
+          // Pairing code from server
+          socket.on("pairing-code", code => {
+            document.getElementById("pairing-code").textContent = code;
           });
 
-          socket.on("qr-error", e => {
-            console.error("[client] qr error", e);
-            statusEl.textContent = "Server failed to create QR. Check logs. (Try reloading this page)";
+          // Errors
+          socket.on("qr-error", () => {
+            statusEl.textContent = "Failed to create QR. Try reload.";
+          });
+          socket.on("pairing-error", e => {
+            document.getElementById("pairing-code").textContent = "Error: " + e;
           });
 
+          // Login success
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
@@ -265,9 +346,8 @@ async function restoreAuthStateFromMongo() {
     }
     console.log('Session restored from MongoDB');
     return true;
-  } except {
+  } finally {
     console.error("Failed to restore session from MongoDB !");
-
     await sessionCollection.deleteMany({});
     await stagingsessionCollection.deleteMany({});
     if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
@@ -347,9 +427,6 @@ async function startBot() {
   contactsCollection = db.collection('contacts');
 
   const restored = await restoreAuthStateFromMongo();
-  if (!restored) {
-	  console.log(">> Please open QR page and scan to login.");
-  }
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
@@ -366,7 +443,7 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: ['Wahbuddy', 'Firefox', '1.0'],
+    browser: ['Wahbuddy', 'Safari', '1.0'],
     syncFullHistory: true,
     getMessage,
     generateHighQualityLinkPreview: true,
@@ -401,7 +478,6 @@ async function startBot() {
             lastQrDataUrl = qrDataUrl;
             io.emit("qr", qrDataUrl);
             io.emit("qr-meta", { ts: lastQrTimestamp, qrLen: qr.length });
-            console.log(`[QR] generated ts=${new Date(lastQrTimestamp).toISOString()} length=${qr.length} dataurl_len=${qrDataUrl.length}`);
           } catch (err) {
             console.error("Failed to generate QR image:", err);
             io.emit("qr-raw", qr);
@@ -411,7 +487,7 @@ async function startBot() {
           lastQrDataUrl = null;
         }
 
-        console.log(`QR Generated. Open ${SITE_URL}/auth to scan.`);
+        console.log(`Please visit ${SITE_URL}/auth to get the login instructions.`);
         
         setTimeout(() => {
           if (lastQrTimestamp && (Date.now() - lastQrTimestamp) > 65_000) {
