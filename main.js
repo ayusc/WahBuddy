@@ -110,7 +110,7 @@ app.get("/auth", (req, res) => {
   res.send(`
     <html>
       <head>
-        <title>WhatsApp Login</title>
+        <title>WahBuddy Login</title>
         <script src="/socket.io/socket.io.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 
@@ -165,9 +165,8 @@ app.get("/auth", (req, res) => {
         </style>
       </head>
       <body>
-        <h1>WhatsApp Login</h1>
+        <h1>WahBuddy Login</h1>
 
-        <!-- QR LOGIN -->
         <div id="qr-section">
           <p id="status">Waiting for QR...</p>
           <div id="qr-container">
@@ -176,7 +175,6 @@ app.get("/auth", (req, res) => {
           <button id="switch-to-phone">Login with phone number instead</button>
         </div>
 
-        <!-- PHONE LOGIN -->
         <div id="phone-section" style="display:none;">
           <h2>Enter your phone number</h2>
           <input id="phone" type="tel" placeholder="Phone number" />
@@ -185,7 +183,6 @@ app.get("/auth", (req, res) => {
           </div>
         </div>
 
-        <!-- PAIRING CODE -->
         <div id="code-section" style="display:none;">
           <h2>Enter this code in your phone</h2>
           <div id="pairing-code"></div>
@@ -197,21 +194,19 @@ app.get("/auth", (req, res) => {
           const statusEl = document.getElementById("status");
           const qrImg = document.getElementById("qr");
 
-          // Switch to phone login
           document.getElementById("switch-to-phone").onclick = () => {
             document.getElementById("qr-section").style.display = "none";
             document.getElementById("phone-section").style.display = "block";
+            document.getElementById("phone").focus(); // autofocus
           };
 
-          // Init intl-tel-input with utilsScript inside config
           const phoneInput = document.querySelector("#phone");
           const iti = window.intlTelInput(phoneInput, {
             separateDialCode: true,
             preferredCountries: ["in", "us", "gb"],
-            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js" // IMPORTANT
+            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js"
           });
 
-          // Prevent '+' in input field
           phoneInput.addEventListener("keypress", (e) => {
             if (e.key === "+") {
               e.preventDefault();
@@ -226,21 +221,22 @@ app.get("/auth", (req, res) => {
             }
           });
 
-          // Request pairing code
-          document.getElementById("send-code").onclick = () => {
-            const e164 = iti.getNumber(); // e.g. +916291933905
+          document.getElementById("send-code").onclick = async () => {
+            await iti.promise; // wait for utils.js
+
+            const e164 = iti.getNumber(); // full number e.g. +14155552671
             if (!iti.isValidNumber()) {
               alert("Please enter a valid phone number.");
               return;
             }
-            const phoneForServer = e164.replace(/^\\+/, ""); // strip leading +
+
+            const phoneForServer = e164.replace(/^\\+/, ""); // strip +
             socket.emit("request-code", { phone: phoneForServer });
 
             document.getElementById("phone-section").style.display = "none";
             document.getElementById("code-section").style.display = "block";
           };
 
-          // QR from server
           socket.on("qr", qrDataUrl => {
             qrImg.src = qrDataUrl;
             statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
@@ -254,12 +250,10 @@ app.get("/auth", (req, res) => {
             statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
           });
 
-          // Pairing code from server
           socket.on("pairing-code", code => {
             document.getElementById("pairing-code").textContent = code;
           });
 
-          // Errors
           socket.on("qr-error", () => {
             statusEl.textContent = "Failed to create QR. Try reload.";
           });
@@ -267,7 +261,6 @@ app.get("/auth", (req, res) => {
             document.getElementById("pairing-code").textContent = "Error: " + e;
           });
 
-          // Login success
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
