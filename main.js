@@ -71,13 +71,13 @@ let lastQrTimestamp = 0;
 io.on('connection', socket => {
   socket.on('request-code', async ({ phone }) => {
     try {
-	  const mongoClient = new MongoClient(mongoUri);
-	  db = mongoClient.db(dbName);
-	  sessionCollection = db.collection('wahbuddy_sessions');
-	  stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
+      const mongoClient = new MongoClient(mongoUri);
+      db = mongoClient.db(dbName);
+      sessionCollection = db.collection('wahbuddy_sessions');
+      stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
       const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-		
+
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
@@ -97,8 +97,12 @@ io.on('connection', socket => {
           const formatted = code.match(/.{1,4}/g).join('-');
           socket.emit('pairing-code', formatted);
         } catch (err) {
+          let msg = String(err);
+          if (msg.includes("precondition required")) {
+            msg = "WhatsApp rejected pairing (precondition required). Try restarting WhatsApp, ensure you're logged in, and retry in a few minutes.";
+          }
           console.error('Failed to get pairing code:', err);
-          socket.emit('pairing-error', String(err));
+          socket.emit('pairing-error', msg);
           return;
         }
       }
@@ -106,19 +110,24 @@ io.on('connection', socket => {
       sock.ev.on('connection.update', ({ connection }) => {
         if (connection === 'open') {
           io.emit('login-success');
+          startbot(sock); // <-- Call startbot after login
         }
       });
 
-	  sock.ev.on(
-      'creds.update',
-      debounce(async () => {
-      await saveCreds();
-      await saveAuthStateToMongo();
-      }, 1000)
+      sock.ev.on(
+        'creds.update',
+        debounce(async () => {
+          await saveCreds();
+          await saveAuthStateToMongo();
+        }, 1000)
       );
     } catch (err) {
+      let msg = String(err);
+      if (msg.includes("precondition required")) {
+        msg = "WhatsApp rejected pairing (precondition required). Try restarting WhatsApp, ensure you're logged in, and retry in a few minutes.";
+      }
       console.error('Pairing code error:', err);
-      socket.emit('pairing-error', String(err));
+      socket.emit('pairing-error', msg);
     }
   });
 });
@@ -145,6 +154,16 @@ app.get("/auth", (req, res) => {
             min-height: 100vh;
             margin: 0;
             background: #e5ddd5;
+          }
+          .centered-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 14px;
+          }
+          .logo-img {
+            width: 80px;
+            margin-bottom: 8px;
           }
           h1, h2 { color: #075e54; }
           .card, #qr-container, #phone-section, #code-section {
@@ -188,6 +207,26 @@ app.get("/auth", (req, res) => {
             box-sizing: border-box;
             display: block;
           }
+          .pairing-code {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+          }
+          .pairing-char {
+            font-size: 2.2em;
+            font-weight: bold;
+            border: 2px solid #075e54;
+            border-radius: 8px;
+            background: #e5ddd5;
+            padding: 18px 12px;
+            min-width: 38px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(7,94,84,0.08);
+            letter-spacing: 2px;
+            transition: background .2s;
+          }
           @media (max-width: 480px) {
             .card, #qr-container, #phone-section, #code-section {
               max-width: 98vw;
@@ -197,6 +236,7 @@ app.get("/auth", (req, res) => {
               max-width: 95vw;
               font-size: 18px;
             }
+            .pairing-char { font-size: 1.5em; padding: 12px 8px; min-width: 28px; }
           }
           @media (orientation: landscape) and (max-width: 900px) {
             .card, #qr-container, #phone-section, #code-section {
@@ -211,7 +251,10 @@ app.get("/auth", (req, res) => {
         </style>
       </head>
       <body>
-        <h1>WahBuddy Login</h1>
+        <div class="centered-header">
+          <img src="/wahbuddy-logo.png" class="logo-img" alt="WahBuddy Logo" onerror="this.style.display='none';">
+          <h1 style="margin-bottom:0;">WahBuddy Login</h1>
+        </div>
         <div id="qr-section">
           <p id="status">Waiting for QR...</p>
           <div id="qr-container">
@@ -228,7 +271,7 @@ app.get("/auth", (req, res) => {
         </div>
         <div id="code-section" style="display:none;">
           <h2>Enter this code in your phone</h2>
-          <div id="pairing-code"></div>
+          <div id="pairing-code" class="pairing-code"></div>
           <p>Please check your phone for a notification asking to enter the pairing code</p>
         </div>
         <script>
@@ -270,16 +313,37 @@ app.get("/auth", (req, res) => {
             statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
           });
           socket.on("pairing-code", code => {
-            document.getElementById("pairing-code").textContent = code;
+            const container = document.getElementById("pairing-code");
+            container.innerHTML = "";
+            code.split("-").forEach((group, i, arr) => {
+              for (const char of group) {
+                const el = document.createElement("span");
+                el.className = "pairing-char";
+                el.textContent = char;
+                container.appendChild(el);
+              }
+              if (i !== arr.length - 1) {
+                // Add space between groups
+                const spacer = document.createElement("span");
+                spacer.style.width = "12px";
+                container.appendChild(spacer);
+              }
+            });
           });
           socket.on("qr-error", () => {
             statusEl.textContent = "Failed to create QR. Try reload.";
           });
           socket.on("pairing-error", e => {
-            document.getElementById("pairing-code").textContent = "Error: " + e;
+            const container = document.getElementById("pairing-code");
+            container.innerHTML = "";
+            const errorSpan = document.createElement("span");
+            errorSpan.textContent = "Error: " + e;
+            errorSpan.style.color = "#c00";
+            errorSpan.style.fontWeight = "bold";
+            container.appendChild(errorSpan);
           });
           socket.on("login-success", () => {
-            document.body.innerHTML = "<h1>Successfully Logged in !</h1><p>Window will close in 5 seconds...</p>";
+            document.body.innerHTML = "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;'><h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p></div>";
             setTimeout(() => window.close(), 5000);
           });
         </script>
