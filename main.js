@@ -69,17 +69,14 @@ let lastQrDataUrl = null;
 let lastQrTimestamp = 0;  
 
 io.on('connection', socket => {
-  console.log('Client connected');
-
   socket.on('request-code', async ({ phone }) => {
-    try {
+	  const mongoClient = new MongoClient(mongoUri);
+	  db = mongoClient.db(dbName);
+	  sessionCollection = db.collection('wahbuddy_sessions');
+	  stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
       const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-
-      const mongo = new MongoClient(MONGO_URI);
-      await mongo.connect();
-      const db = mongo.db(dbName);
-
+		
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
@@ -180,12 +177,12 @@ app.get("/auth", (req, res) => {
 			
 		  #phone {
 			  padding: 8px;
-			  padding-left: 60px !important; /* more space for the flag selector */
+			  padding-left: 60px !important;
 			  margin: 5px 0;
 			  border-radius: 6px;
 			  border: 1px solid #ccc;
-			  width: 100%; /* full width for responsiveness */
-			  max-width: 300px; /* keep nice size on desktop */
+			  width: 100%; 
+			  max-width: 300px; 
 			  box-sizing: border-box;
 			}
 			
@@ -274,7 +271,7 @@ app.get("/auth", (req, res) => {
           });
 
           document.getElementById("send-code").onclick = async () => {
-            await iti.promise; // wait for utils.js
+            await iti.promise;
 
             let rawInput = phoneInput.value.trim().replace(/[\\s\\-()]/g, "");
 
