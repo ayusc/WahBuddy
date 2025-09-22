@@ -71,61 +71,62 @@ let lastQrTimestamp = 0;
 io.on('connection', socket => {
   socket.on('request-code', async ({ phone }) => {
     try {
-	  const mongoClient = new MongoClient(mongoUri);
-	  db = mongoClient.db(dbName);
-	  sessionCollection = db.collection('wahbuddy_sessions');
-	  stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
+      const mongoClient = new MongoClient(mongoUri);
+      db = mongoClient.db(dbName);
+      sessionCollection = db.collection('wahbuddy_sessions');
+      stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
       const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-		
+
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
 
       const sock = makeWASocket({
-		  version,
-		  auth: state,
-		  browser: ['Wahbuddy', 'Safari', '1.0'],
-		  printQRInTerminal: false,
-		  defaultQueryTimeoutMs: undefined,
-		  logger: pino({ level: 'silent' }),
-	  });
-		
-	  if (!state.creds.registered) {
-let pairingRequested = false;
+        version,
+        auth: state,
+        browser: ['Wahbuddy', 'Safari', '1.0'],
+        printQRInTerminal: false,
+        defaultQueryTimeoutMs: undefined,
+        logger: pino({ level: 'silent' }),
+      });
 
-sock.ev.on('connection.update', async ({ connection }) => {
-  console.log("[Pairing] Connection status:", connection);
-  if (!pairingRequested && connection === 'open') {
-    pairingRequested = true;
-    try {
-      const code = await sock.requestPairingCode(cleanPhone);
-      console.log("Pairing code received:", code);
-      if (!code) {
-        socket.emit('pairing-error', 'No code received! WhatsApp may not support this account or number.');
-      } else {
-        const formatted = code.match(/.{1,4}/g).join('-');
-        socket.emit('pairing-code', formatted);
-      }
-    } catch (err) {
-      console.error('Failed to get pairing code:', err);
-      socket.emit('pairing-error', String(err));
-    }
-  }
-});
-	  }
-      sock.ev.on('connection.update', ({ connection }) => {
+      let pairingRequested = false;
+
+      // Single connection.update handler for both pairing and login-success
+      sock.ev.on('connection.update', async ({ connection }) => {
+        console.log("[Pairing] Connection status:", connection);
+
+        // Pairing code logic (only runs once)
+        if (!pairingRequested && !state.creds.registered && connection === 'open') {
+          pairingRequested = true;
+          try {
+            const code = await sock.requestPairingCode(cleanPhone);
+            console.log("Pairing code received:", code);
+            if (!code) {
+              socket.emit('pairing-error', 'No code received! WhatsApp may not support this account or number.');
+            } else {
+              const formatted = code.match(/.{1,4}/g).join('-');
+              socket.emit('pairing-code', formatted);
+            }
+          } catch (err) {
+            console.error('Failed to get pairing code:', err);
+            socket.emit('pairing-error', String(err));
+          }
+        }
+
+        // Login success logic
         if (connection === 'open') {
           io.emit('login-success');
         }
       });
 
-	  sock.ev.on(
-      'creds.update',
-      debounce(async () => {
-      await saveCreds();
-      await saveAuthStateToMongo();
-      }, 1000)
+      sock.ev.on(
+        'creds.update',
+        debounce(async () => {
+          await saveCreds();
+          await saveAuthStateToMongo();
+        }, 1000)
       );
     } catch (err) {
       console.error('Pairing code error:', err);
