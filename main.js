@@ -83,7 +83,6 @@ io.on('connection', socket => {
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
 
-      // Use built-in browser signature for compatibility
       const sock = makeWASocket({
         version,
         auth: state,
@@ -95,7 +94,7 @@ io.on('connection', socket => {
 
       if (!state.creds.registered) {
         try {
-          // Request pairing code directly after socket creation!
+          console.log(cleanPhone);
           const code = await sock.requestPairingCode(cleanPhone);
           console.log("Pairing code received:", code);
           if (!code) {
@@ -132,7 +131,6 @@ io.on('connection', socket => {
 
 app.get("/auth", (req, res) => {
   if (loggedIn) return res.status(404).send("Already logged in!");
-
   res.send(`
     <html>
       <head>
