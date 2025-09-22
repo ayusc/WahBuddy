@@ -78,11 +78,12 @@ io.on('connection', socket => {
       stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
       const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-
+      
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
 
+      // Use built-in browser signature for compatibility
       const sock = makeWASocket({
         version,
         auth: state,
@@ -92,31 +93,24 @@ io.on('connection', socket => {
         logger: pino({ level: 'silent' }),
       });
 
-      let pairingRequested = false;
-
-      // Single connection.update handler for both pairing and login-success
-      sock.ev.on('connection.update', async ({ connection }) => {
-        console.log("[Pairing] Connection status:", connection);
-
-        // Pairing code logic (only runs once)
-        if (!pairingRequested && !state.creds.registered && connection === 'open') {
-          pairingRequested = true;
-          try {
-            const code = await sock.requestPairingCode(cleanPhone);
-            console.log("Pairing code received:", code);
-            if (!code) {
-              socket.emit('pairing-error', 'No code received! WhatsApp may not support this account or number.');
-            } else {
-              const formatted = code.match(/.{1,4}/g).join('-');
-              socket.emit('pairing-code', formatted);
-            }
-          } catch (err) {
-            console.error('Failed to get pairing code:', err);
-            socket.emit('pairing-error', String(err));
+      if (!state.creds.registered) {
+        try {
+          // Request pairing code directly after socket creation!
+          const code = await sock.requestPairingCode(cleanPhone);
+          console.log("Pairing code received:", code);
+          if (!code) {
+            socket.emit('pairing-error', 'No code received! WhatsApp may not support this account or number.');
+          } else {
+            const formatted = code.match(/.{1,4}/g).join('-');
+            socket.emit('pairing-code', formatted);
           }
+        } catch (err) {
+          console.error('Failed to get pairing code:', err);
+          socket.emit('pairing-error', String(err));
         }
+      }
 
-        // Login success logic
+      sock.ev.on('connection.update', ({ connection }) => {
         if (connection === 'open') {
           io.emit('login-success');
         }
