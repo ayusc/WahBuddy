@@ -92,17 +92,19 @@ io.on('connection', socket => {
 	  });
 		
 	  if (!state.creds.registered) {
-		  sock.ev.once('connection.update', async ({ connection }) => {
-		    if (connection === 'open') {
-		      try {
-		        const code = await sock.requestPairingCode(cleanPhone); 
-		        const formatted = code.match(/.{1,4}/g).join('-');
-		        socket.emit('pairing-code', formatted);
-		      } catch (err) {
-		        console.error('Failed to get pairing code:', err);
-		        socket.emit('pairing-error', String(err));
-		      }
-		    }
+		  let pairingRequested = false; 
+		  sock.ev.on('connection.update', async ({ connection }) => {
+			  if (!pairingRequested && connection === 'open') {
+			    pairingRequested = true; // Prevent repeated calls
+			    try {
+			      const code = await sock.requestPairingCode(cleanPhone);
+			      const formatted = code.match(/.{1,4}/g).join('-');
+			      socket.emit('pairing-code', formatted);
+			    } catch (err) {
+			      console.error('Failed to get pairing code:', err);
+			      socket.emit('pairing-error', String(err));
+			    }
+			  }
 		  });
 	  }
       sock.ev.on('connection.update', ({ connection }) => {
