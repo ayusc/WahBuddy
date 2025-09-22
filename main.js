@@ -68,38 +68,59 @@ let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;  
 
-io.on("connection", socket => {
-  socket.on("request-code", async ({ phone }) => {
+io.on('connection', socket => {
+  console.log('Client connected');
+
+  socket.on('request-code', async ({ phone }) => {
     try {
-	  const { state, saveCreds } = await useMultiFileAuthState(authDir);
+
+      const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
+
+      const mongo = new MongoClient(MONGO_URI);
+      await mongo.connect();
+      const db = mongo.db(dbName);
+
+      fs.mkdirSync(authDir, { recursive: true });
+      const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
 
       const sock = makeWASocket({
         version,
         auth: state,
         browser: ['Wahbuddy', 'Safari', '1.0'],
+        printQRInTerminal: false,
+        defaultQueryTimeoutMs: undefined,
         logger: pino({ level: 'silent' }),
       });
 
       if (!state.creds.registered) {
-        const code = await sock.requestPairingCode(phone);
-        const formatted = code.match(/.{1,4}/g).join("-");
-        socket.emit("pairing-code", formatted);
-
-        sock.ev.on("connection.update", ({ connection }) => {
-          if (connection === "open") {
-            io.emit("login-success");
-          }
-        });
-
-        sock.ev.on("creds.update", async () => {
-          await saveCreds();
-          await saveAuthStateToMongo();
-        });
+        try {
+          const code = await sock.requestPairingCode(cleanPhone);
+          const formatted = code.match(/.{1,4}/g).join('-');
+          socket.emit('pairing-code', formatted);
+        } catch (err) {
+          console.error('Failed to get pairing code:', err);
+          socket.emit('pairing-error', String(err));
+          return;
+        }
       }
+
+      sock.ev.on('connection.update', ({ connection }) => {
+        if (connection === 'open') {
+          io.emit('login-success');
+        }
+      });
+
+	  sock.ev.on(
+      'creds.update',
+      debounce(async () => {
+      await saveCreds();
+      await saveAuthStateToMongo();
+      }, 1000)
+      );
     } catch (err) {
-      console.error("Pairing code error:", err);
-      socket.emit("pairing-error", String(err));
+      console.error('Pairing code error:', err);
+      socket.emit('pairing-error', String(err));
     }
   });
 });
@@ -149,32 +170,64 @@ app.get("/auth", (req, res) => {
             margin-top: 15px;
           }
           button:hover { background: #20b858; }
-          .iti {
- 			 width: 100% !important;
-		  }
-
+		  .iti {
+			  width: 100% !important;
+			}
+			
 		  .iti__flag-container {
-			 margin-left: 8px;
-		  }
-
+			  left: 10px;
+			}
+			
 		  #phone {
-  			padding-left: 52px !important; 
-		  }
-
-          #phone {
 			  padding: 8px;
-			  padding-left: 52px !important; /* extra space for flag selector */
-			  margin: 5px;
+			  padding-left: 60px !important; /* more space for the flag selector */
+			  margin: 5px 0;
 			  border-radius: 6px;
 			  border: 1px solid #ccc;
-			  width: 250px;
-		  }
-          #pairing-code {
-            font-size: 2em;
-            letter-spacing: 10px;
-            font-weight: bold;
-            color: #128c7e;
-          }
+			  width: 100%; /* full width for responsiveness */
+			  max-width: 300px; /* keep nice size on desktop */
+			  box-sizing: border-box;
+			}
+			
+		 .card {
+			  width: 90%;
+			  max-width: 400px;
+			  padding: 20px;
+			  box-sizing: border-box;
+			}
+			
+		  button {
+			  width: 100%;
+			  max-width: 300px;
+			  padding: 10px;
+			  border-radius: 6px;
+			  border: none;
+			  background: #28d17c;
+			  color: white;
+			  font-size: 16px;
+			  cursor: pointer;
+			  transition: background 0.2s;
+			}
+			
+		  button:hover {
+			  background: #20b858;
+			}
+			
+		  @media (max-width: 480px) {
+			  #phone {
+			    max-width: 100%;
+			    font-size: 16px;
+			  }
+			
+			  button {
+			    max-width: 100%;
+			    font-size: 16px;
+			  }
+			
+			  .card {
+			    padding: 15px;
+			  }
+			}
         </style>
       </head>
       <body>
