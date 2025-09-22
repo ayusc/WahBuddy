@@ -169,10 +169,7 @@ app.get("/auth", (req, res) => {
             align-items: center;
             margin-bottom: 14px;
           }
-          .logo-img {
-            width: 80px;
-            margin-bottom: 8px;
-          }
+          .logo-img { width: 80px; margin-bottom: 8px; }
           h1, h2 { color: #075e54; }
           .card, #qr-container, #phone-section, #code-section {
             background: #fff;
@@ -200,20 +197,11 @@ app.get("/auth", (req, res) => {
           .iti {
             width: 100% !important;
             max-width: 300px;
-            position: relative;
-            display: block;
-          }
-          .iti__flag-container {
-            left: 10px;
-            position: absolute;
-            z-index: 2;
           }
           #phone {
-            padding-left: 80px !important;
             width: 100%;
             max-width: 300px;
             box-sizing: border-box;
-            display: block;
           }
           .pairing-code {
             display: flex;
@@ -231,30 +219,6 @@ app.get("/auth", (req, res) => {
             padding: 18px 12px;
             min-width: 38px;
             text-align: center;
-            box-shadow: 0 2px 6px rgba(7,94,84,0.08);
-            letter-spacing: 2px;
-            transition: background .2s;
-          }
-          @media (max-width: 480px) {
-            .card, #qr-container, #phone-section, #code-section {
-              max-width: 98vw;
-              padding: 5vw 2vw;
-            }
-            #qr, button, #phone {
-              max-width: 95vw;
-              font-size: 18px;
-            }
-            .pairing-char { font-size: 1.5em; padding: 12px 8px; min-width: 28px; }
-          }
-          @media (orientation: landscape) and (max-width: 900px) {
-            .card, #qr-container, #phone-section, #code-section {
-              max-width: 80vw;
-              padding: 3vw 2vw;
-            }
-            #qr, button, #phone {
-              max-width: 80vw;
-              font-size: 16px;
-            }
           }
         </style>
       </head>
@@ -298,18 +262,14 @@ app.get("/auth", (req, res) => {
             utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js"
           });
           document.getElementById("send-code").onclick = () => {
-            let rawInput = phoneInput.value.trim().replace(/[\\s\\-()]/g, "");
-            if (!/^\\d+$/.test(rawInput)) {
-              alert("Please enter digits only (no letters or special characters).");
+            let number = phoneInput.value.replace(/\\D/g, "");
+            let fullNumber = iti.getSelectedCountryData().dialCode ? "+" + iti.getSelectedCountryData().dialCode + number : number;
+            if (!number) {
+              alert("Enter a phone number.");
               return;
             }
-            const e164 = iti.getNumber();
-            if (!e164) {
-              alert("Invalid phone number.");
-              return;
-            }
-            console.log("Sending phone to server:", e164);
-            socket.emit("request-code", { phone: e164 });
+            console.log("Sending phone to server:", fullNumber);
+            socket.emit("request-code", { phone: fullNumber });
             document.getElementById("phone-section").style.display = "none";
             document.getElementById("code-section").style.display = "block";
           };
