@@ -92,10 +92,8 @@ io.on('connection', socket => {
 	  });
 		
 	  if (!state.creds.registered) {
-		  let pairingRequested = false; 
 		  sock.ev.on('connection.update', async ({ connection }) => {
-			  if (!pairingRequested && connection === 'open') {
-			    pairingRequested = true; // Prevent repeated calls
+			  if (connection === 'open') {
 			    try {
 			      const code = await sock.requestPairingCode(cleanPhone);
 			      const formatted = code.match(/.{1,4}/g).join('-');
