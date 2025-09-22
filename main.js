@@ -149,7 +149,8 @@ app.get("/auth", (req, res) => {
             margin-top: 15px;
           }
           button:hover { background: #20b858; }
-          input {
+          .iti { width: 100%; }
+          #phone {
             padding: 8px;
             margin: 5px;
             border-radius: 6px;
@@ -210,16 +211,17 @@ app.get("/auth", (req, res) => {
           document.getElementById("send-code").onclick = async () => {
             await iti.promise; // wait for utils.js
 
-            const rawInput = phoneInput.value.trim();
+            // Clean spaces, dashes, parentheses
+            let rawInput = phoneInput.value.trim().replace(/[\\s\\-()]/g, "");
 
-            // ✅ Digits only check
+            // Digits only
             if (!/^\\d+$/.test(rawInput)) {
-              alert("Please enter digits only (no +, spaces, or letters).");
+              alert("Please enter digits only (no letters or special characters).");
               return;
             }
 
-            // Get full number with country code (e.g. +911234567890)
-            const e164 = iti.getNumber();
+            // Get full number with country code
+            const e164 = iti.getNumber(); // e.g. +911234567890
             const phoneForServer = e164.replace(/^\\+/, ""); // strip +
 
             socket.emit("request-code", { phone: phoneForServer });
