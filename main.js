@@ -149,14 +149,26 @@ app.get("/auth", (req, res) => {
             margin-top: 15px;
           }
           button:hover { background: #20b858; }
-          .iti { width: 100%; }
+          .iti {
+ 			 width: 100% !important;
+		  }
+
+		  .iti__flag-container {
+			 margin-left: 8px;
+		  }
+
+		  #phone {
+  			padding-left: 52px !important; 
+		  }
+
           #phone {
-            padding: 8px;
-            margin: 5px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            width: 250px;
-          }
+			  padding: 8px;
+			  padding-left: 52px !important; /* extra space for flag selector */
+			  margin: 5px;
+			  border-radius: 6px;
+			  border: 1px solid #ccc;
+			  width: 250px;
+		  }
           #pairing-code {
             font-size: 2em;
             letter-spacing: 10px;
@@ -211,18 +223,15 @@ app.get("/auth", (req, res) => {
           document.getElementById("send-code").onclick = async () => {
             await iti.promise; // wait for utils.js
 
-            // Clean spaces, dashes, parentheses
             let rawInput = phoneInput.value.trim().replace(/[\\s\\-()]/g, "");
 
-            // Digits only
             if (!/^\\d+$/.test(rawInput)) {
               alert("Please enter digits only (no letters or special characters).");
               return;
             }
 
-            // Get full number with country code
-            const e164 = iti.getNumber(); // e.g. +911234567890
-            const phoneForServer = e164.replace(/^\\+/, ""); // strip +
+            const e164 = iti.getNumber();
+            const phoneForServer = e164.replace(/^\\+/, ""); 
 
             socket.emit("request-code", { phone: phoneForServer });
 
@@ -255,7 +264,7 @@ app.get("/auth", (req, res) => {
           });
 
           socket.on("login-success", () => {
-            document.body.innerHTML = "<h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p>";
+            document.body.innerHTML = "<h1>Successfully Logged in !</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
           });
         </script>
