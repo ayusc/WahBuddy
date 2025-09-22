@@ -133,11 +133,8 @@ app.get("/auth", (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="/socket.io/socket.io.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-
-        <!-- intl-tel-input -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/css/intlTelInput.css">
         <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/intlTelInput.min.js"></script>
-
         <style>
           body {
             font-family: sans-serif;
@@ -150,9 +147,9 @@ app.get("/auth", (req, res) => {
             background: #e5ddd5;
           }
           h1, h2 { color: #075e54; }
-          #qr-container, #phone-section, #code-section, .card {
+          .card, #qr-container, #phone-section, #code-section {
             background: #fff;
-            width: 96vw;
+            width: 100%;
             max-width: 400px;
             margin: 10px auto;
             padding: 20px;
@@ -161,60 +158,60 @@ app.get("/auth", (req, res) => {
             box-sizing: border-box;
             text-align: center;
           }
-          #qr { width: 80vw; max-width: 300px; height: auto; display: block; margin: 0 auto; }
-          button {
-            background: #25d366;
-            color: white;
+          #qr {
             width: 100%;
             max-width: 300px;
-            padding: 10px 0;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 15px;
-            font-size: 16px;
-            transition: background 0.2s;
+            height: auto;
+            display: block;
+            margin: 0 auto;
           }
-          button:hover { background: #20b858; }
+          button, #phone {
+            width: 100%;
+            max-width: 300px;
+            font-size: 16px;
+          }
           .iti {
             width: 100% !important;
             max-width: 300px;
-            box-sizing: border-box;
             position: relative;
+            display: block;
           }
           .iti__flag-container {
-            left: 0;
+            left: 10px;
             position: absolute;
             z-index: 2;
           }
           #phone {
-            padding: 8px;
-            padding-left: 50px !important;
-            margin: 5px 0;
-            border-radius: 6px;
-            border: 1px solid #ccc;
+            padding-left: 80px !important;
             width: 100%;
             max-width: 300px;
             box-sizing: border-box;
-            font-size: 16px;
+            display: block;
           }
-          @media (max-width: 480px), (orientation: landscape) {
-            body { font-size: 18px; }
+          @media (max-width: 480px) {
             .card, #qr-container, #phone-section, #code-section {
               max-width: 98vw;
               padding: 5vw 2vw;
             }
-            #qr { max-width: 90vw; }
-            button, #phone {
-              max-width: 90vw;
+            #qr, button, #phone {
+              max-width: 95vw;
               font-size: 18px;
+            }
+          }
+          @media (orientation: landscape) and (max-width: 900px) {
+            .card, #qr-container, #phone-section, #code-section {
+              max-width: 80vw;
+              padding: 3vw 2vw;
+            }
+            #qr, button, #phone {
+              max-width: 80vw;
+              font-size: 16px;
             }
           }
         </style>
       </head>
       <body>
         <h1>WahBuddy Login</h1>
-
         <div id="qr-section">
           <p id="status">Waiting for QR...</p>
           <div id="qr-container">
@@ -222,7 +219,6 @@ app.get("/auth", (req, res) => {
           </div>
           <button id="switch-to-phone">Login with phone number instead</button>
         </div>
-
         <div id="phone-section" style="display:none;">
           <h2>Enter your phone number</h2>
           <input id="phone" type="tel" placeholder="Phone number" />
@@ -230,53 +226,42 @@ app.get("/auth", (req, res) => {
             <button id="send-code">Send Pairing Code</button>
           </div>
         </div>
-
         <div id="code-section" style="display:none;">
           <h2>Enter this code in your phone</h2>
           <div id="pairing-code"></div>
           <p>Please check your phone for a notification asking to enter the pairing code</p>
         </div>
-
         <script>
           const socket = io();
           const statusEl = document.getElementById("status");
           const qrImg = document.getElementById("qr");
-
           document.getElementById("switch-to-phone").onclick = () => {
             document.getElementById("qr-section").style.display = "none";
             document.getElementById("phone-section").style.display = "block";
-            document.getElementById("phone").focus(); // autofocus
+            document.getElementById("phone").focus();
           };
-
           const phoneInput = document.querySelector("#phone");
           const iti = window.intlTelInput(phoneInput, {
             separateDialCode: true,
             preferredCountries: ["in", "us", "gb"],
             utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js"
           });
-
           document.getElementById("send-code").onclick = async () => {
             await iti.promise;
-
             let rawInput = phoneInput.value.trim().replace(/[\\s\\-()]/g, "");
-
             if (!/^\\d+$/.test(rawInput)) {
               alert("Please enter digits only (no letters or special characters).");
               return;
             }
-
             const e164 = iti.getNumber(); // includes '+'
             socket.emit("request-code", { phone: e164 });
-
             document.getElementById("phone-section").style.display = "none";
             document.getElementById("code-section").style.display = "block";
           };
-
           socket.on("qr", qrDataUrl => {
             qrImg.src = qrDataUrl;
             statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
           });
-
           socket.on("qr-raw", qr => {
             new QRCode(document.getElementById("qr-container"), {
               text: qr, width: 300, height: 300,
@@ -284,18 +269,15 @@ app.get("/auth", (req, res) => {
             });
             statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
           });
-
           socket.on("pairing-code", code => {
             document.getElementById("pairing-code").textContent = code;
           });
-
           socket.on("qr-error", () => {
             statusEl.textContent = "Failed to create QR. Try reload.";
           });
           socket.on("pairing-error", e => {
             document.getElementById("pairing-code").textContent = "Error: " + e;
           });
-
           socket.on("login-success", () => {
             document.body.innerHTML = "<h1>Successfully Logged in !</h1><p>Window will close in 5 seconds...</p>";
             setTimeout(() => window.close(), 5000);
