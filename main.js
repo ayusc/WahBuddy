@@ -130,6 +130,7 @@ app.get("/auth", (req, res) => {
     <html>
       <head>
         <title>WahBuddy Login</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="/socket.io/socket.io.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 
@@ -144,88 +145,71 @@ app.get("/auth", (req, res) => {
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             background: #e5ddd5;
           }
           h1, h2 { color: #075e54; }
-          #qr-container, #phone-section, #code-section {
+          #qr-container, #phone-section, #code-section, .card {
             background: #fff;
+            width: 96vw;
+            max-width: 400px;
+            margin: 10px auto;
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            margin-top: 20px;
+            box-sizing: border-box;
             text-align: center;
           }
-          #qr { width:300px; height:300px; }
+          #qr { width: 80vw; max-width: 300px; height: auto; display: block; margin: 0 auto; }
           button {
             background: #25d366;
             color: white;
-            padding: 10px 20px;
+            width: 100%;
+            max-width: 300px;
+            padding: 10px 0;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             margin-top: 15px;
+            font-size: 16px;
+            transition: background 0.2s;
           }
           button:hover { background: #20b858; }
-		  .iti {
-			  width: 100% !important;
-			}
-			
-		  .iti__flag-container {
-			  left: 10px;
-			}
-			
-		  #phone {
-			  padding: 8px;
-			  padding-left: 60px !important;
-			  margin: 5px 0;
-			  border-radius: 6px;
-			  border: 1px solid #ccc;
-			  width: 100%; 
-			  max-width: 300px; 
-			  box-sizing: border-box;
-			}
-			
-		 .card {
-			  width: 90%;
-			  max-width: 400px;
-			  padding: 20px;
-			  box-sizing: border-box;
-			}
-			
-		  button {
-			  width: 100%;
-			  max-width: 300px;
-			  padding: 10px;
-			  border-radius: 6px;
-			  border: none;
-			  background: #28d17c;
-			  color: white;
-			  font-size: 16px;
-			  cursor: pointer;
-			  transition: background 0.2s;
-			}
-			
-		  button:hover {
-			  background: #20b858;
-			}
-			
-		  @media (max-width: 480px) {
-			  #phone {
-			    max-width: 100%;
-			    font-size: 16px;
-			  }
-			
-			  button {
-			    max-width: 100%;
-			    font-size: 16px;
-			  }
-			
-			  .card {
-			    padding: 15px;
-			  }
-			}
+          .iti {
+            width: 100% !important;
+            max-width: 300px;
+            box-sizing: border-box;
+            position: relative;
+          }
+          .iti__flag-container {
+            left: 0;
+            position: absolute;
+            z-index: 2;
+          }
+          #phone {
+            padding: 8px;
+            padding-left: 50px !important;
+            margin: 5px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 300px;
+            box-sizing: border-box;
+            font-size: 16px;
+          }
+          @media (max-width: 480px), (orientation: landscape) {
+            body { font-size: 18px; }
+            .card, #qr-container, #phone-section, #code-section {
+              max-width: 98vw;
+              padding: 5vw 2vw;
+            }
+            #qr { max-width: 90vw; }
+            button, #phone {
+              max-width: 90vw;
+              font-size: 18px;
+            }
+          }
         </style>
       </head>
       <body>
@@ -281,10 +265,8 @@ app.get("/auth", (req, res) => {
               return;
             }
 
-            const e164 = iti.getNumber();
-            const phoneForServer = e164.replace(/^\\+/, ""); 
-
-            socket.emit("request-code", { phone: phoneForServer });
+            const e164 = iti.getNumber(); // includes '+'
+            socket.emit("request-code", { phone: e164 });
 
             document.getElementById("phone-section").style.display = "none";
             document.getElementById("code-section").style.display = "block";
