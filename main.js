@@ -297,14 +297,18 @@ app.get("/auth", (req, res) => {
             preferredCountries: ["in", "us", "gb"],
             utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js"
           });
-          document.getElementById("send-code").onclick = async () => {
-            await iti.promise;
+          document.getElementById("send-code").onclick = () => {
             let rawInput = phoneInput.value.trim().replace(/[\\s\\-()]/g, "");
             if (!/^\\d+$/.test(rawInput)) {
               alert("Please enter digits only (no letters or special characters).");
               return;
             }
-            const e164 = iti.getNumber(); // includes '+'
+            const e164 = iti.getNumber();
+            if (!e164) {
+              alert("Invalid phone number.");
+              return;
+            }
+            console.log("Sending phone to server:", e164);
             socket.emit("request-code", { phone: e164 });
             document.getElementById("phone-section").style.display = "none";
             document.getElementById("code-section").style.display = "block";
@@ -331,7 +335,6 @@ app.get("/auth", (req, res) => {
                 container.appendChild(el);
               }
               if (i !== arr.length - 1) {
-                // Add space between groups
                 const spacer = document.createElement("span");
                 spacer.style.width = "12px";
                 container.appendChild(spacer);
