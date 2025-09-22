@@ -71,63 +71,56 @@ let lastQrTimestamp = 0;
 io.on('connection', socket => {
   socket.on('request-code', async ({ phone }) => {
     try {
-      const mongoClient = new MongoClient(mongoUri);
-      db = mongoClient.db(dbName);
-      sessionCollection = db.collection('wahbuddy_sessions');
-      stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
+	  const mongoClient = new MongoClient(mongoUri);
+	  db = mongoClient.db(dbName);
+	  sessionCollection = db.collection('wahbuddy_sessions');
+	  stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
       const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-
+		
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
 
       const sock = makeWASocket({
-        version,
-        auth: state,
-        browser: ['Wahbuddy', 'Safari', '1.0'],
-        printQRInTerminal: false,
-        defaultQueryTimeoutMs: undefined,
-        logger: pino({ level: 'silent' }),
-      });
-
-      if (!state.creds.registered) {
-        try {
-          const code = await sock.requestPairingCode(cleanPhone);
-          const formatted = code.match(/.{1,4}/g).join('-');
-          socket.emit('pairing-code', formatted);
-        } catch (err) {
-          let msg = String(err);
-          if (msg.includes("precondition required")) {
-            msg = "WhatsApp rejected pairing (precondition required). Try restarting WhatsApp, ensure you're logged in, and retry in a few minutes.";
-          }
-          console.error('Failed to get pairing code:', err);
-          socket.emit('pairing-error', msg);
-          return;
-        }
-      }
-
+		  version,
+		  auth: state,
+		  browser: ['Wahbuddy', 'Safari', '1.0'],
+		  printQRInTerminal: false,
+		  defaultQueryTimeoutMs: undefined,
+		  logger: pino({ level: 'silent' }),
+	  });
+		
+	  if (!state.creds.registered) {
+		  sock.ev.once('connection.update', async ({ connection }) => {
+		    if (connection === 'open') {
+		      try {
+		        const code = await sock.requestPairingCode(cleanPhone); 
+		        const formatted = code.match(/.{1,4}/g).join('-');
+		        socket.emit('pairing-code', formatted);
+		      } catch (err) {
+		        console.error('Failed to get pairing code:', err);
+		        socket.emit('pairing-error', String(err));
+		      }
+		    }
+		  });
+	  }
       sock.ev.on('connection.update', ({ connection }) => {
         if (connection === 'open') {
           io.emit('login-success');
-          startbot(sock); // <-- Call startbot after login
         }
       });
 
-      sock.ev.on(
-        'creds.update',
-        debounce(async () => {
-          await saveCreds();
-          await saveAuthStateToMongo();
-        }, 1000)
+	  sock.ev.on(
+      'creds.update',
+      debounce(async () => {
+      await saveCreds();
+      await saveAuthStateToMongo();
+      }, 1000)
       );
     } catch (err) {
-      let msg = String(err);
-      if (msg.includes("precondition required")) {
-        msg = "WhatsApp rejected pairing (precondition required). Try restarting WhatsApp, ensure you're logged in, and retry in a few minutes.";
-      }
       console.error('Pairing code error:', err);
-      socket.emit('pairing-error', msg);
+      socket.emit('pairing-error', String(err));
     }
   });
 });
