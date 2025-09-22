@@ -101,27 +101,15 @@ io.on('connection', socket => {
       });
 
       if (!state.creds.registered) {
-  try {
+    try {
     const cleanPhone = phone.replace(/^\+/, '');
     console.log('Phone for pairing code:', cleanPhone);
-
-    await new Promise(resolve => {
-      sock.ev.on('connection.update', ({ connection }) => {
-        if (connection === 'connecting') {
-          console.log('Connecting to WhatsApp...');
-        }
-        if (connection === 'open') {
-          console.log('Connection open, requesting pairing code...');
-          resolve();
-        }
-      });
-    });
 
     const code = await sock.requestPairingCode(cleanPhone);
     console.log("Pairing code received:", code);
 
     if (!code) {
-      socket.emit('pairing-error', 'No code received! WhatsApp may not support this account or number.');
+      socket.emit('pairing-error', 'No code received! Please retry.');
     } else {
       const formatted = code.match(/.{1,4}/g).join('-');
       socket.emit('pairing-code', formatted);
@@ -131,7 +119,6 @@ io.on('connection', socket => {
     socket.emit('pairing-error', String(err));
   }
 }
-
       sock.ev.on('connection.update', ({ connection }) => {
         if (connection === 'open') {
           io.emit('login-success');
