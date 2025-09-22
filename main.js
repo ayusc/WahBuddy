@@ -72,12 +72,11 @@ let lastQrTimestamp = 0;
 io.on('connection', socket => {
   socket.on('request-code', async ({ phone }) => {
     try {
-      // LOG the received phone number
       console.log("Received phone from client:", phone);
 
-      // Validate phone number (should be a non-empty string, starting with '+')
-      if (!phone || typeof phone !== 'string' || !phone.startsWith('+') || phone.length < 8) {
-        socket.emit('pairing-error', 'Invalid phone number received. Please enter a valid number.');
+      // Only allow digits, optionally a leading '+'
+      if (!phone || typeof phone !== 'string' || !/^\+?\d+$/.test(phone)) {
+        socket.emit('pairing-error', 'Invalid phone number! Only digits are allowed.');
         return;
       }
 
