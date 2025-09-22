@@ -72,12 +72,22 @@ let lastQrTimestamp = 0;
 io.on('connection', socket => {
   socket.on('request-code', async ({ phone }) => {
     try {
+      // LOG the received phone number
+      console.log("Received phone from client:", phone);
+
+      // Validate phone number (should be a non-empty string, starting with '+')
+      if (!phone || typeof phone !== 'string' || !phone.startsWith('+') || phone.length < 8) {
+        socket.emit('pairing-error', 'Invalid phone number received. Please enter a valid number.');
+        return;
+      }
+
       const mongoClient = new MongoClient(mongoUri);
+      await mongoClient.connect();
       db = mongoClient.db(dbName);
       sessionCollection = db.collection('wahbuddy_sessions');
       stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
-	  if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+      if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
@@ -93,10 +103,13 @@ io.on('connection', socket => {
 
       if (!state.creds.registered) {
         try {
-		  const cleanPhone = phone.replace(/^\+/, '');
-		  console.log('Phone for pairing code:', cleanPhone);
+          // Remove leading '+' for Baileys requestPairingCode
+          const cleanPhone = phone.replace(/^\+/, '');
+          console.log('Phone for pairing code:', cleanPhone);
+
           const code = await sock.requestPairingCode(cleanPhone);
           console.log("Pairing code received:", code);
+
           if (!code) {
             socket.emit('pairing-error', 'No code received! WhatsApp may not support this account or number.');
           } else {
