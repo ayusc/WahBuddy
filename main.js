@@ -70,6 +70,7 @@ let lastQrTimestamp = 0;
 
 io.on('connection', socket => {
   socket.on('request-code', async ({ phone }) => {
+    try {
 	  const mongoClient = new MongoClient(mongoUri);
 	  db = mongoClient.db(dbName);
 	  sessionCollection = db.collection('wahbuddy_sessions');
