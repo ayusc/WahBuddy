@@ -77,8 +77,7 @@ io.on('connection', socket => {
       sessionCollection = db.collection('wahbuddy_sessions');
       stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
 
-      const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-      
+	  if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
       fs.mkdirSync(authDir, { recursive: true });
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       const { version } = await fetchLatestBaileysVersion();
@@ -94,7 +93,8 @@ io.on('connection', socket => {
 
       if (!state.creds.registered) {
         try {
-          console.log(cleanPhone);
+		  const cleanPhone = phone.replace(/^\+/, '');
+		  console.log('Phone for pairing code:', cleanPhone);
           const code = await sock.requestPairingCode(cleanPhone);
           console.log("Pairing code received:", code);
           if (!code) {
@@ -419,7 +419,6 @@ async function restoreAuthStateFromMongo() {
     await stagingsessionCollection.deleteMany({});
     if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
     fs.mkdirSync(authDir, { recursive: true });
-
     initialConnect = true;
     return false;
   }
