@@ -12,16 +12,6 @@ Click on the below button to deploy WahBuddy in one click ->
 
 [![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?name=wahbuddy&repository=ayusc%2FWahBuddy&branch=main&instance_type=free&regions=was&instances_min=0&autoscaling_sleep_idle_delay=300&env%5BALWAYS_AUTO_BIO%5D=&env%5BALWAYS_AUTO_DP%5D=&env%5BAPI_NINJAS_KEY%5D=&env%5BCITY%5D=&env%5BIMAGE_URL%5D=&env%5BMONGO_URI%5D=&env%5BOCR_SPACE_API_KEY%5D=&env%5BRMBG_API_KEY%5D=&env%5BSHOW_HOROSCOPE%5D=&env%5BSITE_URL%5D=)
 
-
-### For koyeb
-After filling up the environment variables and trigger the build, on first run it will ask to scan the QR Code, the process is simple simply download the logs txt and in open it any text viewer (like gedit on linux or notepad) you can scan the QR Code from your phone.
-
-If you want to login with Pairing code then in koyeb console run the command node AuthWithCode.js
-This will prompt you to enter your phone number in E.164 format (For eg: +911234567890 will be 911234567890)
-Once you get the code then simply go to Linked Devices>Link a device>Link with phone number instead
-
-After logged in the userbot is ready to use and the session is successfully saved to your MongoDB Cluster.
-
 ## Setting the environment variables
 
 First of all you need the MONGO_URI environment variable which is crutial for running the bot and storing the session remotely. Please follow the steps to create your MongoDB URI string:
