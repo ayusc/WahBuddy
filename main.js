@@ -61,7 +61,6 @@ const debounce = (fn, delay) => {
 
 let loggedIn = false;
 let lastQR = null;
-let lastQrDataUrl = null;
 
 async function saveAuthStateToMongo(attempt = 1) {
   try {
@@ -216,6 +215,8 @@ async function startBot() {
   contactsCollection = db.collection('contacts');
 
   initAuth(() => loggedIn);
+
+  const restored = await restoreAuthStateFromMongo();
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
