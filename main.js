@@ -215,7 +215,7 @@ async function startBot() {
 
   initAuth(() => loggedIn);
 
-  const restored = await restoreAuthStateFromMongo();
+  await restoreAuthStateFromMongo();
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
