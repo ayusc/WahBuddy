@@ -15,7 +15,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { translate } from '@vitalets/google-translate-api';
-import { getContentType, downloadContentFromMessage } from 'baileys';
+import { getContentType } from 'baileys';
 
 export default {
   name: ['.tr'],
