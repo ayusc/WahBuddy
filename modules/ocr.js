@@ -38,7 +38,6 @@ export default {
 
   async execute(msg, args, sock) {
     const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    const quotedKey = msg.message?.extendedTextMessage?.contextInfo?.stanzaId;
     const sender = msg.key.remoteJid;
 
     if (!quoted || !quoted.imageMessage) {
