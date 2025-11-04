@@ -14,8 +14,6 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// index.js (Your main bot file)
-
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,8 +35,6 @@ import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
 import { startAutoName } from './modules/autoname.js';
 
-// --- NEW IMPORTS ---
-// Import the server, io, and initAuth function from auth.js
 import { server, io, initAuth } from './auth.js';
 
 dotenv.config();
@@ -65,27 +61,10 @@ const debounce = (fn, delay) => {
   };
 };
 
-// --- STATE VARIABLES MOVED HERE ---
-// These are for the main bot's connection
 let loggedIn = false;
 let lastQR = null;     
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;  
-
-//
-// ⛔ REMOVE THE `server = http.createServer(app)` LINE ⛔
-//
-// ⛔ REMOVE THE `io = new Server(server)` LINE ⛔
-//
-// ⛔ REMOVE THE ENTIRE `io.on('connection', ...)` BLOCK ⛔
-// (This is now in auth.js)
-//
-// ⛔ REMOVE THE ENTIRE `app.get("/auth", ...)` BLOCK ⛔
-// (This is now in auth.js)
-//
-// ⛔ REMOVE THE `server.listen(...)` LINE FROM HERE ⛔
-// (We will move it to the end of this file)
-//
 
 // This function is for the MAIN BOT connection
 async function saveAuthStateToMongo(attempt = 1) {
@@ -158,9 +137,6 @@ async function restoreAuthStateFromMongo() {
     console.log('Session restored from MongoDB');
     return true;
   } finally {
-    // NOTE: This `finally` block logic seems to run even on success,
-    // which might be a bug in your original code, as it deletes the session.
-    // I've kept it as-is to match your file.
     console.error("Failed to restore session from MongoDB !");
     await sessionCollection.deleteMany({});
     await stagingsessionCollection.deleteMany({});
@@ -181,7 +157,6 @@ let initialConnect = true;
 
 const commands = new Map();
 
-// ... (loadCommands function remains unchanged) ...
 async function loadCommands() {
   if (commandsLoaded) return commands;
 
@@ -214,7 +189,6 @@ async function loadCommands() {
   return commands;
 }
 
-// ... (getAllCommands function remains unchanged) ...
 export function getAllCommands() {
   const seen = new Set();
   const uniqueCommands = [];
@@ -242,8 +216,6 @@ async function startBot() {
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
 
-  // --- 💡 INITIALIZE AUTH MODULE ---
-  // We pass it a function that allows it to get the current 'loggedIn' state
   initAuth(() => loggedIn);
 
   const restored = await restoreAuthStateFromMongo();
@@ -252,7 +224,6 @@ async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
 
   const getMessage = async key => {
-    // ... (rest of getMessage function) ...
     const message = await messagesCollection.findOne({
       'key.id': key.id,
       'key.remoteJid': key.remoteJid,
@@ -278,7 +249,6 @@ async function startBot() {
     'creds.update',
     debounce(async () => {
       await saveCreds();
-      // This calls the saveAuthStateToMongo in THIS file
       await saveAuthStateToMongo();
     }, 1000)
   );
@@ -328,7 +298,6 @@ async function startBot() {
 	    lastQrDataUrl = null;
 	    lastQrTimestamp = 0;
 	    commandsLoaded = false;
-        // ... (rest of 'close' logic remains unchanged) ...
 	    clearInterval(globalThis.autodpInterval);
 	    clearInterval(globalThis.autobioInterval);
 	    clearInterval(globalThis.autonameInterval);
@@ -368,7 +337,6 @@ async function startBot() {
         if (!commandsLoaded) {
           await loadCommands();
         }
-        // ... (rest of 'open' logic remains unchanged) ...
         if (initialConnect) {
           console.log('WahBuddy is Online!');
         }
@@ -414,7 +382,6 @@ async function startBot() {
     }
   );
 
-  // ... (all other sock.ev.on listeners remain unchanged) ...
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
       await chatsCollection.updateOne(
@@ -544,13 +511,10 @@ async function startBot() {
       );
     }
   });
-} // --- End of startBot() ---
+} 
 
-// --- Start the bot logic ---
 startBot();
 
-// --- START THE SERVER (from auth.js) ---
-// This line is moved to the end of the file.
 server.listen(process.env.PORT || 8000, () => {
   console.log(`Server listening on port ${process.env.PORT || 8000}`);
 });
