@@ -15,28 +15,14 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import express from 'express';
-import axios from 'axios';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const SITE_URL = process.env.SITE_URL;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.get('/', (req, res) => {
-  res.json({ status: 'Running' });
-});
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'Healthy' });
-});
-
-if (SITE_URL) {
-  setInterval(async () => {
-    try {
-      await axios.get(`https://${SITE_URL}/health`);
-    } catch (err) {
-      console.error('Error in HTTP server:', err.message);
-    }
-  }, 60 * 1000);
-}
+app.use(express.static(path.join(__dirname, 'public')));
 
 export default app;
