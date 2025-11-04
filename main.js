@@ -113,9 +113,8 @@ async function restoreAuthStateFromMongo() {
     fs.rmSync(authDir, { recursive: true, force: true });
   fs.mkdirSync(authDir, { recursive: true });
 
-  // Make sure sessionCollection is initialized before calling this
   if (!sessionCollection) {
-    console.error('restoreAuthStateFromMongo called before DB connection.');
+    console.error('Failed to connect to MongoDB !');
     initialConnect = true;
     return false;
   }
