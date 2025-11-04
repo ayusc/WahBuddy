@@ -83,7 +83,6 @@ export default {
       });
 
       if (!response.ok) {
-        const errorBody = await response.text();
         await sock.sendMessage(
           sender,
           { text: 'Failed to remove background: ' + response.statusText },
