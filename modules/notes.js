@@ -429,7 +429,7 @@ export default [
       let data;
       try {
         data = JSON.parse(buffer.toString());
-      } catch (err) {
+      } catch {
         await sock.sendMessage(
           jid,
           { text: 'Invalid JSON format.' },
