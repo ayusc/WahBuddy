@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WahBuddy Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/css/intlTelInput.css">
+  
+  <link rel="stylesheet" href="/style.css">
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/intlTelInput.min.js"></script>
+</head>
+<body>
+  <div class="centered-header">
+    <img src="/wahbuddy-logo.png" class="logo-img" alt="WahBuddy Logo" onerror="this.style.display='none';">
+    <h1 style="margin-bottom:0;">WahBuddy Login</h1>
+  </div>
+
+  <div id="qr-section">
+    <p id="status">Waiting for QR...</p>
+    <div id="qr-container">
+      <img id="qr" src="" alt="WhatsApp QR Code" />
+    </div>
+    <button id="switch-to-phone">Login with phone number instead</button>
+  </div>
+
+  <div id="phone-section" style="display:none;">
+    <h2>Enter your phone number</h2>
+    <input id="phone" type="tel" placeholder="Phone number" />
+    <p id="phone-error" style="color: #c00; font-weight: bold;"></p>
+    <div style="margin-top:10px;">
+      <button id="send-code">Send Pairing Code</button>
+    </div>
+  </div>
+
+  <div id="code-section" style="display:none;">
+    <h2>Enter this code in your phone</h2>
+    <div id="pairing-code" class="pairing-code"></div>
+    <p>Please check your phone for a notification asking to enter the pairing code</p>
+  </div>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>
