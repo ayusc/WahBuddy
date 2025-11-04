@@ -59,7 +59,7 @@ socket.on("pairing-code", code => {
     }
     if (i !== arr.length - 1) {
       const spacer = document.createElement("span");
-      spacer.style.width = "12px";
+      spacer.className = "pairing-spacer";
       container.appendChild(spacer);
     }
   });
@@ -83,3 +83,4 @@ socket.on("login-success", () => {
   document.body.innerHTML = "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;'><h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p></div>";
   setTimeout(() => window.close(), 5000);
 });
+
