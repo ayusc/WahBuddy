@@ -31,9 +31,7 @@ dotenv.config();
 const city = process.env.CITY || 'Kolkata';
 const ZODIAC_SIGN = process.env.ZODIAC_SIGN || 'Gemini';
 const TIME_ZONE = process.env.TIME_ZONE || 'Asia/Kolkata';
-const imageUrl =
-  process.env.IMAGE_URL ||
-  'https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png';
+const imageUrl = process.env.IMAGE_URL || 'https://picsum.photos/1500/1000';
 const intervalMs =
   Number.parseInt(process.env.AUTO_DP_INTERVAL_MS, 10) || 60_000;
 const SHOW_HOROSCOPE = process.env.SHOW_HOROSCOPE || 'False';
@@ -92,16 +90,14 @@ const outputImage = path.join(__dirname, 'output.jpg');
 async function downloadImage(imagePath) {
   const MAX_RETRIES = 3;
 
-  async function tryRandomImage(attempt = 1) {
+  async function tryDownload(attempt = 1) {
     try {
-      const response = await fetch('https://picsum.photos/1500/1000', {
-        redirect: 'follow',
-      });
+      const response = await fetch(imageUrl, { redirect: 'follow' });
 
       if (!response.ok) {
         console.warn(`Attempt ${attempt} - Bad response: ${response.status}`);
         if (attempt < MAX_RETRIES) {
-          return await tryRandomImage(attempt + 1);
+          return await tryDownload(attempt + 1);
         }
         return false;
       }
@@ -110,34 +106,36 @@ async function downloadImage(imagePath) {
       const buf = Buffer.from(buffer);
 
       try {
-        await sharp(buf).metadata(); // throws if invalid
+        await sharp(buf).metadata(); // validate image
         fs.writeFileSync(imagePath, buf);
+
         if (fs.statSync(imagePath).size === 0) {
           console.warn(`Attempt ${attempt} - Zero-size image`);
-          if (attempt < MAX_RETRIES) return await tryRandomImage(attempt + 1);
+          if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
           return false;
         }
+
         return true;
       } catch (err) {
         console.warn(`Attempt ${attempt} - Invalid image buffer:`, err.message);
         if (attempt < MAX_RETRIES) {
-          return await tryRandomImage(attempt + 1);
+          return await tryDownload(attempt + 1);
         }
         return false;
       }
     } catch (error) {
       console.error(
-        `Attempt ${attempt} - Failed to fetch random image:`,
+        `Attempt ${attempt} - Failed to fetch image:`,
         error.message
       );
       if (attempt < MAX_RETRIES) {
-        return await tryRandomImage(attempt + 1);
+        return await tryDownload(attempt + 1);
       }
       return false;
     }
   }
 
-  return await tryRandomImage();
+  return await tryDownload();
 }
 
 async function getWeather() {
@@ -192,7 +190,7 @@ async function getAQI(cityName) {
     let geoData;
     try {
       geoData = await geoRes.json();
-    } catch (e) {
+    } catch {
       const text = await geoRes.text();
       throw new Error(`Geocoding returned non-JSON: ${text.slice(0, 200)}...`);
     }
@@ -214,7 +212,7 @@ async function getAQI(cityName) {
     let aqiData;
     try {
       aqiData = await aqiRes.json();
-    } catch (e) {
+    } catch {
       const text = await aqiRes.text();
       throw new Error(`AQI returned non-JSON: ${text.slice(0, 200)}...`);
     }
