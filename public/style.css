@@ -87,3 +87,36 @@ button,
   min-width: 38px;
   text-align: center;
 }
+
+@media (max-width: 400px) {
+  #code-section h2 {
+    font-size: 1.2em;
+  }
+
+  #code-section p {
+    font-size: 0.9em;
+    padding: 0 10px;
+  }
+  
+  .pairing-code {
+    gap: 6px;
+  }
+
+  .pairing-char {
+    font-size: 1.5em;
+    padding: 12px 8px;
+    min-width: 28px;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 320px) {
+  .pairing-code {
+    gap: 4px;
+  }
+  .pairing-char {
+    font-size: 1.2em;
+    padding: 10px 5px;
+    min-width: 22px;
+  }
+}
