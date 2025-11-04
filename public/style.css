@@ -72,9 +72,14 @@ button,
 .pairing-code {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  /* REMOVED 'gap' from here */
   margin-top: 16px;
   margin-bottom: 8px;
+}
+
+.pairing-spacer {
+  /* This new class controls the gap */
+  width: 12px;
 }
 
 .pairing-char {
@@ -84,9 +89,11 @@ button,
   border-radius: 8px;
   background: #e5ddd5;
   padding: 18px 12px;
-  min-width: 38px;
+  /* REMOVED 'min-width' from here */
   text-align: center;
 }
+
+/* --- RESPONSIVE FIX V2 --- */
 
 @media (max-width: 400px) {
   #code-section h2 {
@@ -98,25 +105,23 @@ button,
     padding: 0 10px;
   }
   
-  .pairing-code {
-    gap: 6px;
+  .pairing-spacer {
+    width: 6px;
   }
 
   .pairing-char {
     font-size: 1.5em;
     padding: 12px 8px;
-    min-width: 28px;
     border-radius: 6px;
   }
 }
 
 @media (max-width: 320px) {
-  .pairing-code {
-    gap: 4px;
+  .pairing-spacer {
+    width: 4px;
   }
   .pairing-char {
     font-size: 1.2em;
     padding: 10px 5px;
-    min-width: 22px;
   }
 }
