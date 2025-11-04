@@ -23,13 +23,11 @@ import {
   DisconnectReason,
   Browsers,
 } from 'baileys';
-import { Boom } from '@hapi/boom';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
-import qrcode from 'qrcode'; // <-- Keep this, it's used for the QR
-import app from './app.js';
+import qrcode from 'qrcode';
 import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
@@ -64,7 +62,6 @@ const debounce = (fn, delay) => {
 let loggedIn = false;
 let lastQR = null;
 let lastQrDataUrl = null;
-let lastQrTimestamp = 0;
 
 async function saveAuthStateToMongo(attempt = 1) {
   try {
@@ -220,8 +217,6 @@ async function startBot() {
 
   initAuth(() => loggedIn);
 
-  const restored = await restoreAuthStateFromMongo();
-
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
 
@@ -260,13 +255,12 @@ async function startBot() {
 
     if (qr && qr !== lastQR) {
       lastQR = qr;
-      loggedIn = false; // <-- Set main bot's loggedIn state
+      loggedIn = false;
       lastQrTimestamp = Date.now();
 
-      // Use the 'io' instance imported from auth.js
       if (io.engine.clientsCount > 0) {
         try {
-          const qrDataUrl = await qrcode.toDataURL(qr); // qrcode import is used here
+          const qrDataUrl = await qrcode.toDataURL(qr);
           lastQrDataUrl = qrDataUrl;
           io.emit('qr', qrDataUrl);
           io.emit('qr-meta', { ts: lastQrTimestamp, qrLen: qr.length });
@@ -298,7 +292,7 @@ async function startBot() {
     }
 
     if (connection === 'close') {
-      loggedIn = false; // <-- Set main bot's loggedIn state
+      loggedIn = false; 
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
@@ -333,11 +327,11 @@ async function startBot() {
         }
       }
     } else if (connection === 'open') {
-      loggedIn = true; // <-- Set main bot's loggedIn state
+      loggedIn = true; 
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
-      io.emit('login-success'); // <-- Use 'io' from auth.js
+      io.emit('login-success'); 
       console.log('Authenticated with WhatsApp');
 
       if (!commandsLoaded) {
