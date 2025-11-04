@@ -125,7 +125,7 @@ export function initAuth(getLoggedInState) {
         );
 
         if (!state.creds.registered) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); 
+          await new Promise(resolve => setTimeout(resolve, 1000)); 
 
           try {
             const cleanPhone = phone.replace(/^\+/, '');
