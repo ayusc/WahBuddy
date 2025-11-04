@@ -74,10 +74,8 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
 }
 
 export function initAuth(getLoggedInState) {
-  // --- Socket.IO listener for "request-code" ---
   io.on('connection', socket => {
     socket.on('request-code', async ({ phone }) => {
-      // This logic is self-contained for the pairing flow
       let mongoClient;
       let db, sessionCollection;
       try {
@@ -107,7 +105,24 @@ export function initAuth(getLoggedInState) {
           logger: pino({ level: 'silent' }),
         });
 
+        sock.ev.on('connection.update', ({ connection }) => {
+          if (connection === 'open') {
+            console.log('Pairing successful, connection open.');
+            io.emit('login-success'); // Tell the browser page
+          }
+        });
+
+        sock.ev.on(
+          'creds.update',
+          debounce(async () => {
+            await saveCreds();
+            await savePairingAuthToMongo(db, sessionCollection);
+          }, 1000)
+        );
+
         if (!state.creds.registered) {
+          await new Promise(resolve => setTimeout(resolve, 500)); 
+
           try {
             const cleanPhone = phone.replace(/^\+/, '');
             console.log('Phone for pairing code:', cleanPhone);
@@ -123,34 +138,17 @@ export function initAuth(getLoggedInState) {
             }
           } catch (err) {
             console.error('Failed to get pairing code:', err);
-            socket.emit('pairing-error', String(err));
+            socket.emit('pairing-error', err.message || String(err));
           }
         }
-        
-        sock.ev.on('connection.update', ({ connection }) => {
-          if (connection === 'open') {
-            io.emit('login-success'); // Tell the browser it worked
-          }
-        });
 
-        sock.ev.on(
-          'creds.update',
-          debounce(async () => {
-            await saveCreds();
-            // Use the self-contained save function
-            await savePairingAuthToMongo(db, sessionCollection);
-          }, 1000)
-        );
       } catch (err) {
         console.error('Pairing code error:', err);
-        socket.emit('pairing-error', String(err));
+        socket.emit('pairing-error', err.message || String(err));
       }
-      // Note: We don't close the mongoClient here, as 'creds.update'
-      // might be called later. This socket is temporary.
     });
   });
 
-  // --- Express route for /auth page ---
   app.get("/auth", (req, res) => {
     // Use the passed-in function to check the main bot's status
     if (getLoggedInState()) return res.status(404).send("Already logged in!");
