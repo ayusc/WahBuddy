@@ -5,6 +5,7 @@ Blazing fast WhatsApp userbot using [Baileys](https://github.com/WhiskeySockets/
 > **It is not guaranteed you will not be blocked by using this bot. WhatsApp does not allow bots or unofficial clients on their platform, so this shouldn't be considered totally safe.<br>Use it at your own risk !!!**
 
 [![CodeFactor](https://www.codefactor.io/repository/github/ayusc/wahbuddy/badge)](https://www.codefactor.io/repository/github/ayusc/wahbuddy)
+[![WhatsApp Channel](https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/JqbIVDwjOs3If5KYE8m3Vl)
 
 # How to Deploy ?
 
@@ -38,6 +39,7 @@ Here's a list of the environment variables that needs to be set:
 | Field                  | Type    | Description                                                                   | Mandatory |
 | ---------------------- | ------- | ----------------------------------------------------------------------------- | --------- |
 | `MONGO_URI`            | String  | Required for storing the RemoteAuth session. Without this, the bot won't run. | Yes       |
+| `SITE_URL`             | String  | Required for login                                                            | Yes       |
 | `ALWAYS_AUTO_DP`       | Boolean | Whether the user wants the AutoDP feature to start on boot.                   | No        |
 | `ALWAYS_AUTO_BIO`      | Boolean | Whether the user wants the AutoBio feature to start on boot.                  | No        |
 | `SHOW_HOROSCOPE`       | Boolean | Whether to show the current horoscope on the user's profile picture.          | No        |
@@ -49,8 +51,3 @@ Here's a list of the environment variables that needs to be set:
 | `AUTO_BIO_INTERVAL_MS` | Integer | How often the user's bio should be updated (in milliseconds).                 | No        |
 | `OCR_SPACE_API_KEY`    | String  | Required for the .ocr command. Obtain it from https://ocr.space               | Yes       |
 | `RMBG_API_KEY`         | String  | Required for the .rmbg command. Obtain it from https://www.remove.bg          | Yes       |
-| `SITE_URL`             | String  | Required for pinging the web server to prevent idle state (some hosting platforms like render and koyeb needs it otherwise the instance will stop due to idle state/inactivity)                                                                   | No    |
-
-# Trobleshooting
-
-In rare circumstances the userbot may crash due to session file corruption in that case you need to manually drop the database which contains the whatsapp session files and after that you can again login via QR from koyeb logs
