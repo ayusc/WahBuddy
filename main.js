@@ -66,7 +66,6 @@ let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;  
 
-// This function is for the MAIN BOT connection
 async function saveAuthStateToMongo(attempt = 1) {
   try {
     if (!fs.existsSync(authDir)) {
@@ -119,10 +118,11 @@ async function restoreAuthStateFromMongo() {
 
   // Make sure sessionCollection is initialized before calling this
   if (!sessionCollection) {
-      console.error("restoreAuthStateFromMongo called before DB connection.");
-      return false;
+    console.error("restoreAuthStateFromMongo called before DB connection.");
+    initialConnect = true;
+    return false;
   }
-  
+
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
     //console.warn('No session found in MongoDB !');
@@ -135,13 +135,14 @@ async function restoreAuthStateFromMongo() {
       fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
     }
     console.log('Session restored from MongoDB');
-    return true;
-  } finally {
-    console.error("Failed to restore session from MongoDB !");
+    return true; 
+  } catch (err) {
+    console.error("Failed to restore session from MongoDB:", err);
     await sessionCollection.deleteMany({});
     await stagingsessionCollection.deleteMany({});
     if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
     fs.mkdirSync(authDir, { recursive: true });
+    
     initialConnect = true;
     return false;
   }
