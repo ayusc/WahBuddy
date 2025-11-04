@@ -83,10 +83,13 @@ export function initAuth(getLoggedInState) {
       let mongoClient;
       let db, sessionCollection;
       try {
-        console.log("Received phone from client:", phone);
+        console.log('Received phone from client:', phone);
 
         if (!phone || typeof phone !== 'string' || !/^\+?\d+$/.test(phone)) {
-          socket.emit('pairing-error', 'Invalid phone number! Only digits are allowed.');
+          socket.emit(
+            'pairing-error',
+            'Invalid phone number! Only digits are allowed.'
+          );
           return;
         }
 
@@ -95,7 +98,8 @@ export function initAuth(getLoggedInState) {
         db = mongoClient.db(dbName);
         sessionCollection = db.collection('wahbuddy_sessions');
 
-        if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+        if (fs.existsSync(authDir))
+          fs.rmSync(authDir, { recursive: true, force: true });
         fs.mkdirSync(authDir, { recursive: true });
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
         const { version } = await fetchLatestBaileysVersion();
@@ -125,14 +129,14 @@ export function initAuth(getLoggedInState) {
         );
 
         if (!state.creds.registered) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); 
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
           try {
             const cleanPhone = phone.replace(/^\+/, '');
             console.log('Phone for pairing code:', cleanPhone);
 
             const code = await sock.requestPairingCode(cleanPhone);
-            console.log("Pairing code received:", code);
+            console.log('Pairing code received:', code);
 
             if (!code) {
               socket.emit('pairing-error', 'No code received! Please retry.');
@@ -145,7 +149,6 @@ export function initAuth(getLoggedInState) {
             socket.emit('pairing-error', err.message || String(err));
           }
         }
-
       } catch (err) {
         console.error('Pairing code error:', err);
         socket.emit('pairing-error', err.message || String(err));
@@ -153,11 +156,11 @@ export function initAuth(getLoggedInState) {
     });
   });
 
-  app.get("/auth", (req, res) => {
+  app.get('/auth', (req, res) => {
     if (getLoggedInState()) {
-      return res.status(404).send("Already logged in!");
+      return res.status(404).send('Already logged in!');
     }
-    
+
     res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
   });
 }

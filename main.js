@@ -28,7 +28,7 @@ import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
-import qrcode from "qrcode"; // <-- Keep this, it's used for the QR
+import qrcode from 'qrcode'; // <-- Keep this, it's used for the QR
 import app from './app.js';
 import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
@@ -62,9 +62,9 @@ const debounce = (fn, delay) => {
 };
 
 let loggedIn = false;
-let lastQR = null;     
+let lastQR = null;
 let lastQrDataUrl = null;
-let lastQrTimestamp = 0;  
+let lastQrTimestamp = 0;
 
 async function saveAuthStateToMongo(attempt = 1) {
   try {
@@ -113,12 +113,13 @@ async function saveAuthStateToMongo(attempt = 1) {
 }
 
 async function restoreAuthStateFromMongo() {
-  if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+  if (fs.existsSync(authDir))
+    fs.rmSync(authDir, { recursive: true, force: true });
   fs.mkdirSync(authDir, { recursive: true });
 
   // Make sure sessionCollection is initialized before calling this
   if (!sessionCollection) {
-    console.error("restoreAuthStateFromMongo called before DB connection.");
+    console.error('restoreAuthStateFromMongo called before DB connection.');
     initialConnect = true;
     return false;
   }
@@ -135,14 +136,15 @@ async function restoreAuthStateFromMongo() {
       fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
     }
     console.log('Session restored from MongoDB');
-    return true; 
+    return true;
   } catch (err) {
-    console.error("Failed to restore session from MongoDB:", err);
+    console.error('Failed to restore session from MongoDB:', err);
     await sessionCollection.deleteMany({});
     await stagingsessionCollection.deleteMany({});
-    if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+    if (fs.existsSync(authDir))
+      fs.rmSync(authDir, { recursive: true, force: true });
     fs.mkdirSync(authDir, { recursive: true });
-    
+
     initialConnect = true;
     return false;
   }
@@ -202,7 +204,6 @@ export function getAllCommands() {
   return uniqueCommands;
 }
 
-
 async function startBot() {
   const mongoClient = new MongoClient(mongoUri);
   if (!mongoConnected) {
@@ -254,134 +255,137 @@ async function startBot() {
     }, 1000)
   );
 
-  sock.ev.on(
-    'connection.update',
-    async (update) => {
-      const { connection, lastDisconnect, qr } = update;
-		
-      if (qr && qr !== lastQR) {
-        lastQR = qr;
-        loggedIn = false; // <-- Set main bot's loggedIn state
-        lastQrTimestamp = Date.now();
+  sock.ev.on('connection.update', async update => {
+    const { connection, lastDisconnect, qr } = update;
 
-        // Use the 'io' instance imported from auth.js
-        if (io.engine.clientsCount > 0) {
-          try {
-            const qrDataUrl = await qrcode.toDataURL(qr); // qrcode import is used here
-            lastQrDataUrl = qrDataUrl;
-            io.emit("qr", qrDataUrl);
-            io.emit("qr-meta", { ts: lastQrTimestamp, qrLen: qr.length });
-          } catch (err) {
-            console.error("Failed to generate QR image:", err);
-            io.emit("qr-raw", qr);
-            io.emit("qr-error", { msg: "qr-generation-failed", err: String(err) });
-          }
-        } else {
-          lastQrDataUrl = null;
+    if (qr && qr !== lastQR) {
+      lastQR = qr;
+      loggedIn = false; // <-- Set main bot's loggedIn state
+      lastQrTimestamp = Date.now();
+
+      // Use the 'io' instance imported from auth.js
+      if (io.engine.clientsCount > 0) {
+        try {
+          const qrDataUrl = await qrcode.toDataURL(qr); // qrcode import is used here
+          lastQrDataUrl = qrDataUrl;
+          io.emit('qr', qrDataUrl);
+          io.emit('qr-meta', { ts: lastQrTimestamp, qrLen: qr.length });
+        } catch (err) {
+          console.error('Failed to generate QR image:', err);
+          io.emit('qr-raw', qr);
+          io.emit('qr-error', {
+            msg: 'qr-generation-failed',
+            err: String(err),
+          });
         }
-
-        console.log(`Please visit ${SITE_URL}/auth to get the login instructions.`);
-        
-        setTimeout(() => {
-          if (lastQrTimestamp && (Date.now() - lastQrTimestamp) > 65_000) {
-            if (Date.now() - lastQrTimestamp > 65_000) {
-              lastQR = null;
-              lastQrDataUrl = null;
-              lastQrTimestamp = 0;
-            }
-          }
-        }, 66_000);
+      } else {
+        lastQrDataUrl = null;
       }
 
-	  if (connection === 'close') {
-        loggedIn = false; // <-- Set main bot's loggedIn state
-	    lastQR = null;
-	    lastQrDataUrl = null;
-	    lastQrTimestamp = 0;
-	    commandsLoaded = false;
-	    clearInterval(globalThis.autodpInterval);
-	    clearInterval(globalThis.autobioInterval);
-	    clearInterval(globalThis.autonameInterval);
-	    globalThis.autodpInterval = null;
-	    globalThis.autobioInterval = null;
-	    globalThis.autonameInterval = null;
-	    autoDPStarted = false;
-	    autoBioStarted = false;
-	    autoNameStarted = false;
-	
-	    const reason = lastDisconnect?.error?.output?.statusCode;
+      console.log(
+        `Please visit ${SITE_URL}/auth to get the login instructions.`
+      );
 
-	    if (reason === DisconnectReason.loggedOut) {
-	        console.log('Logged out permanently. Session crashed !');
-	        if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
-	        await sessionCollection.deleteMany({});
-	        await stagingsessionCollection.deleteMany({});
-   	   } else {
+      setTimeout(() => {
+        if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
+          if (Date.now() - lastQrTimestamp > 65_000) {
+            lastQR = null;
+            lastQrDataUrl = null;
+            lastQrTimestamp = 0;
+          }
+        }
+      }, 66_000);
+    }
+
+    if (connection === 'close') {
+      loggedIn = false; // <-- Set main bot's loggedIn state
+      lastQR = null;
+      lastQrDataUrl = null;
+      lastQrTimestamp = 0;
+      commandsLoaded = false;
+      clearInterval(globalThis.autodpInterval);
+      clearInterval(globalThis.autobioInterval);
+      clearInterval(globalThis.autonameInterval);
+      globalThis.autodpInterval = null;
+      globalThis.autobioInterval = null;
+      globalThis.autonameInterval = null;
+      autoDPStarted = false;
+      autoBioStarted = false;
+      autoNameStarted = false;
+
+      const reason = lastDisconnect?.error?.output?.statusCode;
+
+      if (reason === DisconnectReason.loggedOut) {
+        console.log('Logged out permanently. Session crashed !');
+        if (fs.existsSync(authDir))
+          fs.rmSync(authDir, { recursive: true, force: true });
+        await sessionCollection.deleteMany({});
+        await stagingsessionCollection.deleteMany({});
+      } else {
         console.log('Connection closed. Reconnecting...');
 
         if (!globalThis.reconnecting) {
-            globalThis.reconnecting = true;
-            setTimeout(async () => {
-                globalThis.reconnecting = false;
-                await startBot();
-            }, 5000);
+          globalThis.reconnecting = true;
+          setTimeout(async () => {
+            globalThis.reconnecting = false;
+            await startBot();
+          }, 5000);
         }
-    }	
-	} else if (connection === 'open') {
-        loggedIn = true; // <-- Set main bot's loggedIn state
-        lastQR = null;
-        lastQrDataUrl = null;
-        lastQrTimestamp = 0;
-        io.emit("login-success"); // <-- Use 'io' from auth.js
-        console.log("Authenticated with WhatsApp");
+      }
+    } else if (connection === 'open') {
+      loggedIn = true; // <-- Set main bot's loggedIn state
+      lastQR = null;
+      lastQrDataUrl = null;
+      lastQrTimestamp = 0;
+      io.emit('login-success'); // <-- Use 'io' from auth.js
+      console.log('Authenticated with WhatsApp');
 
-        if (!commandsLoaded) {
-          await loadCommands();
+      if (!commandsLoaded) {
+        await loadCommands();
+      }
+      if (initialConnect) {
+        console.log('WahBuddy is Online!');
+      }
+
+      initialConnect = false;
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // Start AutoDP if enabled
+      if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+        autoDPStarted = true;
+        try {
+          await startAutoDP(sock, sock.user.id);
+        } catch (error) {
+          console.error(`AutoDP Error: ${error.message}`);
         }
-        if (initialConnect) {
-          console.log('WahBuddy is Online!');
+      }
+
+      // Start AutoName if enabled
+      if (
+        !autoNameStarted &&
+        autoname === 'True' &&
+        commands.has('.autoname')
+      ) {
+        autoNameStarted = true;
+        try {
+          await startAutoName(sock);
+        } catch (error) {
+          console.error(`AutoName Error: ${error.message}`);
         }
+      }
 
-        initialConnect = false;
-
-        await new Promise(resolve => setTimeout(resolve, 5000));
-
-        // Start AutoDP if enabled
-        if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-          autoDPStarted = true;
-          try {
-            await startAutoDP(sock, sock.user.id);
-          } catch (error) {
-            console.error(`AutoDP Error: ${error.message}`);
-          }
-        }
-
-        // Start AutoName if enabled
-        if (
-          !autoNameStarted &&
-          autoname === 'True' &&
-          commands.has('.autoname')
-        ) {
-          autoNameStarted = true;
-          try {
-            await startAutoName(sock);
-          } catch (error) {
-            console.error(`AutoName Error: ${error.message}`);
-          }
-        }
-
-        // Start AutoBio if enabled
-        if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-          autoBioStarted = true;
-          try {
-            await startAutoBio(sock);
-          } catch (error) {
-            console.error(`AutoBio Error: ${error.message}`);
-          }
+      // Start AutoBio if enabled
+      if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+        autoBioStarted = true;
+        try {
+          await startAutoBio(sock);
+        } catch (error) {
+          console.error(`AutoBio Error: ${error.message}`);
         }
       }
     }
-  );
+  });
 
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
@@ -512,7 +516,7 @@ async function startBot() {
       );
     }
   });
-} 
+}
 
 startBot();
 

@@ -1,5 +1,5 @@
 body {
-  text-align: center; 
+  text-align: center;
   font-family: sans-serif;
   display: flex;
   flex-direction: column;
@@ -60,7 +60,7 @@ button,
 .iti {
   width: 100% !important;
   max-width: 300px;
-  margin: 0 auto; 
+  margin: 0 auto;
 }
 
 #phone {
@@ -102,7 +102,7 @@ button,
     font-size: 0.9em;
     padding: 0 10px;
   }
-  
+
   .pairing-spacer {
     width: 6px;
   }
