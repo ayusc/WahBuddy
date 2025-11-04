@@ -93,8 +93,6 @@ button,
   text-align: center;
 }
 
-/* --- RESPONSIVE FIX V2 --- */
-
 @media (max-width: 400px) {
   #code-section h2 {
     font-size: 1.2em;
