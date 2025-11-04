@@ -100,7 +100,7 @@ export default {
       };
 
       await sock.sendMessage(sender, messageOptions, { quoted: msg });
-    } catch (err) {
+    } catch {
       await sock.sendMessage(
         sender,
         { text: 'Failed to remove background from the image.' },
