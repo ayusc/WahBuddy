@@ -14,6 +14,8 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// index.js (Your main bot file)
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,15 +30,16 @@ import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
-import express from "express";
-import http from "http";
-import qrcode from "qrcode";
-import { Server } from "socket.io";
+import qrcode from "qrcode"; // <-- Keep this, it's used for the QR
 import app from './app.js';
 import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
 import { startAutoName } from './modules/autoname.js';
+
+// --- NEW IMPORTS ---
+// Import the server, io, and initAuth function from auth.js
+import { server, io, initAuth } from './auth.js';
 
 dotenv.config();
 
@@ -61,268 +64,30 @@ const debounce = (fn, delay) => {
     timer = setTimeout(() => fn(...args), delay);
   };
 };
-      
-const server = http.createServer(app);
-const io = new Server(server);
+
+// --- STATE VARIABLES MOVED HERE ---
+// These are for the main bot's connection
 let loggedIn = false;
 let lastQR = null;     
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;  
 
-io.on('connection', socket => {
-  socket.on('request-code', async ({ phone }) => {
-    try {
-      console.log("Received phone from client:", phone);
+//
+// ⛔ REMOVE THE `server = http.createServer(app)` LINE ⛔
+//
+// ⛔ REMOVE THE `io = new Server(server)` LINE ⛔
+//
+// ⛔ REMOVE THE ENTIRE `io.on('connection', ...)` BLOCK ⛔
+// (This is now in auth.js)
+//
+// ⛔ REMOVE THE ENTIRE `app.get("/auth", ...)` BLOCK ⛔
+// (This is now in auth.js)
+//
+// ⛔ REMOVE THE `server.listen(...)` LINE FROM HERE ⛔
+// (We will move it to the end of this file)
+//
 
-      // Only allow digits, optionally a leading '+'
-      if (!phone || typeof phone !== 'string' || !/^\+?\d+$/.test(phone)) {
-        socket.emit('pairing-error', 'Invalid phone number! Only digits are allowed.');
-        return;
-      }
-
-      const mongoClient = new MongoClient(mongoUri);
-      await mongoClient.connect();
-      db = mongoClient.db(dbName);
-      sessionCollection = db.collection('wahbuddy_sessions');
-      stagingsessionCollection = db.collection('wahbuddy_sessions_staging');
-
-      if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
-      fs.mkdirSync(authDir, { recursive: true });
-      const { state, saveCreds } = await useMultiFileAuthState(authDir);
-      const { version } = await fetchLatestBaileysVersion();
-
-      const sock = makeWASocket({
-        version,
-        auth: state,
-        browser: Browsers.macOS('Safari'),
-        printQRInTerminal: false,
-        defaultQueryTimeoutMs: undefined,
-        logger: pino({ level: 'silent' }),
-      });
-
-      if (!state.creds.registered) {
-    try {
-    const cleanPhone = phone.replace(/^\+/, '');
-    console.log('Phone for pairing code:', cleanPhone);
-
-    const code = await sock.requestPairingCode(cleanPhone);
-    console.log("Pairing code received:", code);
-
-    if (!code) {
-      socket.emit('pairing-error', 'No code received! Please retry.');
-    } else {
-      const formatted = code.match(/.{1,4}/g).join('-');
-      socket.emit('pairing-code', formatted);
-    }
-  } catch (err) {
-    console.error('Failed to get pairing code:', err);
-    socket.emit('pairing-error', String(err));
-  }
-}
-      sock.ev.on('connection.update', ({ connection }) => {
-        if (connection === 'open') {
-          io.emit('login-success');
-        }
-      });
-
-      sock.ev.on(
-        'creds.update',
-        debounce(async () => {
-          await saveCreds();
-          await saveAuthStateToMongo();
-        }, 1000)
-      );
-    } catch (err) {
-      console.error('Pairing code error:', err);
-      socket.emit('pairing-error', String(err));
-    }
-  });
-});
-
-app.get("/auth", (req, res) => {
-  if (loggedIn) return res.status(404).send("Already logged in!");
-  res.send(`
-    <html>
-      <head>
-        <title>WahBuddy Login</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script src="/socket.io/socket.io.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/css/intlTelInput.css">
-        <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/intlTelInput.min.js"></script>
-        <style>
-          body {
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: #e5ddd5;
-          }
-          .centered-header {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 14px;
-          }
-          .logo-img { width: 80px; margin-bottom: 8px; }
-          h1, h2 { color: #075e54; }
-          .card, #qr-container, #phone-section, #code-section {
-            background: #fff;
-            width: 100%;
-            max-width: 400px;
-            margin: 10px auto;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            box-sizing: border-box;
-            text-align: center;
-          }
-          #qr {
-            width: 100%;
-            max-width: 300px;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-          }
-          button, #phone {
-            width: 100%;
-            max-width: 300px;
-            font-size: 16px;
-          }
-          .iti {
-            width: 100% !important;
-            max-width: 300px;
-          }
-          #phone {
-            width: 100%;
-            max-width: 300px;
-            box-sizing: border-box;
-          }
-          .pairing-code {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin-top: 16px;
-            margin-bottom: 8px;
-          }
-          .pairing-char {
-            font-size: 2.2em;
-            font-weight: bold;
-            border: 2px solid #075e54;
-            border-radius: 8px;
-            background: #e5ddd5;
-            padding: 18px 12px;
-            min-width: 38px;
-            text-align: center;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="centered-header">
-          <img src="/wahbuddy-logo.png" class="logo-img" alt="WahBuddy Logo" onerror="this.style.display='none';">
-          <h1 style="margin-bottom:0;">WahBuddy Login</h1>
-        </div>
-        <div id="qr-section">
-          <p id="status">Waiting for QR...</p>
-          <div id="qr-container">
-            <img id="qr" src="" alt="WhatsApp QR Code" />
-          </div>
-          <button id="switch-to-phone">Login with phone number instead</button>
-        </div>
-        <div id="phone-section" style="display:none;">
-          <h2>Enter your phone number</h2>
-          <input id="phone" type="tel" placeholder="Phone number" />
-          <div style="margin-top:10px;">
-            <button id="send-code">Send Pairing Code</button>
-          </div>
-        </div>
-        <div id="code-section" style="display:none;">
-          <h2>Enter this code in your phone</h2>
-          <div id="pairing-code" class="pairing-code"></div>
-          <p>Please check your phone for a notification asking to enter the pairing code</p>
-        </div>
-        <script>
-          const socket = io();
-          const statusEl = document.getElementById("status");
-          const qrImg = document.getElementById("qr");
-          document.getElementById("switch-to-phone").onclick = () => {
-            document.getElementById("qr-section").style.display = "none";
-            document.getElementById("phone-section").style.display = "block";
-            document.getElementById("phone").focus();
-          };
-          const phoneInput = document.querySelector("#phone");
-          const iti = window.intlTelInput(phoneInput, {
-            separateDialCode: true,
-            preferredCountries: ["in", "us", "gb"],
-            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js"
-          });
-          document.getElementById("send-code").onclick = () => {
-            let number = phoneInput.value.replace(/\\D/g, "");
-            let fullNumber = iti.getSelectedCountryData().dialCode ? "+" + iti.getSelectedCountryData().dialCode + number : number;
-            if (!number) {
-              alert("Enter a phone number.");
-              return;
-            }
-            console.log("Sending phone to server:", fullNumber);
-            socket.emit("request-code", { phone: fullNumber });
-            document.getElementById("phone-section").style.display = "none";
-            document.getElementById("code-section").style.display = "block";
-          };
-          socket.on("qr", qrDataUrl => {
-            qrImg.src = qrDataUrl;
-            statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
-          });
-          socket.on("qr-raw", qr => {
-            new QRCode(document.getElementById("qr-container"), {
-              text: qr, width: 300, height: 300,
-              correctLevel: QRCode.CorrectLevel.L
-            });
-            statusEl.textContent = "QR Code ready! Scan with WhatsApp.";
-          });
-          socket.on("pairing-code", code => {
-            const container = document.getElementById("pairing-code");
-            container.innerHTML = "";
-            code.split("-").forEach((group, i, arr) => {
-              for (const char of group) {
-                const el = document.createElement("span");
-                el.className = "pairing-char";
-                el.textContent = char;
-                container.appendChild(el);
-              }
-              if (i !== arr.length - 1) {
-                const spacer = document.createElement("span");
-                spacer.style.width = "12px";
-                container.appendChild(spacer);
-              }
-            });
-          });
-          socket.on("qr-error", () => {
-            statusEl.textContent = "Failed to create QR. Try reload.";
-          });
-          socket.on("pairing-error", e => {
-            const container = document.getElementById("pairing-code");
-            container.innerHTML = "";
-            const errorSpan = document.createElement("span");
-            errorSpan.textContent = "Error: " + e;
-            errorSpan.style.color = "#c00";
-            errorSpan.style.fontWeight = "bold";
-            container.appendChild(errorSpan);
-          });
-          socket.on("login-success", () => {
-            document.body.innerHTML = "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;'><h1>Successfully Logged in!</h1><p>Window will close in 5 seconds...</p></div>";
-            setTimeout(() => window.close(), 5000);
-          });
-        </script>
-      </body>
-    </html>
-  `);
-});
-
-server.listen(process.env.PORT || 8000);
-
+// This function is for the MAIN BOT connection
 async function saveAuthStateToMongo(attempt = 1) {
   try {
     if (!fs.existsSync(authDir)) {
@@ -373,6 +138,12 @@ async function restoreAuthStateFromMongo() {
   if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
   fs.mkdirSync(authDir, { recursive: true });
 
+  // Make sure sessionCollection is initialized before calling this
+  if (!sessionCollection) {
+      console.error("restoreAuthStateFromMongo called before DB connection.");
+      return false;
+  }
+  
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
     //console.warn('No session found in MongoDB !');
@@ -387,6 +158,9 @@ async function restoreAuthStateFromMongo() {
     console.log('Session restored from MongoDB');
     return true;
   } finally {
+    // NOTE: This `finally` block logic seems to run even on success,
+    // which might be a bug in your original code, as it deletes the session.
+    // I've kept it as-is to match your file.
     console.error("Failed to restore session from MongoDB !");
     await sessionCollection.deleteMany({});
     await stagingsessionCollection.deleteMany({});
@@ -407,6 +181,7 @@ let initialConnect = true;
 
 const commands = new Map();
 
+// ... (loadCommands function remains unchanged) ...
 async function loadCommands() {
   if (commandsLoaded) return commands;
 
@@ -439,6 +214,7 @@ async function loadCommands() {
   return commands;
 }
 
+// ... (getAllCommands function remains unchanged) ...
 export function getAllCommands() {
   const seen = new Set();
   const uniqueCommands = [];
@@ -450,6 +226,7 @@ export function getAllCommands() {
   }
   return uniqueCommands;
 }
+
 
 async function startBot() {
   const mongoClient = new MongoClient(mongoUri);
@@ -465,12 +242,17 @@ async function startBot() {
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
 
+  // --- 💡 INITIALIZE AUTH MODULE ---
+  // We pass it a function that allows it to get the current 'loggedIn' state
+  initAuth(() => loggedIn);
+
   const restored = await restoreAuthStateFromMongo();
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
 
   const getMessage = async key => {
+    // ... (rest of getMessage function) ...
     const message = await messagesCollection.findOne({
       'key.id': key.id,
       'key.remoteJid': key.remoteJid,
@@ -496,6 +278,7 @@ async function startBot() {
     'creds.update',
     debounce(async () => {
       await saveCreds();
+      // This calls the saveAuthStateToMongo in THIS file
       await saveAuthStateToMongo();
     }, 1000)
   );
@@ -507,12 +290,13 @@ async function startBot() {
 		
       if (qr && qr !== lastQR) {
         lastQR = qr;
-        loggedIn = false;
+        loggedIn = false; // <-- Set main bot's loggedIn state
         lastQrTimestamp = Date.now();
 
+        // Use the 'io' instance imported from auth.js
         if (io.engine.clientsCount > 0) {
           try {
-            const qrDataUrl = await qrcode.toDataURL(qr);
+            const qrDataUrl = await qrcode.toDataURL(qr); // qrcode import is used here
             lastQrDataUrl = qrDataUrl;
             io.emit("qr", qrDataUrl);
             io.emit("qr-meta", { ts: lastQrTimestamp, qrLen: qr.length });
@@ -539,11 +323,12 @@ async function startBot() {
       }
 
 	  if (connection === 'close') {
+        loggedIn = false; // <-- Set main bot's loggedIn state
 	    lastQR = null;
 	    lastQrDataUrl = null;
 	    lastQrTimestamp = 0;
 	    commandsLoaded = false;
-
+        // ... (rest of 'close' logic remains unchanged) ...
 	    clearInterval(globalThis.autodpInterval);
 	    clearInterval(globalThis.autobioInterval);
 	    clearInterval(globalThis.autonameInterval);
@@ -573,17 +358,17 @@ async function startBot() {
         }
     }	
 	} else if (connection === 'open') {
-        loggedIn = true;
+        loggedIn = true; // <-- Set main bot's loggedIn state
         lastQR = null;
         lastQrDataUrl = null;
         lastQrTimestamp = 0;
-        io.emit("login-success");
+        io.emit("login-success"); // <-- Use 'io' from auth.js
         console.log("Authenticated with WhatsApp");
 
         if (!commandsLoaded) {
           await loadCommands();
         }
-
+        // ... (rest of 'open' logic remains unchanged) ...
         if (initialConnect) {
           console.log('WahBuddy is Online!');
         }
@@ -629,6 +414,7 @@ async function startBot() {
     }
   );
 
+  // ... (all other sock.ev.on listeners remain unchanged) ...
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
       await chatsCollection.updateOne(
@@ -758,8 +544,15 @@ async function startBot() {
       );
     }
   });
-}
+} // --- End of startBot() ---
 
+// --- Start the bot logic ---
 startBot();
+
+// --- START THE SERVER (from auth.js) ---
+// This line is moved to the end of the file.
+server.listen(process.env.PORT || 8000, () => {
+  console.log(`Server listening on port ${process.env.PORT || 8000}`);
+});
 
 export { db };
