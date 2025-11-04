@@ -95,7 +95,7 @@ export default {
         if (quality < 30) {
           throw new Error('Unable to compress under size limit');
         }
-      } catch (err) {
+      } catch {
         logger.error('Failed to compress image:', err);
         await sock.sendMessage(sender, {
           text: 'Image is too large and could not be compressed enough. Please try with a smaller image.',
@@ -152,7 +152,7 @@ export default {
           : 'No readable text found in the image.';
         await sock.sendMessage(sender, { text: finalText, edit: sent.key });
       }
-    } catch (err) {
+    } catch {
       await sock.sendMessage(sender, {
         text: 'OCR failed to process the image.',
         edit: sent.key,
