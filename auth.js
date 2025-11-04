@@ -133,10 +133,10 @@ export function initAuth(getLoggedInState) {
 
           try {
             const cleanPhone = phone.replace(/^\+/, '');
-            console.log('Phone for pairing code:', cleanPhone);
+            //console.log('Phone for pairing code:', cleanPhone);
 
             const code = await sock.requestPairingCode(cleanPhone);
-            console.log('Pairing code received:', code);
+            //console.log('Pairing code received:', code);
 
             if (!code) {
               socket.emit('pairing-error', 'No code received! Please retry.');
