@@ -1,0 +1,89 @@
+body {
+  text-align: center; 
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  background: #e5ddd5;
+}
+
+.centered-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.logo-img {
+  width: 80px;
+  margin-bottom: 8px;
+}
+
+h1,
+h2 {
+  color: #075e54;
+}
+
+.card,
+#qr-container,
+#phone-section,
+#code-section {
+  background: #fff;
+  width: 100%;
+  max-width: 400px;
+  margin: 10px auto;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#qr {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+button,
+#phone {
+  width: 100%;
+  max-width: 300px;
+  font-size: 16px;
+}
+
+.iti {
+  width: 100% !important;
+  max-width: 300px;
+  margin: 0 auto; 
+}
+
+#phone {
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
+}
+
+.pairing-code {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.pairing-char {
+  font-size: 2.2em;
+  font-weight: bold;
+  border: 2px solid #075e54;
+  border-radius: 8px;
+  background: #e5ddd5;
+  padding: 18px 12px;
+  min-width: 38px;
+  text-align: center;
+}
