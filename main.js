@@ -62,6 +62,7 @@ const debounce = (fn, delay) => {
 let loggedIn = false;
 let lastQR = null;
 let lastQrDataUrl = null;
+let lastQrTimestamp = 0;
 
 async function saveAuthStateToMongo(attempt = 1) {
   try {
