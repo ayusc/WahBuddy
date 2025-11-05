@@ -373,7 +373,7 @@ async function startBot() {
 
       initialConnect = false;
 
-      await new Promise(resolve => setTimeout(resolve, 5000)); 
+      await new Promise(resolve => setTimeout(resolve, 60000)); 
 
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
