@@ -307,7 +307,7 @@ async function startBot() {
 
       if (!qrLogPrinted) {
         console.log(
-          `Please visit ${SITE_URL}/auth to get the login instructions.`
+          `Please visit ${SITE_URL} to get the login instructions.`
         );
         qrLogPrinted = true;
       }
@@ -325,7 +325,6 @@ async function startBot() {
 
     if (connection === 'close') {
       qrLogPrinted = false;
-      loggedIn = false; 
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
@@ -344,6 +343,7 @@ async function startBot() {
 
       if (reason === DisconnectReason.loggedOut) {
         console.log('Logged out permanently or session crashed !\nYou need to login again.');
+        loggedIn = false;
         if (fs.existsSync(authDir))
           fs.rmSync(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
