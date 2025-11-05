@@ -299,7 +299,7 @@ async function startBot() {
       }
 
       console.log(
-        `Please visit ${SITE_URL}/auth to get the login instructions.`
+        `Please visit ${SITE_URL} to get the login instructions.`
       );
 
       setTimeout(() => {
@@ -332,14 +332,15 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        console.log('Logged out permanently. Session crashed !');
+        console.log('Logged out permanently or session crashed !\nYou need to login again.');
         if (fs.existsSync(authDir))
           fs.rmSync(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
         await stagingsessionCollection.deleteMany({});
+        console.log('Restarting bot...');
+        await startBot();
       } else {
         console.log('Connection closed. Reconnecting...');
-
         if (!globalThis.reconnecting) {
           globalThis.reconnecting = true;
           setTimeout(async () => {
