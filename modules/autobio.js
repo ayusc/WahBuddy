@@ -1,3 +1,4 @@
+
 //  WahBuddy - A simple whatsapp userbot written in pure js
 //  Copyright (C) 2025-present Ayus Chatterjee
 //
@@ -87,31 +88,50 @@ async function runQuoteUpdate() {
 }
 
 export async function startAutoBio(sock) {
-  if (globalThis.autobioRunning) return;
-  globalThis.autobioRunning = true;
+  if (globalThis.autobioRunning) return;
 
-  const updateBio = async () => {
-    const q = await runQuoteUpdate();
-    if (q) {
-      try {
-        await sock.updateProfileStatus(q);
-        console.log('About updated');
-      } catch (err) {
-        console.error('About update failed:', err.message);
-      }
-    }
-  };
+  globalThis.autobioRunning = true;
 
-  globalThis.autobioInterval = setInterval(updateBio, AUTO_BIO_INTERVAL);
+  const now = getTimeInTimeZone(TIME_ZONE);
+  const nextMinute = new Date(now);
+  nextMinute.setSeconds(0);
+  nextMinute.setMilliseconds(0);
+  nextMinute.setMinutes(nextMinute.getMinutes() + 1);
+  const delay = nextMinute - now;
 
-  await runQuoteUpdate();
+  setTimeout(() => {
+    globalThis.autobioInterval = setInterval(async () => {
+      const q = await runQuoteUpdate();
+      if (q) {
+        try {
+          await sock.updateProfileStatus(q);
+          console.log('About updated');
+        } catch (err) {
+          console.error('About update failed:', err.message);
+        }
+      }
+    }, AUTO_BIO_INTERVAL);
+
+    // immediate first run
+    (async () => {
+      const quote = await runQuoteUpdate();
+      if (quote) {
+        try {
+          await sock.updateProfileStatus(quote);
+          console.log('About updated');
+        } catch (err) {
+          console.error('About update failed:', err.message);
+        }
+      }
+    })();
+  }, delay);
 }
 
 export default [
   {
     name: '.autobio',
     description:
-      'Updates WhatsApp About with motivational quotes every X seconds',
+      'Start updating WhatsApp About with motivational quotes every X seconds',
     usage: 'Type .autobio in any chat to start updating WhatsApp "About"...',
 
     async execute(msg, _args, sock) {
