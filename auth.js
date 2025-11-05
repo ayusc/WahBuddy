@@ -156,11 +156,10 @@ export function initAuth(getLoggedInState) {
     });
   });
 
-  app.get('/auth', (req, res) => {
-    if (getLoggedInState()) {
-      return res.status(404).send('Already logged in!');
-    }
+  app.get('/', (req, res) => {
+    if (getLoggedInState()) {
+      return res.status(200).send('Already logged in!');
+    }
 
-    res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
-  });
-}
+    res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
+  });
