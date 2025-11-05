@@ -160,6 +160,6 @@ export function initAuth(getLoggedInState) {
     if (getLoggedInState()) {
       return res.status(200).send('Already logged in!');
     }
-
     res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
   });
+}
