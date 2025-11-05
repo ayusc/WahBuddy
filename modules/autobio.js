@@ -87,50 +87,31 @@ async function runQuoteUpdate() {
 }
 
 export async function startAutoBio(sock) {
-  if (globalThis.autobioRunning) return;
+  if (globalThis.autobioRunning) return;
+  globalThis.autobioRunning = true;
 
-  globalThis.autobioRunning = true;
+  const updateBio = async () => {
+    const q = await runQuoteUpdate();
+    if (q) {
+      try {
+        await sock.updateProfileStatus(q);
+        console.log('About updated');
+      } catch (err) {
+        console.error('About update failed:', err.message);
+      }
+    }
+  };
 
-  const now = getTimeInTimeZone(TIME_ZONE);
-  const nextMinute = new Date(now);
-  nextMinute.setSeconds(0);
-  nextMinute.setMilliseconds(0);
-  nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-  const delay = nextMinute - now;
+  globalThis.autobioInterval = setInterval(updateBio, AUTO_BIO_INTERVAL);
 
-  setTimeout(() => {
-    globalThis.autobioInterval = setInterval(async () => {
-      const q = await runQuoteUpdate();
-      if (q) {
-        try {
-          await sock.updateProfileStatus(q);
-          console.log('About updated');
-        } catch (err) {
-          console.error('About update failed:', err.message);
-        }
-      }
-    }, AUTO_BIO_INTERVAL);
-
-    // immediate first run
-    (async () => {
-      const quote = await runQuoteUpdate();
-      if (quote) {
-        try {
-          await sock.updateProfileStatus(quote);
-          console.log('About updated');
-        } catch (err) {
-          console.error('About update failed:', err.message);
-        }
-      }
-    })();
-  }, delay);
+  await runQuoteUpdate();
 }
 
 export default [
   {
     name: '.autobio',
     description:
-      'Start updating WhatsApp About with motivational quotes every X seconds',
+      'Updates WhatsApp About with motivational quotes every X seconds',
     usage: 'Type .autobio in any chat to start updating WhatsApp "About"...',
 
     async execute(msg, _args, sock) {
