@@ -372,41 +372,45 @@ async function startBot() {
 
       initialConnect = false;
 
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 5000)); 
 
-      // Start AutoDP if enabled
-      if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-        autoDPStarted = true;
-        try {
-          await startAutoDP(sock, sock.user.id);
-        } catch (error) {
-          console.error(`AutoDP Error: ${error.message}`);
-        }
-      }
+      // Start AutoDP if enabled
+      if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+        autoDPStarted = true;
+        try {
+          await startAutoDP(sock, sock.user.id);
+          // Add a 3-second delay after this module starts
+          await new Promise(resolve => setTimeout(resolve, 3000)); 
+        } catch (error) {
+          console.error(`AutoDP Error: ${error.message}`);
+        }
+      }
 
-      // Start AutoName if enabled
-      if (
-        !autoNameStarted &&
-        autoname === 'True' &&
-        commands.has('.autoname')
-      ) {
-        autoNameStarted = true;
-        try {
-          await startAutoName(sock);
-        } catch (error) {
-          console.error(`AutoName Error: ${error.message}`);
-        }
-      }
+      // Start AutoName if enabled
+      if (
+        !autoNameStarted &&
+        autoname === 'True' &&
+        commands.has('.autoname')
+      ) {
+        autoNameStarted = true;
+        try {
+          await startAutoName(sock);
+          // Add another 3-second delay
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (error) {
+          console.error(`AutoName Error: ${error.message}`);
+        }
+      }
 
-      // Start AutoBio if enabled
-      if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-        autoBioStarted = true;
-        try {
-          await startAutoBio(sock);
-        } catch (error) {
-          console.error(`AutoBio Error: ${error.message}`);
-        }
-      }
+      // Start AutoBio if enabled 
+      if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+        autoBioStarted = true;
+        try {
+          await startAutoBio(sock);
+        } catch (error) {
+          console.error(`AutoBio Error: ${error.message}`);
+        }
+      }
     }
   });
 
