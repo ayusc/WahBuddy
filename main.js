@@ -64,6 +64,26 @@ let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;
 
+function startSelfPing() {
+  if (!SITE_URL) {
+    console.error('SITE_URL is not set. Please set it first !');
+    return;
+  }
+  const pingInterval = 5 * 60 * 1000; 
+  const pingUrl = `${SITE_URL}/health`;
+  setInterval(async () => {
+    try {
+      const response = await fetch(pingUrl);
+      if (!response.ok) {
+        console.error(`Self-ping failed: ${response.statusText}`);
+      } else {
+      }
+    } catch (err) {
+      console.error('Self-ping error:', err.message);
+    }
+  }, pingInterval);
+}
+
 async function saveAuthStateToMongo(attempt = 1) {
   try {
     if (!fs.existsSync(authDir)) {
@@ -518,6 +538,7 @@ startBot();
 
 server.listen(process.env.PORT || 8000, () => {
   console.log(`Server listening on port ${process.env.PORT || 8000}`);
+  startSelfPing();
 });
 
 export { db };
