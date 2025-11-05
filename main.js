@@ -70,9 +70,14 @@ function startSelfPing() {
     console.error('SITE_URL is not set. Please set it first !');
     return;
   }
-  const pingInterval = 5 * 60 * 1000; 
-  const pingUrl = `${SITE_URL}/health`;
-  setInterval(async () => {
+  const pingInterval = 5 * 60 * 1000; 
+  let cleanSiteUrl = SITE_URL;
+  if (!cleanSiteUrl.startsWith('http://') && !cleanSiteUrl.startsWith('https://')) {
+    cleanSiteUrl = `https://${cleanSiteUrl}`;
+  }
+
+  const pingUrl = `${cleanSiteUrl}/health`;
+  setInterval(async () => {
     try {
       const response = await fetch(pingUrl);
       if (!response.ok) {
