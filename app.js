@@ -26,7 +26,7 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (req, res) => {
-  res.status(200).send('OK');
+  res.status(200).send('Wahbuddy is Running !');
 });
 
 export default app;
