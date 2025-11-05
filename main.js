@@ -63,6 +63,7 @@ let loggedIn = false;
 let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;
+let qrLogPrinted = false;
 
 function startSelfPing() {
   if (!SITE_URL) {
@@ -298,9 +299,12 @@ async function startBot() {
         lastQrDataUrl = null;
       }
 
-      console.log(
-        `Please visit ${SITE_URL} to get the login instructions.`
-      );
+      if (!qrLogPrinted) {
+        console.log(
+          `Please visit ${SITE_URL}/auth to get the login instructions.`
+        );
+        qrLogPrinted = true;
+      }
 
       setTimeout(() => {
         if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
@@ -314,6 +318,7 @@ async function startBot() {
     }
 
     if (connection === 'close') {
+      qrLogPrinted = false;
       loggedIn = false; 
       lastQR = null;
       lastQrDataUrl = null;
@@ -350,6 +355,7 @@ async function startBot() {
         }
       }
     } else if (connection === 'open') {
+      qrLogPrinted = false;
       loggedIn = true; 
       lastQR = null;
       lastQrDataUrl = null;
