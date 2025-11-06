@@ -1,14 +1,13 @@
 import { messagesCollection } from '../main.js';
 
-const wait = ms => new Promise(res => setTimeout(res, ms));
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
 async function deleteForEveryone(sock, jid, key) {
   try {
     await sock.sendMessage(jid, { delete: key });
-    return true;
+    return { success: true, key };
   } catch (err) {
-    console.error('Delete for everyone failed:', err.message);
-    return false;
+    return { success: false, error: err, key };
   }
 }
 
@@ -21,17 +20,16 @@ async function deleteForMe(sock, jid, msg) {
             {
               id: msg.key.id,
               fromMe: true,
-              timestamp: Number(msg.messageTimestamp || Date.now()),
-            },
-          ],
-        },
+              timestamp: Number(msg.messageTimestamp || Date.now())
+            }
+          ]
+        }
       },
       jid
     );
-    return true;
+    return { success: true, key: msg.key };
   } catch (err) {
-    console.error('Delete for me failed:', err.message);
-    return false;
+    return { success: false, error: err, key: msg.key };
   }
 }
 
@@ -39,7 +37,7 @@ export default {
   name: ['.purge'],
   description: 'Deletes a replied message and optionally following messages.',
   usage:
-    '.purge [count|all]\nReply to a message and type .purge, .purge n, or .purge all to delete that message or n messages after it.',
+    '.purge [count|all]\nReply to a message then type .purge, .purge n or .purge all.',
 
   async execute(msg, args, sock) {
     const jid = msg.key.remoteJid;
@@ -48,51 +46,47 @@ export default {
     const quotedParticipant = contextInfo?.participant || msg.participant;
 
     if (!quotedMsgId) {
-      await sock.sendMessage(jid, { text: 'Please reply to a message to purge.' }, { quoted: msg });
+      await sock.sendMessage(jid, { text: 'Reply to a message to purge.' }, { quoted: msg });
       return;
     }
 
     const repliedMsg = await messagesCollection.findOne({
       'key.id': quotedMsgId,
-      'key.remoteJid': jid,
+      'key.remoteJid': jid
     });
 
     if (!repliedMsg) {
       await sock.sendMessage(
         jid,
-        { text: 'Could not find the replied message in history.\nPerhaps it has been deleted?' },
+        { text: 'Could not find the replied message in history.' },
         { quoted: msg }
       );
       return;
     }
 
     const purgeAll = args[0] === 'all';
-    const purgeCount = purgeAll ? 1000 : parseInt(args[0] || '1') + 1;
+    const count = purgeAll ? 1000 : parseInt(args[0] || '1') + 1;
 
-    // fetch messages after the replied one
     const messagesToDelete = await messagesCollection
       .find({
         'key.remoteJid': jid,
-        messageTimestamp: { $gte: repliedMsg.messageTimestamp },
+        messageTimestamp: { $gte: repliedMsg.messageTimestamp }
       })
       .sort({ messageTimestamp: 1 })
-      .limit(purgeCount)
+      .limit(count)
       .toArray();
 
-    console.log(`Purging ${messagesToDelete.length} messages...`);
+    // add the command message itself
+    messagesToDelete.push(msg);
 
-    let deleted = 0;
     for (const m of messagesToDelete) {
-      const key = m.key;
-
-      // delete for everyone if possible (only works if recent)
-      const success = await deleteForEveryone(sock, jid, key);
-      if (!success) await deleteForMe(sock, jid, m);
-
-      deleted++;
-      if (deleted % 5 === 0) await wait(1000); // small pause to avoid flooding
+      const result = await deleteForEveryone(sock, jid, m.key);
+      if (!result.success) {
+        await deleteForMe(sock, jid, m);
+      }
+      await wait(500);
     }
 
-    await sock.sendMessage(jid, { text: `Purged ${deleted} messages.` });
-  },
+    await sock.sendMessage(jid, { text: `Purged ${messagesToDelete.length} messages.` });
+  }
 };
