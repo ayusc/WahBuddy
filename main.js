@@ -550,11 +550,13 @@ async function startBot() {
   });
 }
 
-server.listen(process.env.PORT || 8000, () => {
-  console.log(`Server listening on port ${process.env.PORT || 8000}`);
-  startSelfPing();
-});
+(async () => {
+  await startBot();
+  server.listen(process.env.PORT || 8000, () => {
+    console.log(`Server listening on port ${process.env.PORT || 8000}`);
+    startSelfPing();
+  });
+})();
 
-startBot();
 
 export { db };
