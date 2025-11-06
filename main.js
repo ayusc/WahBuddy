@@ -382,8 +382,9 @@ async function startBot() {
 
       initialConnect = false;
 
-      await new Promise(resolve => setTimeout(resolve, 60000)); // Start AutoDP if enabled
-
+      await new Promise(resolve => setTimeout(resolve, 60000)); 
+      
+      // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
@@ -392,8 +393,9 @@ async function startBot() {
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
-      } // Start AutoName if enabled
-
+      } 
+      
+      // Start AutoName if enabled
       if (
         !autoNameStarted &&
         autoname === 'True' &&
@@ -406,8 +408,9 @@ async function startBot() {
         } catch (error) {
           console.error(`AutoName Error: ${error.message}`);
         }
-      } // Start AutoBio if enabled
-
+      } 
+      
+      // Start AutoBio if enabled
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
         try {
