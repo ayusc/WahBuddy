@@ -172,15 +172,19 @@ export function initAuth(getLoggedInState) {
     });
   });
 
-  app.get('/', (req, res) => {
-    // Dynamically re-evaluate the loggedIn state each time
-    const isLoggedIn =
-      typeof getLoggedInState === 'function' ? getLoggedInState() : false;
+app.get('/', (req, res) => {
+  const isLoggedIn =
+    typeof getLoggedInState === 'function' ? getLoggedInState() : false;
 
-    if (isLoggedIn) {
-      return res.status(200).send('Already logged in!');
-    }
-    res.set('Cache-Control', 'no-store');
-    res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
-  });
+  console.log(`[AUTH CHECK ${new Date().toISOString()}] GET / -> loggedIn =`, isLoggedIn);
+
+  res.set('Cache-Control', 'no-store');
+
+  if (isLoggedIn) {
+    return res.status(200).send('Already logged in!');
+  }
+
+  res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
+});
+
 }
