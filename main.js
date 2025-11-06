@@ -271,8 +271,7 @@ async function startBot() {
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
     defaultQueryTimeoutMs: undefined,
-    keepAliveIntervalMs: 5000,
-    markOnlineOnConnect: false,
+    markOnlineOnConnect: true,
   });
 
   sock.ev.on(
