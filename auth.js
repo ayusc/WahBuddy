@@ -176,8 +176,6 @@ app.get('/', (req, res) => {
   const isLoggedIn =
     typeof getLoggedInState === 'function' ? getLoggedInState() : false;
 
-  console.log(`[AUTH CHECK ${new Date().toISOString()}] GET / -> loggedIn =`, isLoggedIn);
-
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
