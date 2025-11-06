@@ -23,7 +23,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/health', (req, res) => {
   res.status(200).send('Wahbuddy is Running !');
