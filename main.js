@@ -241,10 +241,11 @@ async function startBot() {
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
 
-  initAuth(() => loggedIn);
+  //initAuth(() => loggedIn);
 
   const restored = await restoreAuthStateFromMongo();
   loggedIn = restored;
+  initAuth(() => loggedIn);
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
@@ -549,13 +550,12 @@ async function startBot() {
       );
     }
   });
+  server.listen(process.env.PORT || 8000, () => {
+    console.log(`Server listening on port ${process.env.PORT || 8000}`);
+    startSelfPing();
+  });
+  
 }
 
 startBot();
-
-server.listen(process.env.PORT || 8000, () => {
-  console.log(`Server listening on port ${process.env.PORT || 8000}`);
-  startSelfPing();
-});
-
 export { db };
