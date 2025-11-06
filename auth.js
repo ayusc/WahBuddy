@@ -178,7 +178,9 @@ app.get('/', (req, res) => {
 
   console.log(`[AUTH CHECK ${new Date().toISOString()}] GET / -> loggedIn =`, isLoggedIn);
 
-  res.set('Cache-Control', 'no-store');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
 
   if (isLoggedIn) {
     return res.status(200).send('Already logged in!');
