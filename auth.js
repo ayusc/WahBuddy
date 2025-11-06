@@ -180,6 +180,7 @@ export function initAuth(getLoggedInState) {
     if (isLoggedIn) {
       return res.status(200).send('Already logged in!');
     }
+    res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
   });
 }
