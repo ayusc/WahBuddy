@@ -549,13 +549,14 @@ async function startBot() {
         { upsert: true }
       );
     }
-  });
-  server.listen(process.env.PORT || 8000, () => {
-    console.log(`Server listening on port ${process.env.PORT || 8000}`);
-    startSelfPing();
-  });
-  
+  });  
 }
 
+server.listen(process.env.PORT || 8000, () => {
+    console.log(`Server listening on port ${process.env.PORT || 8000}`);
+    startSelfPing();
+});
+
 startBot();
+
 export { db };
