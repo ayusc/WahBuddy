@@ -185,7 +185,6 @@ app.get('/', (req, res) => {
   if (isLoggedIn) {
     return res.status(200).send('Already logged in!');
   }
-
   res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
 });
 
