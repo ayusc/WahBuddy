@@ -106,7 +106,7 @@ async function saveAuthStateToMongo(attempt = 1) {
     const files = fs.readdirSync(authDir);
     for (const file of files) {
       const filePath = path.join(authDir, file);
-      const data = fs.readFileSync(filePath, 'utf-8');
+      const data = await fs.promises.readFile(filePath, 'utf-8');
 
       await staging.updateOne(
         { _id: file },
@@ -141,8 +141,8 @@ async function saveAuthStateToMongo(attempt = 1) {
 
 async function restoreAuthStateFromMongo() {
   if (fs.existsSync(authDir))
-    fs.rmSync(authDir, { recursive: true, force: true });
-  fs.mkdirSync(authDir, { recursive: true });
+    await fs.promises.rm(authDir, { recursive: true, force: true });
+  await fs.promises.mkdir(authDir, { recursive: true });
 
   if (!sessionCollection) {
     console.error('Failed to connect to MongoDB !');
@@ -159,7 +159,7 @@ async function restoreAuthStateFromMongo() {
 
   try {
     for (const { _id, data } of savedCreds) {
-      fs.writeFileSync(path.join(authDir, _id), data, 'utf-8');
+      await fs.promises.writeFile(path.join(authDir, _id), data, 'utf-8');
     }
     console.log('Session restored from MongoDB');
     return true;
@@ -168,8 +168,8 @@ async function restoreAuthStateFromMongo() {
     await sessionCollection.deleteMany({});
     await stagingsessionCollection.deleteMany({});
     if (fs.existsSync(authDir))
-      fs.rmSync(authDir, { recursive: true, force: true });
-    fs.mkdirSync(authDir, { recursive: true });
+      await fs.promises.rm(authDir, { recursive: true, force: true });
+    await fs.promises.mkdir(authDir, { recursive: true })
 
     initialConnect = true;
     return false;
@@ -244,14 +244,25 @@ async function startBot() {
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
 
-  //initAuth(() => loggedIn);
-
-  const restored = await restoreAuthStateFromMongo();
-  loggedIn = restored;
+  // Initialize Socket.IO auth routes as early as possible
   initAuth(() => loggedIn);
 
-  const { state, saveCreds } = await useMultiFileAuthState(authDir);
-  const { version } = await fetchLatestBaileysVersion();
+  // Ensure we don't stack multiple listeners on reconnects
+  io.removeAllListeners('connection');
+  io.on('connection', socket => {
+    if (lastQrDataUrl) {
+      socket.emit('qr', lastQrDataUrl);
+      socket.emit('qr-meta', { ts: lastQrTimestamp, qrLen: lastQR?.length || 0 });
+    }
+  });
+
+  // Fetch everything concurrently (single restore)
+  const [{ version }, { state, saveCreds }, restored] = await Promise.all([
+    fetchLatestBaileysVersion(),
+    useMultiFileAuthState(authDir),
+    restoreAuthStateFromMongo()
+  ]);
+  loggedIn = restored;
 
   const getMessage = async key => {
     const message = await messagesCollection.findOne({
@@ -285,51 +296,47 @@ async function startBot() {
   sock.ev.on('connection.update', async update => {
     const { connection, lastDisconnect, qr } = update;
 
+    // --- QR handling ---
     if (qr && qr !== lastQR) {
       lastQR = qr;
       loggedIn = false;
       lastQrTimestamp = Date.now();
 
-      if (io.engine.clientsCount > 0) {
-        try {
-          const qrDataUrl = await qrcode.toDataURL(qr);
+      qrcode.toDataURL(qr)
+        .then(qrDataUrl => {
           lastQrDataUrl = qrDataUrl;
           io.emit('qr', qrDataUrl);
           io.emit('qr-meta', { ts: lastQrTimestamp, qrLen: qr.length });
-        } catch (err) {
+        })
+        .catch(err => {
           console.error('Failed to generate QR image:', err);
+          lastQrDataUrl = null;
           io.emit('qr-raw', qr);
-          io.emit('qr-error', {
-            msg: 'qr-generation-failed',
-            err: String(err),
-          });
-        }
-      } else {
-        lastQrDataUrl = null;
-      }
+        });
 
       if (!qrLogPrinted) {
         console.log(`Please visit ${SITE_URL} to get the login instructions.`);
         qrLogPrinted = true;
       }
 
+      // Expire the buffered QR after ~65s
       setTimeout(() => {
         if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
-          if (Date.now() - lastQrTimestamp > 65_000) {
-            lastQR = null;
-            lastQrDataUrl = null;
-            lastQrTimestamp = 0;
-          }
+          lastQR = null;
+          lastQrDataUrl = null;
+          lastQrTimestamp = 0;
         }
       }, 66_000);
     }
 
+    // --- Connection state handling (keep this INSIDE the handler) ---
     if (connection === 'close') {
       qrLogPrinted = false;
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
       commandsLoaded = false;
+
       clearInterval(globalThis.autodpInterval);
       clearInterval(globalThis.autobioInterval);
       clearInterval(globalThis.autonameInterval);
@@ -348,7 +355,7 @@ async function startBot() {
         );
         loggedIn = false;
         if (fs.existsSync(authDir))
-          fs.rmSync(authDir, { recursive: true, force: true });
+          await fs.promises.rm(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
         await stagingsessionCollection.deleteMany({});
         console.log('Restarting bot...');
@@ -382,33 +389,29 @@ async function startBot() {
       initialConnect = false;
 
       await new Promise(resolve => setTimeout(resolve, 60000)); 
-      
+
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
-          await startAutoDP(sock, sock.user.id); // Add a 3-second delay after this module starts
+          await startAutoDP(sock, sock.user.id);
           await new Promise(resolve => setTimeout(resolve, 3000));
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
       } 
-      
+
       // Start AutoName if enabled
-      if (
-        !autoNameStarted &&
-        autoname === 'True' &&
-        commands.has('.autoname')
-      ) {
+      if (!autoNameStarted && autoname === 'True' && commands.has('.autoname')) {
         autoNameStarted = true;
         try {
-          await startAutoName(sock); // Add another 3-second delay
+          await startAutoName(sock);
           await new Promise(resolve => setTimeout(resolve, 3000));
         } catch (error) {
           console.error(`AutoName Error: ${error.message}`);
         }
       } 
-      
+
       // Start AutoBio if enabled
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
