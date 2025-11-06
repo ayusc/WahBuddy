@@ -70,14 +70,17 @@ function startSelfPing() {
     console.error('SITE_URL is not set. Please set it first !');
     return;
   }
-  const pingInterval = 5 * 60 * 1000; 
-  let cleanSiteUrl = SITE_URL;
-  if (!cleanSiteUrl.startsWith('http://') && !cleanSiteUrl.startsWith('https://')) {
-    cleanSiteUrl = `https://${cleanSiteUrl}`;
-  }
+  const pingInterval = 5 * 60 * 1000;
+  let cleanSiteUrl = SITE_URL;
+  if (
+    !cleanSiteUrl.startsWith('http://') &&
+    !cleanSiteUrl.startsWith('https://')
+  ) {
+    cleanSiteUrl = `https://${cleanSiteUrl}`;
+  }
 
-  const pingUrl = `${cleanSiteUrl}/health`;
-  setInterval(async () => {
+  const pingUrl = `${cleanSiteUrl}/health`;
+  setInterval(async () => {
     try {
       const response = await fetch(pingUrl);
       if (!response.ok) {
@@ -244,7 +247,7 @@ async function startBot() {
   //initAuth(() => loggedIn);
 
   const restored = await restoreAuthStateFromMongo();
-  loggedIn = restored;
+  loggedIn = restored;
   initAuth(() => loggedIn);
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
@@ -307,9 +310,7 @@ async function startBot() {
       }
 
       if (!qrLogPrinted) {
-        console.log(
-          `Please visit ${SITE_URL} to get the login instructions.`
-        );
+        console.log(`Please visit ${SITE_URL} to get the login instructions.`);
         qrLogPrinted = true;
       }
 
@@ -343,7 +344,9 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        console.log('Logged out permanently or session crashed !\nYou need to login again.');
+        console.log(
+          'Logged out permanently or session crashed !\nYou need to login again.'
+        );
         loggedIn = false;
         if (fs.existsSync(authDir))
           fs.rmSync(authDir, { recursive: true, force: true });
@@ -363,11 +366,11 @@ async function startBot() {
       }
     } else if (connection === 'open') {
       qrLogPrinted = false;
-      loggedIn = true; 
+      loggedIn = true;
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
-      io.emit('login-success'); 
+      io.emit('login-success');
       console.log('Authenticated with WhatsApp');
 
       if (!commandsLoaded) {
@@ -379,45 +382,40 @@ async function startBot() {
 
       initialConnect = false;
 
-      await new Promise(resolve => setTimeout(resolve, 60000)); 
+      await new Promise(resolve => setTimeout(resolve, 60000)); // Start AutoDP if enabled
 
-      // Start AutoDP if enabled
-      if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
-        autoDPStarted = true;
-        try {
-          await startAutoDP(sock, sock.user.id);
-          // Add a 3-second delay after this module starts
-          await new Promise(resolve => setTimeout(resolve, 3000)); 
-        } catch (error) {
-          console.error(`AutoDP Error: ${error.message}`);
-        }
-      }
+      if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
+        autoDPStarted = true;
+        try {
+          await startAutoDP(sock, sock.user.id); // Add a 3-second delay after this module starts
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (error) {
+          console.error(`AutoDP Error: ${error.message}`);
+        }
+      } // Start AutoName if enabled
 
-      // Start AutoName if enabled
-      if (
-        !autoNameStarted &&
-        autoname === 'True' &&
-        commands.has('.autoname')
-      ) {
-        autoNameStarted = true;
-        try {
-          await startAutoName(sock);
-          // Add another 3-second delay
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        } catch (error) {
-          console.error(`AutoName Error: ${error.message}`);
-        }
-      }
+      if (
+        !autoNameStarted &&
+        autoname === 'True' &&
+        commands.has('.autoname')
+      ) {
+        autoNameStarted = true;
+        try {
+          await startAutoName(sock); // Add another 3-second delay
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (error) {
+          console.error(`AutoName Error: ${error.message}`);
+        }
+      } // Start AutoBio if enabled
 
-      // Start AutoBio if enabled 
-      if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
-        autoBioStarted = true;
-        try {
-          await startAutoBio(sock);
-        } catch (error) {
-          console.error(`AutoBio Error: ${error.message}`);
-        }
-      }
+      if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
+        autoBioStarted = true;
+        try {
+          await startAutoBio(sock);
+        } catch (error) {
+          console.error(`AutoBio Error: ${error.message}`);
+        }
+      }
     }
   });
 
@@ -549,12 +547,12 @@ async function startBot() {
         { upsert: true }
       );
     }
-  });  
+  });
 }
 
 server.listen(process.env.PORT || 8000, () => {
-    console.log(`Server listening on port ${process.env.PORT || 8000}`);
-    startSelfPing();
+  console.log(`Server listening on port ${process.env.PORT || 8000}`);
+  startSelfPing();
 });
 
 startBot();

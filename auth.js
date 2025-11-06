@@ -173,12 +173,13 @@ export function initAuth(getLoggedInState) {
   });
 
   app.get('/', (req, res) => {
-  // Dynamically re-evaluate the loggedIn state each time
-  const isLoggedIn = typeof getLoggedInState === 'function' ? getLoggedInState() : false;
+    // Dynamically re-evaluate the loggedIn state each time
+    const isLoggedIn =
+      typeof getLoggedInState === 'function' ? getLoggedInState() : false;
 
-  if (isLoggedIn) {
-    return res.status(200).send('Already logged in!');
-  }
-  res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
+    if (isLoggedIn) {
+      return res.status(200).send('Already logged in!');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.al.html'));
   });
 }
