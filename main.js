@@ -551,12 +551,17 @@ async function startBot() {
 }
 
 (async () => {
-  await startBot();
-  server.listen(process.env.PORT || 8000, () => {
-    console.log(`Server listening on port ${process.env.PORT || 8000}`);
-    startSelfPing();
-  });
-})();
+  try {
+    await startBot(); 
 
+    server.listen(process.env.PORT || 8000, () => {
+      console.log(`Server listening on port ${process.env.PORT || 8000}`);
+      startSelfPing();
+    });
+  } catch (err) {
+    console.error('Failed to start bot or server:', err);
+    process.exit(1);
+  }
+})();
 
 export { db };
