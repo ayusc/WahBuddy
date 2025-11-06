@@ -43,13 +43,17 @@ const debounce = (fn, delay) => {
   let timer;
   return (...args) => {
     clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
+    return new Promise(resolve => {
+      timer = setTimeout(() => resolve(fn(...args)), delay);
+    });
   };
 };
 
 async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
   try {
-    if (!fs.existsSync(authDir)) {
+    try {
+      await fs.promises.access(authDir);
+    } catch {
       console.warn(`${authDir} (pairing) does not exist. Skipping save.`);
       return;
     }
@@ -57,25 +61,16 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
     const staging = db.collection('wahbuddy_sessions_staging');
     const main = sessionCollection;
 
-    const files = fs.readdirSync(authDir);
+    const files = await fs.promises.readdir(authDir);
     for (const file of files) {
       const filePath = path.join(authDir, file);
-      const data = fs.readFileSync(filePath, 'utf-8');
-
-      await staging.updateOne(
-        { _id: file },
-        { $set: { data } },
-        { upsert: true }
-      );
+      const data = await fs.promises.readFile(filePath, 'utf-8');
+      await staging.updateOne({ _id: file }, { $set: { data } }, { upsert: true });
     }
 
     const staged = await staging.find({}).toArray();
     for (const doc of staged) {
-      await main.updateOne(
-        { _id: doc._id },
-        { $set: { data: doc.data } },
-        { upsert: true }
-      );
+      await main.updateOne({ _id: doc._id }, { $set: { data: doc.data } }, { upsert: true });
     }
 
     await staging.deleteMany({});
@@ -85,10 +80,7 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
       console.warn(`Retrying pairing creds update... attempt ${attempt + 1}`);
       await savePairingAuthToMongo(db, sessionCollection, attempt + 1);
     } else {
-      console.error(
-        `Failed to update pairing creds in MongoDB after ${attempt} attempts:`,
-        err
-      );
+      console.error(`Failed to update pairing creds after ${attempt} attempts:`, err);
     }
   }
 }
@@ -96,27 +88,22 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
 export function initAuth(getLoggedInState) {
   io.on('connection', socket => {
     socket.on('request-code', async ({ phone }) => {
-      let mongoClient;
-      let db, sessionCollection;
       try {
         console.log('Received phone from client:', phone);
 
         if (!phone || typeof phone !== 'string' || !/^\+?\d+$/.test(phone)) {
-          socket.emit(
-            'pairing-error',
-            'Invalid phone number! Only digits are allowed.'
-          );
+          socket.emit('pairing-error', 'Invalid phone number! Only digits are allowed.');
           return;
         }
 
-        mongoClient = new MongoClient(mongoUri);
+        const mongoClient = new MongoClient(mongoUri);
         await mongoClient.connect();
-        db = mongoClient.db(dbName);
-        sessionCollection = db.collection('wahbuddy_sessions');
+        const db = mongoClient.db(dbName);
+        const sessionCollection = db.collection('wahbuddy_sessions');
 
-        if (fs.existsSync(authDir))
-          fs.rmSync(authDir, { recursive: true, force: true });
-        fs.mkdirSync(authDir, { recursive: true });
+        await fs.promises.rm(authDir, { recursive: true, force: true });
+        await fs.promises.mkdir(authDir, { recursive: true });
+
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
         const { version } = await fetchLatestBaileysVersion();
 
@@ -132,7 +119,7 @@ export function initAuth(getLoggedInState) {
         sock.ev.on('connection.update', ({ connection }) => {
           if (connection === 'open') {
             console.log('Pairing successful, connection open.');
-            io.emit('login-success');
+            socket.emit('login-success'); 
           }
         });
 
@@ -146,14 +133,9 @@ export function initAuth(getLoggedInState) {
 
         if (!state.creds.registered) {
           await new Promise(resolve => setTimeout(resolve, 1000));
-
           try {
             const cleanPhone = phone.replace(/^\+/, '');
-            //console.log('Phone for pairing code:', cleanPhone);
-
             const code = await sock.requestPairingCode(cleanPhone);
-            //console.log('Pairing code received:', code);
-
             if (!code) {
               socket.emit('pairing-error', 'No code received! Please retry.');
             } else {
@@ -170,20 +152,18 @@ export function initAuth(getLoggedInState) {
         socket.emit('pairing-error', err.message || String(err));
       }
     });
+  }); 
+
+  app.get('/', (req, res) => {
+    const isLoggedIn = typeof getLoggedInState === 'function' ? getLoggedInState() : false;
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    if (isLoggedIn) {
+      return res.status(200).send('Already logged in!');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
-
-app.get('/', (req, res) => {
-  const isLoggedIn =
-    typeof getLoggedInState === 'function' ? getLoggedInState() : false;
-
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-
-  if (isLoggedIn) {
-    return res.status(200).send('Already logged in!');
-  }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 }
