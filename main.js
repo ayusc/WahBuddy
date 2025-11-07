@@ -248,12 +248,9 @@ async function startBot() {
   chatsCollection = db.collection('chats');
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
-
-  // Initialize Socket.IO auth routes as early as possible
+  
   initAuth(() => loggedIn);
 
-  // Ensure we don't stack multiple listeners on reconnects
-  io.removeAllListeners('connection');
   io.on('connection', socket => {
     if (lastQrDataUrl) {
       socket.emit('qr', lastQrDataUrl);
