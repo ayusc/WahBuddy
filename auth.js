@@ -114,6 +114,8 @@ export function initAuth(getLoggedInState) {
           printQRInTerminal: false,
           defaultQueryTimeoutMs: undefined,
           logger: pino({ level: 'silent' }),
+          generateHighQualityLinkPreview: true,
+          markOnlineOnConnect: false, // do not change this is needed for linking notification
         });
 
         sock.ev.on('connection.update', ({ connection }) => {
