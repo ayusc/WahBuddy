@@ -87,9 +87,12 @@ async function runQuoteUpdate() {
 }
 
 async function performBioUpdate() {
+  const sock = globalThis.sock;
+  if (!sock) {
+    console.warn('AutoBio: Sock not available. Skipping.');
+    return;
+  }
   if (globalThis.connectionState!== 'open') {
-    const sock = globalThis.sock;
-    if (!sock) { console.warn('AutoBio: Sock not available. Skipping.'); return; }
     console.warn('AutoBio: Connection unstable.');
     return;
   }
