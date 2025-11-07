@@ -38,24 +38,37 @@ export async function startAutoName(sock) {
   globalThis.autonameRunning = true;
 
   const updateName = async () => {
+
+    if (globalThis.connectionState!== 'open') {
+      console.warn('AutoName: Connection not open. Skipping update.');
+      return;
+    }
+
     const time = getCurrentTimeInZone();
     const name = NAME_PREFIX.replace('{autoname}', time);
+
     try {
-      await sock.updateProfileName(name);
-      console.log('Profile name updated');
+      await globalThis.profileLimiter.schedule(() => sock.updateProfileName(name));
+      console.log('Name updated');
     } catch (err) {
       console.error('Failed to update name:', err);
     }
   };
 
-  const now = Date.now();
-  const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL); // ms until next full minute
+  const runRecursiveLoop = async () => {
+    try {
+      await updateName(); 
+    } catch (err) {
+      console.error("Error in autoname loop:", err);
+    } finally {
+      const nextRunDelay = AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
+      globalThis.autonameInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+    }
+  };
 
-  // Align to next hh:mm:00
-  setTimeout(() => {
-    updateName();
-    globalThis.autonameInterval = setInterval(updateName, AUTO_NAME_INTERVAL);
-  }, delayToNextMinute);
+  const now = Date.now();
+  const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL);
+  globalThis.autonameInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [
