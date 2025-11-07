@@ -110,7 +110,7 @@ export default [
 
     async execute(msg, _args, sock) {
       if (globalThis.autonameInterval) {
-        clearInterval(globalThis.autonameInterval);
+        clearTimeout(globalThis.autonameInterval);
         globalThis.autonameInterval = null;
         globalThis.autonameRunning = false;
 
