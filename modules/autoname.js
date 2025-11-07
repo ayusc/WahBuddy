@@ -34,7 +34,7 @@ function getCurrentTimeInZone() {
   return formatter.format(now);
 }
 
-export async function startAutoName(sock) {
+export async function startAutoName() {
   globalThis.autonameRunning = true;
 
   const sock = globalThis.sock;
@@ -103,7 +103,7 @@ export default [
           { quoted: msg }
         );
       }
-      await startAutoName(sock);
+      await startAutoName();
     },
   },
   {
