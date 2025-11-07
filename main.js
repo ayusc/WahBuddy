@@ -153,7 +153,7 @@ async function restoreAuthStateFromMongo() {
 
   const savedCreds = await sessionCollection.find({}).toArray();
   if (!savedCreds.length) {
-    //console.warn('No session found in MongoDB !');
+    console.warn('No session found in MongoDB! Starting fresh.');
     initialConnect = true;
     return false;
   }
@@ -261,7 +261,6 @@ async function startBot() {
     }
   });
 
-  console.log('Restoring session from MongoDB...');
   const restored = await restoreAuthStateFromMongo();
   loggedIn = restored;
   
