@@ -37,10 +37,13 @@ function getCurrentTimeInZone() {
 export async function startAutoName(sock) {
   globalThis.autonameRunning = true;
 
-  const updateName = async () => {
+  const sock = globalThis.sock;
+  if (!sock) { console.warn('AutoName: Connection unstable.'); return; } 
+
+    const updateName = async () => {
 
     if (globalThis.connectionState!== 'open') {
-      console.warn('AutoName: Connection not open. Skipping update.');
+      console.warn('AutoName: Connection Closed.');
       return;
     }
 
