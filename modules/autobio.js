@@ -92,7 +92,7 @@ async function performBioUpdate() {
     console.warn('AutoBio: Socket Error.');
     return;
   }
-  if (globalThis.connectionState!== 'open') {
+  if (globalThis.connectionState !== 'open') {
     console.warn('AutoBio: Connection unstable.');
     return;
   }
@@ -112,7 +112,6 @@ async function performBioUpdate() {
 }
 
 export async function startAutoBio() {
-
   globalThis.autobioRunning = true;
 
   const runRecursiveLoop = async () => {

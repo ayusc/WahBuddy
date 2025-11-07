@@ -366,20 +366,20 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 }
 
 async function performDpUpdate() {
-  const sock = globalThis.sock; 
-  if (!sock) { console.warn('AutoDP: Socket Error.'); return; } 
+  const sock = globalThis.sock;
+  if (!sock) {
+    console.warn('AutoDP: Socket Error.');
+    return;
+  }
   const jid = sock.user.id;
-  if (globalThis.connectionState!== 'open') {
+  if (globalThis.connectionState !== 'open') {
     console.warn('AutoDP: Connection unstable.');
     return;
   }
 
   try {
     await generateImage();
-    if (
-     !fs.existsSync(outputImage) ||
-      fs.statSync(outputImage).size === 0
-    ) {
+    if (!fs.existsSync(outputImage) || fs.statSync(outputImage).size === 0) {
       console.error('DP update skipped: output image is empty or missing');
       return;
     }
@@ -394,7 +394,6 @@ async function performDpUpdate() {
 }
 
 export async function startAutoDP() {
-
   await ensureFontDownloaded();
   registerFont(fontPath, { family: 'FancyFont' });
 
@@ -411,7 +410,7 @@ export async function startAutoDP() {
 
   const now = Date.now();
   const delayToNextMinute = intervalMs - (now % intervalMs);
-  
+
   globalThis.autodpInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
@@ -436,9 +435,9 @@ export default [
         }
         return;
       }
-      
+
       globalThis.autodpRunning = true;
-      
+
       if (!msg.fromStartup) {
         await sock.sendMessage(
           jid,

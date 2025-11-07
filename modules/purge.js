@@ -18,7 +18,13 @@ import { messagesCollection } from '../main.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function deleteMessageWithRetry(sock, jid, message, maxRetries = 5, retryDelay = 500) {
+async function deleteMessageWithRetry(
+  sock,
+  jid,
+  message,
+  maxRetries = 5,
+  retryDelay = 500
+) {
   const originalKey = message.key;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -30,10 +36,10 @@ async function deleteMessageWithRetry(sock, jid, message, maxRetries = 5, retryD
             key: {
               id: delid.key.id,
               remoteJid: jid,
-              fromMe: true
+              fromMe: true,
             },
-            timestamp: Number(delid.messageTimestamp)
-          }
+            timestamp: Number(delid.messageTimestamp),
+          },
         },
         jid
       );
@@ -49,7 +55,8 @@ async function deleteMessageWithRetry(sock, jid, message, maxRetries = 5, retryD
 export default {
   name: ['.purge'],
   description: 'Deletes a replied message and optionally following messages.',
-  usage: '.purge [count|all]\nReply to a message and type .purge, .purge n, or .purge all.',
+  usage:
+    '.purge [count|all]\nReply to a message and type .purge, .purge n, or .purge all.',
 
   async execute(msg, args, sock) {
     const jid = msg.key.remoteJid;
@@ -58,7 +65,11 @@ export default {
     const quotedParticipant = contextInfo?.participant || msg.participant;
 
     if (!quotedMsgId) {
-      await sock.sendMessage(jid, { text: 'Please reply to a message to purge.' }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: 'Please reply to a message to purge.' },
+        { quoted: msg }
+      );
       return;
     }
 
@@ -69,7 +80,7 @@ export default {
     const oldestMsgKey = {
       remoteJid: jid,
       id: quotedMsgId,
-      participant: quotedParticipant
+      participant: quotedParticipant,
     };
 
     await sock.fetchMessageHistory(50, oldestMsgKey, Date.now());
@@ -77,13 +88,17 @@ export default {
     while (!repliedMsg && Date.now() - startTime < maxWaitTime) {
       repliedMsg = await messagesCollection.findOne({
         'key.id': quotedMsgId,
-        'key.remoteJid': jid
+        'key.remoteJid': jid,
       });
       if (!repliedMsg) await sleep(1000);
     }
 
     if (!repliedMsg) {
-      await sock.sendMessage(jid, { text: 'Could not find the replied message in history.' }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: 'Could not find the replied message in history.' },
+        { quoted: msg }
+      );
       return;
     }
 
@@ -93,7 +108,7 @@ export default {
     const targetMessages = await messagesCollection
       .find({
         'key.remoteJid': jid,
-        messageTimestamp: { $gte: repliedMsg.messageTimestamp }
+        messageTimestamp: { $gte: repliedMsg.messageTimestamp },
       })
       .sort({ messageTimestamp: 1 })
       .limit(purgeCount)
@@ -107,5 +122,5 @@ export default {
       await Promise.all(batch.map(m => deleteMessageWithRetry(sock, jid, m)));
       await sleep(500);
     }
-  }
+  },
 };

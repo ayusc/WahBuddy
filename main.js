@@ -160,9 +160,10 @@ async function restoreAuthStateFromMongo() {
 
   try {
     await Promise.all(
-    savedCreds.map(({ _id, data }) =>
-      fs.promises.writeFile(path.join(authDir, _id), data, 'utf-8')
-    ));
+      savedCreds.map(({ _id, data }) =>
+        fs.promises.writeFile(path.join(authDir, _id), data, 'utf-8')
+      )
+    );
     console.log('Session restored from MongoDB');
     return true;
   } catch (err) {
@@ -171,7 +172,7 @@ async function restoreAuthStateFromMongo() {
     await stagingsessionCollection.deleteMany({});
     if (fs.existsSync(authDir))
       await fs.promises.rm(authDir, { recursive: true, force: true });
-    await fs.promises.mkdir(authDir, { recursive: true })
+    await fs.promises.mkdir(authDir, { recursive: true });
 
     initialConnect = true;
     return false;
@@ -248,22 +249,25 @@ async function startBot() {
   chatsCollection = db.collection('chats');
   messagesCollection = db.collection('messages');
   contactsCollection = db.collection('contacts');
-  
+
   initAuth(() => loggedIn);
 
   io.on('connection', socket => {
     if (lastQrDataUrl) {
       socket.emit('qr', lastQrDataUrl);
-      socket.emit('qr-meta', { ts: lastQrTimestamp, qrLen: lastQR?.length || 0 });
+      socket.emit('qr-meta', {
+        ts: lastQrTimestamp,
+        qrLen: lastQR?.length || 0,
+      });
     }
   });
 
   const restored = await restoreAuthStateFromMongo();
   loggedIn = restored;
-  
+
   const [{ version }, { state, saveCreds }] = await Promise.all([
     fetchLatestBaileysVersion(),
-    useMultiFileAuthState(authDir)
+    useMultiFileAuthState(authDir),
   ]);
 
   const getMessage = async key => {
@@ -288,7 +292,7 @@ async function startBot() {
   });
 
   globalThis.sock = sock;
-  
+
   sock.ev.on(
     'creds.update',
     debounce(async () => {
@@ -308,7 +312,8 @@ async function startBot() {
       loggedIn = false;
       lastQrTimestamp = Date.now();
 
-      qrcode.toDataURL(qr)
+      qrcode
+        .toDataURL(qr)
         .then(qrDataUrl => {
           lastQrDataUrl = qrDataUrl;
           io.emit('qr', qrDataUrl);
@@ -391,8 +396,8 @@ async function startBot() {
         console.log('WahBuddy is Online!');
       }
 
-      initialConnect = false; 
-      
+      initialConnect = false;
+
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
@@ -401,10 +406,14 @@ async function startBot() {
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
-      } 
-      
+      }
+
       // Start AutoName if enabled
-      if (!autoNameStarted && autoname === 'True' && commands.has('.autoname')) {
+      if (
+        !autoNameStarted &&
+        autoname === 'True' &&
+        commands.has('.autoname')
+      ) {
         autoNameStarted = true;
         try {
           await startAutoName();
@@ -412,7 +421,7 @@ async function startBot() {
           console.error(`AutoName Error: ${error.message}`);
         }
       }
-      
+
       // Start AutoBio if enabled
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
@@ -558,7 +567,7 @@ async function startBot() {
 
 (async () => {
   try {
-    await startBot(); 
+    await startBot();
 
     server.listen(process.env.PORT || 8000, () => {
       console.log(`Server listening on port ${process.env.PORT || 8000}`);

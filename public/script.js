@@ -24,7 +24,11 @@ const iti = window.intlTelInput(phoneInput, {
     const data = await res.json();
     if (data && data.country_code) {
       iti.setCountry(data.country_code.toLowerCase());
-      console.log('Detected country:', data.country_name, data.country_calling_code);
+      console.log(
+        'Detected country:',
+        data.country_name,
+        data.country_calling_code
+      );
     }
   } catch (err) {
     console.warn('Automatic country detection failed:', err);

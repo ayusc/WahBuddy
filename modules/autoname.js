@@ -38,11 +38,13 @@ export async function startAutoName() {
   globalThis.autonameRunning = true;
 
   const sock = globalThis.sock;
-  if (!sock) { console.warn('AutoName: Connection unstable.'); return; } 
+  if (!sock) {
+    console.warn('AutoName: Connection unstable.');
+    return;
+  }
 
-    const updateName = async () => {
-
-    if (globalThis.connectionState!== 'open') {
+  const updateName = async () => {
+    if (globalThis.connectionState !== 'open') {
       console.warn('AutoName: Connection Closed.');
       return;
     }
@@ -51,7 +53,9 @@ export async function startAutoName() {
     const name = NAME_PREFIX.replace('{autoname}', time);
 
     try {
-      await globalThis.profileLimiter.schedule(() => sock.updateProfileName(name));
+      await globalThis.profileLimiter.schedule(() =>
+        sock.updateProfileName(name)
+      );
       console.log('Name updated');
     } catch (err) {
       console.error('Failed to update name:', err);
@@ -60,11 +64,12 @@ export async function startAutoName() {
 
   const runRecursiveLoop = async () => {
     try {
-      await updateName(); 
+      await updateName();
     } catch (err) {
-      console.error("Error in autoname loop:", err);
+      console.error('Error in autoname loop:', err);
     } finally {
-      const nextRunDelay = AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
+      const nextRunDelay =
+        AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
       globalThis.autonameInterval = setTimeout(runRecursiveLoop, nextRunDelay);
     }
   };

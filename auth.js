@@ -65,12 +65,20 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
     for (const file of files) {
       const filePath = path.join(authDir, file);
       const data = await fs.promises.readFile(filePath, 'utf-8');
-      await staging.updateOne({ _id: file }, { $set: { data } }, { upsert: true });
+      await staging.updateOne(
+        { _id: file },
+        { $set: { data } },
+        { upsert: true }
+      );
     }
 
     const staged = await staging.find({}).toArray();
     for (const doc of staged) {
-      await main.updateOne({ _id: doc._id }, { $set: { data: doc.data } }, { upsert: true });
+      await main.updateOne(
+        { _id: doc._id },
+        { $set: { data: doc.data } },
+        { upsert: true }
+      );
     }
 
     await staging.deleteMany({});
@@ -80,7 +88,10 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
       console.warn(`Retrying pairing creds update... attempt ${attempt + 1}`);
       await savePairingAuthToMongo(db, sessionCollection, attempt + 1);
     } else {
-      console.error(`Failed to update pairing creds after ${attempt} attempts:`, err);
+      console.error(
+        `Failed to update pairing creds after ${attempt} attempts:`,
+        err
+      );
     }
   }
 }
@@ -92,7 +103,10 @@ export function initAuth(getLoggedInState) {
         console.log('Received phone from client:', phone);
 
         if (!phone || typeof phone !== 'string' || !/^\+?\d+$/.test(phone)) {
-          socket.emit('pairing-error', 'Invalid phone number! Only digits are allowed.');
+          socket.emit(
+            'pairing-error',
+            'Invalid phone number! Only digits are allowed.'
+          );
           return;
         }
 
@@ -121,7 +135,7 @@ export function initAuth(getLoggedInState) {
         sock.ev.on('connection.update', ({ connection }) => {
           if (connection === 'open') {
             console.log('Pairing successful, connection open.');
-            socket.emit('login-success'); 
+            socket.emit('login-success');
           }
         });
 
@@ -154,12 +168,16 @@ export function initAuth(getLoggedInState) {
         socket.emit('pairing-error', err.message || String(err));
       }
     });
-  }); 
+  });
 
   app.get('/', (req, res) => {
-    const isLoggedIn = typeof getLoggedInState === 'function' ? getLoggedInState() : false;
+    const isLoggedIn =
+      typeof getLoggedInState === 'function' ? getLoggedInState() : false;
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate'
+    );
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
