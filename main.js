@@ -98,7 +98,6 @@ function startSelfPing() {
 async function saveAuthStateToMongo(attempt = 1) {
   try {
     if (!fs.existsSync(authDir)) {
-      console.warn(`${authDir} does not exist. Skipping save.`);
       return;
     }
 
@@ -422,6 +421,9 @@ async function startBot() {
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
         await startAutoBio();
+        } catch (error) {
+          console.error(`AutoBio Error: ${error.message}`);
+        }
       }
     }
   });
