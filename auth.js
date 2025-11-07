@@ -49,26 +49,19 @@ const debounce = (fn, delay) => {
 
 async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
   try {
-    if (!fs.existsSync(authDir)) {
-      console.warn(`${authDir} (pairing) does not exist. Skipping save.`);
-      return;
-    }
-
+    if (!fs.existsSync(authDir)) return;
     const staging = db.collection('wahbuddy_sessions_staging');
     const main = sessionCollection;
     const files = fs.readdirSync(authDir);
-
     for (const file of files) {
       const filePath = path.join(authDir, file);
       const data = fs.readFileSync(filePath, 'utf-8');
       await staging.updateOne({ _id: file }, { $set: { data } }, { upsert: true });
     }
-
     const staged = await staging.find({}).toArray();
     for (const doc of staged) {
       await main.updateOne({ _id: doc._id }, { $set: { data: doc.data } }, { upsert: true });
     }
-
     await staging.deleteMany({});
     console.log('Pairing session credentials saved to MongoDB.');
   } catch (err) {
@@ -87,7 +80,6 @@ export function initAuth(getLoggedInState) {
       let mongoClient;
       try {
         console.log('Received phone from client:', phone);
-
         if (!phone || typeof phone !== 'string' || !/^\+?\d+$/.test(phone)) {
           socket.emit('pairing-error', 'Invalid phone number! Only digits are allowed.');
           return;
@@ -97,12 +89,17 @@ export function initAuth(getLoggedInState) {
         await mongoClient.connect();
         const db = mongoClient.db(dbName);
         const sessionCollection = db.collection('wahbuddy_sessions');
+        const stagingCollection = db.collection('wahbuddy_sessions_staging');
 
         if (fs.existsSync(authDir))
           fs.rmSync(authDir, { recursive: true, force: true });
         fs.mkdirSync(authDir, { recursive: true });
+        await sessionCollection.deleteMany({});
+        await stagingCollection.deleteMany({});
+        console.log('Cleared previous session files and Mongo session data.');
 
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
+        console.log('state.creds.registered:', state.creds?.registered);
         const { version } = await fetchLatestBaileysVersion();
 
         const sock = makeWASocket({
@@ -125,19 +122,18 @@ export function initAuth(getLoggedInState) {
           'creds.update',
           debounce(async () => {
             await saveCreds();
-            await savePairingAuthToMongo(db, sessionCollection);
+            if (state.creds?.registered) {
+              await savePairingAuthToMongo(db, sessionCollection);
+            }
           }, 1000)
         );
 
         if (!state.creds.registered) {
           await new Promise(resolve => setTimeout(resolve, 1000));
-
           const cleanPhone = phone.replace(/^\+/, '');
           console.log('Requesting pairing code for:', cleanPhone);
-
           try {
             const code = await sock.requestPairingCode(cleanPhone);
-
             if (!code) {
               console.warn('No pairing code returned, retrying once...');
               const retryCode = await sock.requestPairingCode(cleanPhone);
@@ -157,6 +153,9 @@ export function initAuth(getLoggedInState) {
             console.error('Failed to get pairing code:', err);
             socket.emit('pairing-error', err.message || String(err));
           }
+        } else {
+          console.log('Already registered. Skipping pairing.');
+          socket.emit('pairing-error', 'Already registered. Clear sessions to pair again.');
         }
       } catch (err) {
         console.error('Pairing code error:', err);
@@ -172,8 +171,8 @@ export function initAuth(getLoggedInState) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
-
     if (isLoggedIn) return res.status(200).send('Already logged in!');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 }
+
