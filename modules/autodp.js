@@ -366,6 +366,9 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 }
 
 async function performDpUpdate(sock, jid) {
+  const sock = globalThis.sock; 
+  if (!sock) { console.warn('AutoDP: Sock not available. Skipping.'); return; } 
+  const jid = sock.user.id;
   if (globalThis.connectionState!== 'open') {
     console.warn('AutoDP: Connection not open. Skipping update.');
     return;
@@ -392,7 +395,7 @@ async function performDpUpdate(sock, jid) {
   }
 }
 
-export async function startAutoDP(sock, jid) {
+export async function startAutoDP() {
   if (globalThis.autodpRunning) return;
 
   globalThis.autodpRunning = true;
@@ -402,7 +405,7 @@ export async function startAutoDP(sock, jid) {
 
   const runRecursiveLoop = async () => {
     try {
-      await performDpUpdate(sock, jid);
+      await performDpUpdate();
     } catch (err) {
       console.error('Error in autodp loop:', err);
     } finally {
@@ -447,7 +450,7 @@ export default [
         );
       }
 
-      await startAutoDP(sock, jid);
+      await startAutoDP();
     },
   },
   {
