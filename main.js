@@ -158,9 +158,10 @@ async function restoreAuthStateFromMongo() {
   }
 
   try {
-    for (const { _id, data } of savedCreds) {
-      await fs.promises.writeFile(path.join(authDir, _id), data, 'utf-8');
-    }
+    await Promise.all(
+    savedCreds.map(({ _id, data }) =>
+      fs.promises.writeFile(path.join(authDir, _id), data, 'utf-8')
+    ));
     console.log('Session restored from MongoDB');
     return true;
   } catch (err) {
@@ -256,13 +257,14 @@ async function startBot() {
     }
   });
 
-  // Fetch everything concurrently (single restore)
-  const [{ version }, { state, saveCreds }, restored] = await Promise.all([
-    fetchLatestBaileysVersion(),
-    useMultiFileAuthState(authDir),
-    restoreAuthStateFromMongo()
-  ]);
+  console.log('Restoring session from MongoDB...');
+  const restored = await restoreAuthStateFromMongo();
   loggedIn = restored;
+  
+  const [{ version }, { state, saveCreds }] = await Promise.all([
+    fetchLatestBaileysVersion(),
+    useMultiFileAuthState(authDir)
+  ]);
 
   const getMessage = async key => {
     const message = await messagesCollection.findOne({
