@@ -89,7 +89,7 @@ async function runQuoteUpdate() {
 async function performBioUpdate() {
   const sock = globalThis.sock;
   if (!sock) {
-    console.warn('AutoBio: Sock not available. Skipping.');
+    console.warn('AutoBio: Socket Error.');
     return;
   }
   if (globalThis.connectionState!== 'open') {
@@ -100,7 +100,7 @@ async function performBioUpdate() {
   const q = await runQuoteUpdate();
   if (q) {
     try {
-      console.log('AutoBio: Queuing profile status update.');
+      //console.log('AutoBio: Queuing profile status update.');
       await globalThis.profileLimiter.schedule(() =>
         sock.updateProfileStatus(q)
       );
