@@ -37,7 +37,12 @@ const dbName = 'wahbuddy';
 const authDir = './wahbuddy-auth';
 
 export const server = http.createServer(app);
-export const io = new Server(server);
+export const io = new Server(server, {
+  cors: {
+    origin: "*", 
+    methods:
+  }
+});
 
 const debounce = (fn, delay) => {
   let timer;
