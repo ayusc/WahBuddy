@@ -365,6 +365,33 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
   //console.log('Image generated successfully!');
 }
 
+async function performDpUpdate(sock, jid) {
+  if (globalThis.connectionState!== 'open') {
+    console.warn('AutoDP: Connection not open. Skipping update.');
+    return;
+  }
+
+  try {
+    await generateImage();
+    if (
+     !fs.existsSync(outputImage) ||
+      fs.statSync(outputImage).size === 0
+    ) {
+      console.error('DP update skipped: output image is empty or missing');
+      return;
+    }
+    const buffer = fs.readFileSync(outputImage);
+
+    console.log('AutoDP: Queuing profile picture update.');
+    await globalThis.profileLimiter.schedule(() =>
+      sock.updateProfilePicture(jid, buffer)
+    );
+    console.log('DP updated');
+  } catch (error) {
+    console.error('DP update failed:', error.message);
+  }
+}
+
 export async function startAutoDP(sock, jid) {
   if (globalThis.autodpRunning) return;
 
@@ -373,51 +400,21 @@ export async function startAutoDP(sock, jid) {
   await ensureFontDownloaded();
   registerFont(fontPath, { family: 'FancyFont' });
 
-  const now = new Date().toLocaleString('en-US', { timeZone: TIME_ZONE });
-  const nextMinute = new Date(now);
-  nextMinute.setSeconds(0);
-  nextMinute.setMilliseconds(0);
-  nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-  const delay = new Date(nextMinute) - new Date(now);
+  const runRecursiveLoop = async () => {
+    try {
+      await performDpUpdate(sock, jid);
+    } catch (err) {
+      console.error('Error in autodp loop:', err);
+    } finally {
+      const nextRunDelay = intervalMs - (Date.now() % intervalMs);
+      globalThis.autodpInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+    }
+  };
 
-  setTimeout(() => {
-    globalThis.autodpInterval = setInterval(async () => {
-      try {
-        await generateImage();
-        if (
-          !fs.existsSync(outputImage) ||
-          fs.statSync(outputImage).size === 0
-        ) {
-          console.error('DP update skipped: output image is empty or missing');
-          return;
-        }
-        const buffer = fs.readFileSync(outputImage);
-        await sock.updateProfilePicture(jid, buffer);
-        console.log('DP updated');
-      } catch (error) {
-        console.error('DP update failed:', error.message);
-      }
-    }, intervalMs);
-
-    // Run immediately at first aligned minute
-    (async () => {
-      try {
-        await generateImage();
-        if (
-          !fs.existsSync(outputImage) ||
-          fs.statSync(outputImage).size === 0
-        ) {
-          console.error('DP update skipped: output image is empty or missing');
-          return;
-        }
-        const buffer = fs.readFileSync(outputImage);
-        await sock.updateProfilePicture(jid, buffer);
-        console.log('DP updated');
-      } catch (error) {
-        console.error('DP update failed:', error.message);
-      }
-    })();
-  }, delay);
+  const now = Date.now();
+  const delayToNextMinute = intervalMs - (now % intervalMs);
+  
+  globalThis.autodpInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [
@@ -461,7 +458,7 @@ export default [
 
     async execute(message, args, sock) {
       if (globalThis.autodpInterval) {
-        clearInterval(globalThis.autodpInterval);
+        clearTimeout(globalThis.autodpInterval);
         globalThis.autodpInterval = null;
         globalThis.autodpRunning = false;
         await sock.sendMessage(
