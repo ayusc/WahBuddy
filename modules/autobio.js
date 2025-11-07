@@ -86,44 +86,46 @@ async function runQuoteUpdate() {
   }
 }
 
+async function performBioUpdate(sock) {
+  if (globalThis.connectionState!== 'open') {
+    console.warn('AutoBio: Connection not open. Skipping update.');
+    return;
+  }
+
+  const q = await runQuoteUpdate();
+  if (q) {
+    try {
+      console.log('AutoBio: Queuing profile status update.');
+      await globalThis.profileLimiter.schedule(() =>
+        sock.updateProfileStatus(q)
+      );
+      console.log('About updated');
+    } catch (err) {
+      console.error('About update failed:', err.message);
+    }
+  }
+}
+
 export async function startAutoBio(sock) {
   if (globalThis.autobioRunning) return;
 
   globalThis.autobioRunning = true;
 
-  const now = getTimeInTimeZone(TIME_ZONE);
-  const nextMinute = new Date(now);
-  nextMinute.setSeconds(0);
-  nextMinute.setMilliseconds(0);
-  nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-  const delay = nextMinute - now;
+  const runRecursiveLoop = async () => {
+    try {
+      await performBioUpdate(sock);
+    } catch (err) {
+      console.error('Error in autobio loop:', err);
+    } finally {
+      const nextRunDelay = AUTO_BIO_INTERVAL - (Date.now() % AUTO_BIO_INTERVAL);
+      globalThis.autobioInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+    }
+  };
 
-  setTimeout(() => {
-    globalThis.autobioInterval = setInterval(async () => {
-      const q = await runQuoteUpdate();
-      if (q) {
-        try {
-          await sock.updateProfileStatus(q);
-          console.log('About updated');
-        } catch (err) {
-          console.error('About update failed:', err.message);
-        }
-      }
-    }, AUTO_BIO_INTERVAL);
+  const now = Date.now();
+  const delayToNextMinute = AUTO_BIO_INTERVAL - (now % AUTO_BIO_INTERVAL);
 
-    // immediate first run
-    (async () => {
-      const quote = await runQuoteUpdate();
-      if (quote) {
-        try {
-          await sock.updateProfileStatus(quote);
-          console.log('About updated');
-        } catch (err) {
-          console.error('About update failed:', err.message);
-        }
-      }
-    })();
-  }, delay);
+  globalThis.autobioInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [
@@ -168,7 +170,7 @@ export default [
 
     async execute(message, args, sock) {
       if (globalThis.autobioInterval) {
-        clearInterval(globalThis.autobioInterval);
+        clearTimeout(globalThis.autobioInterval);
         globalThis.autobioInterval = null;
         globalThis.autobioRunning = false;
         await sock.sendMessage(
