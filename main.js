@@ -65,6 +65,7 @@ let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;
 let qrLogPrinted = false;
+globalThis.sock = null;
 
 function startSelfPing() {
   if (!SITE_URL) {
@@ -129,7 +130,7 @@ async function saveAuthStateToMongo(attempt = 1) {
     //console.log('Session credentials successfully saved/updated in MongoDB.');
   } catch (err) {
     if (attempt < 5) {
-      console.warn(`Retrying creds update... attempt ${attempt + 1}`);
+      //console.warn(`Retrying creds update... attempt ${attempt + 1}`);
       await saveAuthStateToMongo(attempt + 1);
     } else {
       console.error(
@@ -291,6 +292,8 @@ async function startBot() {
     markOnlineOnConnect: true,
   });
 
+  globalThis.sock = sock;
+  
   sock.ev.on(
     'creds.update',
     debounce(async () => {
@@ -337,7 +340,6 @@ async function startBot() {
       }, 66_000);
     }
 
-    // --- Connection state handling (keep this INSIDE the handler) ---
     if (connection === 'close') {
       qrLogPrinted = false;
       lastQR = null;
@@ -394,40 +396,32 @@ async function startBot() {
         console.log('WahBuddy is Online!');
       }
 
-      initialConnect = false;
-
-      await new Promise(resolve => setTimeout(resolve, 60000)); 
-
+      initialConnect = false; 
+      
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
-          await startAutoDP(sock, sock.user.id);
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await startAutoDP();
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
       } 
-
+      
       // Start AutoName if enabled
       if (!autoNameStarted && autoname === 'True' && commands.has('.autoname')) {
         autoNameStarted = true;
         try {
-          await startAutoName(sock);
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await startAutoName();
         } catch (error) {
           console.error(`AutoName Error: ${error.message}`);
         }
-      } 
-
+      }
+      
       // Start AutoBio if enabled
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
-        try {
-          await startAutoBio(sock);
-        } catch (error) {
-          console.error(`AutoBio Error: ${error.message}`);
-        }
+        await startAutoBio();
       }
     }
   });
