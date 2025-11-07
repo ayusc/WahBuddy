@@ -396,7 +396,6 @@ async function performDpUpdate() {
 }
 
 export async function startAutoDP() {
-  if (globalThis.autodpRunning) return;
 
   globalThis.autodpRunning = true;
 
