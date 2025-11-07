@@ -116,7 +116,7 @@ export function initAuth(getLoggedInState) {
           defaultQueryTimeoutMs: undefined,
           logger: pino({ level: 'silent' }),
           generateHighQualityLinkPreview: true,
-          markOnlineOnConnect: true,
+          markOnlineOnConnect: false,
         });
 
         sock.ev.on('connection.update', ({ connection }) => {
