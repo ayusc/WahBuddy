@@ -28,11 +28,12 @@ import dotenv from 'dotenv';
 import pino from 'pino';
 import { fetchLatestBaileysVersion } from 'baileys';
 import qrcode from 'qrcode';
+import Bottleneck from 'bottleneck';
+
 import { handleAfkMessages } from './modules/afk.js';
 import { startAutoBio } from './modules/autobio.js';
 import { startAutoDP } from './modules/autodp.js';
 import { startAutoName } from './modules/autoname.js';
-
 import { server, io, initAuth } from './auth.js';
 
 dotenv.config();
@@ -185,6 +186,9 @@ let mongoConnected = false;
 let commandsLoaded = false;
 let initialConnect = true;
 
+globalThis.profileLimiter = new Bottleneck({ maxConcurrent: 1, minTime: 3000 });
+globalThis.connectionState = 'connecting';
+
 const commands = new Map();
 
 async function loadCommands() {
@@ -297,6 +301,8 @@ async function startBot() {
 
   sock.ev.on('connection.update', async update => {
     const { connection, lastDisconnect, qr } = update;
+
+    if (connection) globalThis.connectionState = connection;
 
     // --- QR handling ---
     if (qr && qr !== lastQR) {
