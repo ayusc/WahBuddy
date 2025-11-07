@@ -2,6 +2,7 @@ const socket = io();
 const statusEl = document.getElementById('status');
 const qrImg = document.getElementById('qr');
 const phoneErrorEl = document.getElementById('phone-error');
+const phoneInput = document.querySelector('#phone');
 
 document.getElementById('switch-to-phone').onclick = () => {
   document.getElementById('qr-section').style.display = 'none';
@@ -9,7 +10,6 @@ document.getElementById('switch-to-phone').onclick = () => {
   document.getElementById('phone').focus();
 };
 
-const phoneInput = document.querySelector('#phone');
 const iti = window.intlTelInput(phoneInput, {
   separateDialCode: true,
   preferredCountries: ['in', 'us', 'gb'],
@@ -17,12 +17,27 @@ const iti = window.intlTelInput(phoneInput, {
     'https://cdn.jsdelivr.net/npm/intl-tel-input@25.10.10/build/js/utils.js',
 });
 
+// Automatically detect and set country
+(async () => {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    if (data && data.country_code) {
+      iti.setCountry(data.country_code.toLowerCase());
+      console.log('Detected country:', data.country_name, data.country_calling_code);
+    }
+  } catch (err) {
+    console.warn('Automatic country detection failed:', err);
+  }
+})();
+
 document.getElementById('send-code').onclick = () => {
   phoneErrorEl.textContent = '';
-  let number = phoneInput.value.replace(/\D/g, '');
-  let fullNumber = iti.getSelectedCountryData().dialCode
-    ? '+' + iti.getSelectedCountryData().dialCode + number
-    : number;
+
+  const selectedData = iti.getSelectedCountryData();
+  const number = phoneInput.value.replace(/\D/g, '');
+  const dialCode = selectedData?.dialCode || '';
+  const fullNumber = dialCode ? `+${dialCode}${number}` : number;
 
   if (!number) {
     phoneErrorEl.textContent = 'Please enter a phone number.';
@@ -31,6 +46,7 @@ document.getElementById('send-code').onclick = () => {
 
   console.log('Sending phone to server:', fullNumber);
   socket.emit('request-code', { phone: fullNumber });
+
   document.getElementById('phone-section').style.display = 'none';
   document.getElementById('code-section').style.display = 'block';
 };
