@@ -420,7 +420,8 @@ async function startBot() {
       // Start AutoBio if enabled
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
-        await startAutoBio();
+        try {
+          await startAutoBio();
         } catch (error) {
           console.error(`AutoBio Error: ${error.message}`);
         }
