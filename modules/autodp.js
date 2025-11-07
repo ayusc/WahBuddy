@@ -365,7 +365,7 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
   //console.log('Image generated successfully!');
 }
 
-async function performDpUpdate(sock, jid) {
+async function performDpUpdate() {
   const sock = globalThis.sock; 
   if (!sock) { console.warn('AutoDP: Sock not available. Skipping.'); return; } 
   const jid = sock.user.id;
