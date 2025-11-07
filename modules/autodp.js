@@ -395,8 +395,6 @@ async function performDpUpdate() {
 
 export async function startAutoDP() {
 
-  globalThis.autodpRunning = true;
-
   await ensureFontDownloaded();
   registerFont(fontPath, { family: 'FancyFont' });
 
@@ -438,7 +436,9 @@ export default [
         }
         return;
       }
-
+      
+      globalThis.autodpRunning = true;
+      
       if (!msg.fromStartup) {
         await sock.sendMessage(
           jid,
