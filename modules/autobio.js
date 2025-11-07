@@ -86,9 +86,11 @@ async function runQuoteUpdate() {
   }
 }
 
-async function performBioUpdate(sock) {
+async function performBioUpdate() {
   if (globalThis.connectionState!== 'open') {
-    console.warn('AutoBio: Connection not open. Skipping update.');
+    const sock = globalThis.sock;
+    if (!sock) { console.warn('AutoBio: Sock not available. Skipping.'); return; }
+    console.warn('AutoBio: Connection unstable.');
     return;
   }
 
@@ -106,14 +108,14 @@ async function performBioUpdate(sock) {
   }
 }
 
-export async function startAutoBio(sock) {
+export async function startAutoBio() {
   if (globalThis.autobioRunning) return;
 
   globalThis.autobioRunning = true;
 
   const runRecursiveLoop = async () => {
     try {
-      await performBioUpdate(sock);
+      await performBioUpdate();
     } catch (err) {
       console.error('Error in autobio loop:', err);
     } finally {
