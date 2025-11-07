@@ -43,28 +43,24 @@ const debounce = (fn, delay) => {
   let timer;
   return (...args) => {
     clearTimeout(timer);
-    return new Promise(resolve => {
-      timer = setTimeout(() => resolve(fn(...args)), delay);
-    });
+    timer = setTimeout(() => fn(...args), delay);
   };
 };
 
 async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
   try {
-    try {
-      await fs.promises.access(authDir);
-    } catch {
+    if (!fs.existsSync(authDir)) {
       console.warn(`${authDir} (pairing) does not exist. Skipping save.`);
       return;
     }
 
     const staging = db.collection('wahbuddy_sessions_staging');
     const main = sessionCollection;
+    const files = fs.readdirSync(authDir);
 
-    const files = await fs.promises.readdir(authDir);
     for (const file of files) {
       const filePath = path.join(authDir, file);
-      const data = await fs.promises.readFile(filePath, 'utf-8');
+      const data = fs.readFileSync(filePath, 'utf-8');
       await staging.updateOne({ _id: file }, { $set: { data } }, { upsert: true });
     }
 
@@ -80,7 +76,7 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
       console.warn(`Retrying pairing creds update... attempt ${attempt + 1}`);
       await savePairingAuthToMongo(db, sessionCollection, attempt + 1);
     } else {
-      console.error(`Failed to update pairing creds after ${attempt} attempts:`, err);
+      console.error(`Failed to update pairing creds in MongoDB after ${attempt} attempts:`, err);
     }
   }
 }
@@ -88,6 +84,7 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
 export function initAuth(getLoggedInState) {
   io.on('connection', socket => {
     socket.on('request-code', async ({ phone }) => {
+      let mongoClient;
       try {
         console.log('Received phone from client:', phone);
 
@@ -96,13 +93,14 @@ export function initAuth(getLoggedInState) {
           return;
         }
 
-        const mongoClient = new MongoClient(mongoUri);
+        mongoClient = new MongoClient(mongoUri);
         await mongoClient.connect();
         const db = mongoClient.db(dbName);
         const sessionCollection = db.collection('wahbuddy_sessions');
 
-        await fs.promises.rm(authDir, { recursive: true, force: true });
-        await fs.promises.mkdir(authDir, { recursive: true });
+        if (fs.existsSync(authDir))
+          fs.rmSync(authDir, { recursive: true, force: true });
+        fs.mkdirSync(authDir, { recursive: true });
 
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
         const { version } = await fetchLatestBaileysVersion();
@@ -119,7 +117,7 @@ export function initAuth(getLoggedInState) {
         sock.ev.on('connection.update', ({ connection }) => {
           if (connection === 'open') {
             console.log('Pairing successful, connection open.');
-            socket.emit('login-success'); 
+            socket.emit('login-success');
           }
         });
 
@@ -133,14 +131,27 @@ export function initAuth(getLoggedInState) {
 
         if (!state.creds.registered) {
           await new Promise(resolve => setTimeout(resolve, 1000));
+
+          const cleanPhone = phone.replace(/^\+/, '');
+          console.log('Requesting pairing code for:', cleanPhone);
+
           try {
-            const cleanPhone = phone.replace(/^\+/, '');
             const code = await sock.requestPairingCode(cleanPhone);
+
             if (!code) {
-              socket.emit('pairing-error', 'No code received! Please retry.');
+              console.warn('No pairing code returned, retrying once...');
+              const retryCode = await sock.requestPairingCode(cleanPhone);
+              if (!retryCode) {
+                socket.emit('pairing-error', 'No pairing code received. Please retry.');
+                return;
+              }
+              const formatted = retryCode.match(/.{1,4}/g).join('-');
+              socket.emit('pairing-code', formatted);
+              console.log('Pairing code:', formatted);
             } else {
               const formatted = code.match(/.{1,4}/g).join('-');
               socket.emit('pairing-code', formatted);
+              console.log('Pairing code:', formatted);
             }
           } catch (err) {
             console.error('Failed to get pairing code:', err);
@@ -150,20 +161,19 @@ export function initAuth(getLoggedInState) {
       } catch (err) {
         console.error('Pairing code error:', err);
         socket.emit('pairing-error', err.message || String(err));
+      } finally {
+        if (mongoClient) await mongoClient.close().catch(() => {});
       }
     });
-  }); 
+  });
 
   app.get('/', (req, res) => {
     const isLoggedIn = typeof getLoggedInState === 'function' ? getLoggedInState() : false;
-
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
-    if (isLoggedIn) {
-      return res.status(200).send('Already logged in!');
-    }
+    if (isLoggedIn) return res.status(200).send('Already logged in!');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 }
