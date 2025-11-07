@@ -367,10 +367,10 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 
 async function performDpUpdate() {
   const sock = globalThis.sock; 
-  if (!sock) { console.warn('AutoDP: Sock not available. Skipping.'); return; } 
+  if (!sock) { console.warn('AutoDP: Socket Error.'); return; } 
   const jid = sock.user.id;
   if (globalThis.connectionState!== 'open') {
-    console.warn('AutoDP: Connection not open. Skipping update.');
+    console.warn('AutoDP: Connection unstable.');
     return;
   }
 
@@ -384,8 +384,6 @@ async function performDpUpdate() {
       return;
     }
     const buffer = fs.readFileSync(outputImage);
-
-    console.log('AutoDP: Queuing profile picture update.');
     await globalThis.profileLimiter.schedule(() =>
       sock.updateProfilePicture(jid, buffer)
     );
