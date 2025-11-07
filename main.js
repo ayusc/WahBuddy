@@ -125,7 +125,7 @@ async function saveAuthStateToMongo(attempt = 1) {
     }
 
     await staging.deleteMany({});
-    console.log('Session credentials successfully saved/updated in MongoDB.');
+    //console.log('Session credentials successfully saved/updated in MongoDB.');
   } catch (err) {
     if (attempt < 5) {
       console.warn(`Retrying creds update... attempt ${attempt + 1}`);
