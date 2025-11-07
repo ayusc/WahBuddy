@@ -23,7 +23,8 @@
     "jimp": "^1.6.0",
     "base64url": "^3.0.1",
     "qrcode": "^1.5.3",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "bottleneck": "^2.19.5"
   },
   "engines": {
     "node": "20.x"
