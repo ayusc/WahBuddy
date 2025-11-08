@@ -97,6 +97,8 @@ async function savePairingAuthToMongo(db, sessionCollection, attempt = 1) {
 }
 
 export function initAuth(getLoggedInState) {
+  if (io._authInitialized) return;
+  io._authInitialized = true;
   io.on('connection', socket => {
     socket.on('request-code', async ({ phone }) => {
       try {
