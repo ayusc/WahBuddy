@@ -367,7 +367,7 @@ async function startBot() {
         if (fs.existsSync(authDir))
           await fs.promises.rm(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
-        await stagingsactionCollection.deleteMany({});
+        await stagingsessionCollection.deleteMany({});
         console.log('Restarting bot...');
         await startBot();
       
