@@ -374,7 +374,6 @@ async function startBot() {
         console.log(
           `Connection closed due to: ${reason}, reconnecting...`
         );
-      }
     }
     } else if (connection === 'open') {
       qrLogPrinted = false;
