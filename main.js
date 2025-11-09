@@ -370,12 +370,26 @@ async function startBot() {
         await stagingsactionCollection.deleteMany({});
         console.log('Restarting bot...');
         await startBot();
+      
+      } else if (reason === 440) {
+        console.log('`Connection closed due to: ${reason}, Restarting bot...');
+        
+        if (!globalThis.reconnecting) {
+          globalThis.reconnecting = true;
+          setTimeout(async () => {
+            globalThis.reconnecting = false;
+            await startBot(); 
+          }, 5000); 
+        }
+
       } else {
         console.log(
-          `Connection closed due to: ${reason}, reconnecting...`
+          `Connection closed due to: ${reason}, Restarting bot...`
         );
+      } 
     }
-    } else if (connection === 'open') {
+    else if (connection === 'open') {
+  
       qrLogPrinted = false;
       loggedIn = true;
       lastQR = null;
