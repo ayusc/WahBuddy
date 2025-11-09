@@ -367,19 +367,15 @@ async function startBot() {
         if (fs.existsSync(authDir))
           await fs.promises.rm(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
-        await stagingsessionCollection.deleteMany({});
+        await stagingsactionCollection.deleteMany({});
         console.log('Restarting bot...');
         await startBot();
       } else {
-        console.log('Connection closed. Reconnecting...');
-        if (!globalThis.reconnecting) {
-          globalThis.reconnecting = true;
-          setTimeout(async () => {
-            globalThis.reconnecting = false;
-            await startBot();
-          }, 5000);
-        }
+        console.log(
+          `Connection closed due to: ${reason}, reconnecting...`
+        );
       }
+    }
     } else if (connection === 'open') {
       qrLogPrinted = false;
       loggedIn = true;
