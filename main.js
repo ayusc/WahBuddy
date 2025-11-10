@@ -371,7 +371,7 @@ async function startBot() {
         console.log('Restarting bot...');
         await startBot();
       
-      } else if (reason === 440 || reason === 500) {
+      } else if (reason === 440 || reason === 500 || reason === 428) {
         console.log('`Connection closed due to: ${reason}, Restarting bot...');
         
         if (!globalThis.reconnecting) {
@@ -384,7 +384,7 @@ async function startBot() {
 
       } else {
         console.log(
-          `Connection closed due to: ${reason}, Restarting bot...`
+          `Connection closed due to: ${reason}, restart not required !`
         );
       } 
     }
