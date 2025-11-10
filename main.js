@@ -263,7 +263,6 @@ async function startBot() {
   });
 
   const restored = await restoreAuthStateFromMongo();
-  loggedIn = restored;
 
   const [{ version }, { state, saveCreds }] = await Promise.all([
     fetchLatestBaileysVersion(),
@@ -296,8 +295,10 @@ async function startBot() {
   sock.ev.on(
     'creds.update',
     debounce(async () => {
-      await saveCreds();
-      await saveAuthStateToMongo();
+      await saveCreds(); 
+      if (loggedIn) {
+        await saveAuthStateToMongo();
+      }
     }, 1000)
   );
 
@@ -341,6 +342,7 @@ async function startBot() {
     }
 
     if (connection === 'close') {
+      loggedIn = false;
       qrLogPrinted = false;
       lastQR = null;
       lastQrDataUrl = null;
@@ -395,6 +397,14 @@ async function startBot() {
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
+      console.log('Login successful. Saving session to MongoDB...');
+      try {
+        await saveAuthStateToMongo();
+        console.log('Session saved to MongoDB.');
+      } catch (err) {
+        console.error('Failed to save initial session to Mongo:', err);
+      }
+
       io.emit('login-success');
       console.log('Authenticated with WhatsApp');
 
