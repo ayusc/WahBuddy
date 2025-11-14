@@ -287,7 +287,7 @@ async function startBot() {
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
     defaultQueryTimeoutMs: undefined,
-    markOnlineOnConnect: false, 
+    markOnlineOnConnect: true, 
   });
 
   globalThis.sock = sock;
