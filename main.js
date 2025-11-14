@@ -359,9 +359,20 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        console.log(
-          'Logged out permanently or session crashed !\nYou need to login again.'
-        );
+        // --- FIX 1: Check initialConnect flag ---
+        // This stops the "Logged out permanently" message on a fresh start
+        // when the bot is just clearing an invalid restored session.
+        if (initialConnect) {
+          console.log(
+            'Restored session is invalid. Clearing session and restarting for new login...'
+          );
+        } else {
+          console.log(
+            'Logged out permanently or session crashed !\nYou need to login again.'
+          );
+        }
+        // --- END FIX 1 ---
+        
         loggedIn = false;
 
         lastQR = null;
@@ -375,7 +386,11 @@ async function startBot() {
         console.log('Restarting bot...');
         await startBot();
       
-      } else if (reason === 440 || reason === 500 || reason === 428) {
+      // --- FIX 2: Add DisconnectReason.timedOut (408) ---
+      // This will catch the QR timeout error and restart the bot
+      // to generate a new QR code.
+      } else if (reason === 440 || reason === 500 || reason === 428 || reason === DisconnectReason.timedOut) {
+      // --- END FIX 2 ---
         console.log(`Connection closed due to: ${reason}, Restarting bot...`);
         
         if (!globalThis.reconnecting) {
