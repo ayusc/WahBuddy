@@ -281,13 +281,12 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS('Desktop'), // ONLY FOR QR LOGINS 
-    syncFullHistory: true,  // ONLY FOR QR LOGINS 
+    browser: Browsers.macOS('Safari'),
+    syncFullHistory: true,  
     getMessage,
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
     defaultQueryTimeoutMs: undefined,
-    markOnlineOnConnect: true, 
   });
 
   globalThis.sock = sock;
