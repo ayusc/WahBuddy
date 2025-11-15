@@ -281,7 +281,7 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS('Safari'),
+    browser: Browsers.macOS('Desktop'),
     syncFullHistory: true,  
     getMessage,
     generateHighQualityLinkPreview: true,
@@ -388,7 +388,7 @@ async function startBot() {
       // --- FIX 2: Add DisconnectReason.timedOut (408) ---
       // This will catch the QR timeout error and restart the bot
       // to generate a new QR code.
-      } else if (reason === 440 || reason === 500 || reason === 428 || reason === DisconnectReason.timedOut) {
+      } else if (reason === 440 || reason === 500 || reason === 428 || reason === DisconnectReason.timedOut || reason === DisconnectReason.restartRequired) {
       // --- END FIX 2 ---
         console.log(`Connection closed due to: ${reason}, Restarting bot...`);
         
