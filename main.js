@@ -405,56 +405,45 @@ async function startBot() {
         );
       } 
     }
+      
     else if (connection === 'open') {
-  
+      
       qrLogPrinted = false;
       loggedIn = true;
-      
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
-      
-      console.log('Login successful. Saving session to MongoDB...');
-      try {
-        await saveAuthStateToMongo();
-        console.log('Session saved to MongoDB.');
-      } catch (err) {
-        console.error('Failed to save initial session to Mongo:', err);
-      }
 
       io.emit('login-success');
       console.log('Authenticated with WhatsApp');
 
+      // --- FIX: Load commands BEFORE saving to DB ---
       if (!commandsLoaded) {
         await loadCommands();
       }
+
       if (initialConnect) {
         console.log('WahBuddy is Online!');
       }
-
+      
       initialConnect = false;
-
-      await new Promise(resolve => setTimeout(resolve, 60000));     
-
+      
+      // Start Auto-functions immediately so the bot feels responsive
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
-          await startAutoDP();
+          startAutoDP(); // Removed await so it doesn't block
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
       }
 
       // Start AutoName if enabled
-      if (
-        !autoNameStarted &&
-        autoname === 'True' &&
-        commands.has('.autoname')
-      ) {
+      if (!autoNameStarted && autoname === 'True' && commands.has('.autoname')) {
         autoNameStarted = true;
         try {
-          await startAutoName();
+          startAutoName(); // Removed await
         } catch (error) {
           console.error(`AutoName Error: ${error.message}`);
         }
@@ -464,11 +453,18 @@ async function startBot() {
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
         try {
-          await startAutoBio();
+          startAutoBio(); // Removed await
         } catch (error) {
           console.error(`AutoBio Error: ${error.message}`);
         }
       }
+
+      // --- FIX: Save to MongoDB in the background ---
+      // We don't use 'await' here so the bot stays responsive while uploading
+      console.log('Saving session to MongoDB (background)...');
+      saveAuthStateToMongo()
+        .then(() => console.log('Session saved to MongoDB.'))
+        .catch(err => console.error('Failed to save session to Mongo:', err));
     }
   });
   
