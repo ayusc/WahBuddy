@@ -263,7 +263,6 @@ async function startBot() {
   });
 
   const restored = await restoreAuthStateFromMongo();
-  loggedIn = restored;
 
   const [{ version }, { state, saveCreds }] = await Promise.all([
     fetchLatestBaileysVersion(),
@@ -282,13 +281,12 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS('Safari'),
-    syncFullHistory: true,
+    browser: ["Ubuntu", "Chrome", "20.0.04"],
+    syncFullHistory: false,  
     getMessage,
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
     defaultQueryTimeoutMs: undefined,
-    markOnlineOnConnect: true,
   });
 
   globalThis.sock = sock;
@@ -296,8 +294,10 @@ async function startBot() {
   sock.ev.on(
     'creds.update',
     debounce(async () => {
-      await saveCreds();
-      await saveAuthStateToMongo();
+      await saveCreds(); 
+      if (loggedIn) {
+        await saveAuthStateToMongo();
+      }
     }, 1000)
   );
 
@@ -341,10 +341,8 @@ async function startBot() {
     }
 
     if (connection === 'close') {
+      loggedIn = false;
       qrLogPrinted = false;
-      lastQR = null;
-      lastQrDataUrl = null;
-      lastQrTimestamp = 0;
       commandsLoaded = false;
 
       clearInterval(globalThis.autodpInterval);
@@ -360,10 +358,26 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        console.log(
-          'Logged out permanently or session crashed !\nYou need to login again.'
-        );
+        // --- FIX 1: Check initialConnect flag ---
+        // This stops the "Logged out permanently" message on a fresh start
+        // when the bot is just clearing an invalid restored session.
+        if (initialConnect) {
+          console.log(
+            'Restored session is invalid. Clearing session and restarting for new login...'
+          );
+        } else {
+          console.log(
+            'Logged out permanently or session crashed !\nYou need to login again.'
+          );
+        }
+        // --- END FIX 1 ---
+        
         loggedIn = false;
+
+        lastQR = null;
+        lastQrDataUrl = null;
+        lastQrTimestamp = 0;
+
         if (fs.existsSync(authDir))
           await fs.promises.rm(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
@@ -371,8 +385,12 @@ async function startBot() {
         console.log('Restarting bot...');
         await startBot();
       
-      } else if (reason === 440 || reason === 500 || reason === 428) {
-        console.log('`Connection closed due to: ${reason}, Restarting bot...');
+      // --- FIX 2: Add DisconnectReason.timedOut (408) ---
+      // This will catch the QR timeout error and restart the bot
+      // to generate a new QR code.
+      } else if (reason === 440 || reason === 500 || reason === 428 || reason === DisconnectReason.timedOut || reason === DisconnectReason.restartRequired) {
+      // --- END FIX 2 ---
+        console.log(`Connection closed due to: ${reason}, Restarting bot...`);
         
         if (!globalThis.reconnecting) {
           globalThis.reconnecting = true;
@@ -392,9 +410,19 @@ async function startBot() {
   
       qrLogPrinted = false;
       loggedIn = true;
+      
       lastQR = null;
       lastQrDataUrl = null;
       lastQrTimestamp = 0;
+      
+      console.log('Login successful. Saving session to MongoDB...');
+      try {
+        await saveAuthStateToMongo();
+        console.log('Session saved to MongoDB.');
+      } catch (err) {
+        console.error('Failed to save initial session to Mongo:', err);
+      }
+
       io.emit('login-success');
       console.log('Authenticated with WhatsApp');
 
@@ -444,7 +472,7 @@ async function startBot() {
       }
     }
   });
-
+  
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
       await chatsCollection.updateOne(
