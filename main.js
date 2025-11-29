@@ -295,6 +295,7 @@ async function startBot() {
     'creds.update',
     debounce(async () => {
       await saveCreds(); 
+      await saveAuthStateToMongo();
     }, 1000)
   );
 
