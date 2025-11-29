@@ -105,31 +105,42 @@ async function saveAuthStateToMongo(attempt = 1) {
     const main = sessionCollection;
 
     const files = fs.readdirSync(authDir);
-    for (const file of files) {
+    
+    // OPTIMIZATION: Prepare all operations in parallel
+    const operations = files.map(async (file) => {
       const filePath = path.join(authDir, file);
       const data = await fs.promises.readFile(filePath, 'utf-8');
-
-      await staging.updateOne(
+      return staging.updateOne(
         { _id: file },
         { $set: { data } },
         { upsert: true }
       );
-    }
+    });
 
+    // Wait for all uploads to finish at once
+    await Promise.all(operations);
+
+    // Now move from staging to main
     const staged = await staging.find({}).toArray();
-    for (const doc of staged) {
-      await main.updateOne(
-        { _id: doc._id },
-        { $set: { data: doc.data } },
-        { upsert: true }
-      );
+    
+    // Bulk write to main collection for speed
+    if (staged.length > 0) {
+        const bulkOps = staged.map(doc => ({
+            updateOne: {
+                filter: { _id: doc._id },
+                update: { $set: { data: doc.data } },
+                upsert: true
+            }
+        }));
+        await main.bulkWrite(bulkOps);
     }
 
     await staging.deleteMany({});
-    //console.log('Session credentials successfully saved/updated in MongoDB.');
+    // console.log('Session credentials successfully saved/updated in MongoDB.');
   } catch (err) {
     if (attempt < 5) {
-      //console.warn(`Retrying creds update... attempt ${attempt + 1}`);
+      // console.warn(`Retrying creds update... attempt ${attempt + 1}`);
+      await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
       await saveAuthStateToMongo(attempt + 1);
     } else {
       console.error(
