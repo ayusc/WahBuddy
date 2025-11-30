@@ -292,13 +292,13 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS('Safari'),
-    syncFullHistory: true,
+    browser: Browsers.ubuntu('Chrome'),
+    syncFullHistory: false,
     getMessage,
     generateHighQualityLinkPreview: true,
     logger: pino({ level: 'silent' }),
     defaultQueryTimeoutMs: undefined,
-    markOnlineOnConnect: true,
+    markOnlineOnConnect: false,
   });
 
   globalThis.sock = sock;
