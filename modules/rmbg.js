@@ -14,101 +14,103 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-import FormData from 'form-data';
-import fs from 'fs';
-import path from 'path';
-import pino from 'pino';
+import fs from "node:fs";
+import path from "node:path";
+import dotenv from "dotenv";
+import FormData from "form-data";
+import fetch from "node-fetch";
+import pino from "pino";
+
 const logger = pino();
-import { downloadMediaMessage } from 'baileys';
+
+import { downloadMediaMessage } from "baileys";
 
 dotenv.config();
 
 const RMBG_API_KEY = process.env.RMBG_API_KEY;
 
 if (!RMBG_API_KEY) {
-  throw new Error('RMBG_API_KEY is not set');
+	throw new Error("RMBG_API_KEY is not set");
 }
 
 export default {
-  name: ['.rmbg'],
-  description: 'Removes background from an image using remove.bg',
-  usage: '.rmbg in reply to an image',
+	name: [".rmbg"],
+	description: "Removes background from an image using remove.bg",
+	usage: ".rmbg in reply to an image",
 
-  async execute(msg, args, sock) {
-    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    const sender = msg.key.remoteJid;
+	async execute(msg, _args, sock) {
+		const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+		const sender = msg.key.remoteJid;
 
-    if (!quoted || !quoted.imageMessage) {
-      await sock.sendMessage(
-        sender,
-        { text: 'Reply to an image to remove its background.' },
-        { quoted: msg }
-      );
-      return;
-    }
+		if (!quoted || !quoted.imageMessage) {
+			await sock.sendMessage(
+				sender,
+				{ text: "Reply to an image to remove its background." },
+				{ quoted: msg },
+			);
+			return;
+		}
 
-    const imageBuffer = await downloadMediaMessage(
-      { message: { imageMessage: quoted.imageMessage } },
-      'buffer',
-      {},
-      { logger }
-    );
+		const imageBuffer = await downloadMediaMessage(
+			{ message: { imageMessage: quoted.imageMessage } },
+			"buffer",
+			{},
+			{ logger },
+		);
 
-    if (!imageBuffer) {
-      await sock.sendMessage(
-        sender,
-        { text: 'Failed to download the image.' },
-        { quoted: msg }
-      );
-      return;
-    }
+		if (!imageBuffer) {
+			await sock.sendMessage(
+				sender,
+				{ text: "Failed to download the image." },
+				{ quoted: msg },
+			);
+			return;
+		}
 
-    const tempInputPath = path.join('./', `rmbg-input.png`);
-    const tempOutputPath = path.join('./', `rmbg-output.png`);
-    fs.writeFileSync(tempInputPath, imageBuffer);
+		const tempInputPath = path.join("./", `rmbg-input.png`);
+		const tempOutputPath = path.join("./", `rmbg-output.png`);
+		fs.writeFileSync(tempInputPath, imageBuffer);
 
-    try {
-      const formData = new FormData();
-      formData.append('image_file', fs.createReadStream(tempInputPath));
-      formData.append('scale', '100%');
+		try {
+			const formData = new FormData();
+			formData.append("image_file", fs.createReadStream(tempInputPath));
+			formData.append("scale", "100%");
 
-      const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': RMBG_API_KEY,
-        },
-        body: formData,
-      });
+			const response = await fetch("https://api.remove.bg/v1.0/removebg", {
+				method: "POST",
+				headers: {
+					"X-Api-Key": RMBG_API_KEY,
+				},
+				body: formData,
+			});
 
-      if (!response.ok) {
-        await sock.sendMessage(
-          sender,
-          { text: 'Failed to remove background: ' + response.statusText },
-          { quoted: msg }
-        );
-        return;
-      }
+			if (!response.ok) {
+				await sock.sendMessage(
+					sender,
+					{ text: `Failed to remove background: ${response.statusText}` },
+					{ quoted: msg },
+				);
+				return;
+			}
 
-      const buffer = await response.buffer();
-      fs.writeFileSync(tempOutputPath, buffer);
+			const buffer = await response.buffer();
+			fs.writeFileSync(tempOutputPath, buffer);
 
-      const messageOptions = {
-        image: { url: tempOutputPath },
-        caption: 'Background removed successfully',
-      };
+			const messageOptions = {
+				image: { url: tempOutputPath },
+				caption: "Background removed successfully",
+			};
 
-      await sock.sendMessage(sender, messageOptions, { quoted: msg });
-    } catch {
-      await sock.sendMessage(
-        sender,
-        { text: 'Failed to remove background from the image.' },
-        { quoted: msg }
-      );
-    } finally {
-      if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
-      if (fs.existsSync(tempOutputPath)) fs.unlinkSync(tempOutputPath);
-    }
-  },
+			await sock.sendMessage(sender, messageOptions, { quoted: msg });
+		} catch {
+			await sock.sendMessage(
+				sender,
+				{ text: "Failed to remove background from the image." },
+				{ quoted: msg },
+			);
+		} finally {
+			if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+			if (fs.existsSync(tempOutputPath)) fs.unlinkSync(tempOutputPath);
+		}
+	},
 };

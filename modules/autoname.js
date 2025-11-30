@@ -14,131 +14,131 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 dotenv.config();
 
-const TIME_ZONE = process.env.TIME_ZONE || 'Asia/Kolkata';
+const TIME_ZONE = process.env.TIME_ZONE || "Asia/Kolkata";
 const AUTO_NAME_INTERVAL =
-  parseInt(process.env.AUTO_NAME_INTERVAL_MS, 10) || 60000;
-const NAME_PREFIX = process.env.NAME_PREFIX || 'root@wahbuddy[{autoname}]:~$';
+	parseInt(process.env.AUTO_NAME_INTERVAL_MS, 10) || 60000;
+const NAME_PREFIX = process.env.NAME_PREFIX || "root@wahbuddy[{autoname}]:~$";
 
 function getCurrentTimeInZone() {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-IN', {
-    timeZone: TIME_ZONE,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-  return formatter.format(now);
+	const now = new Date();
+	const formatter = new Intl.DateTimeFormat("en-IN", {
+		timeZone: TIME_ZONE,
+		hour: "numeric",
+		minute: "2-digit",
+		hour12: true,
+	});
+	return formatter.format(now);
 }
 
 async function performNameUpdate() {
-  const sock = globalThis.sock;
-  if (!sock) {
-    console.warn('AutoName: Socket Error.');
-    return;
-  }
-  if (globalThis.connectionState !== 'open') {
-    console.warn('AutoName: Connection unstable.');
-    return;
-  }
+	const sock = globalThis.sock;
+	if (!sock) {
+		console.warn("AutoName: Socket Error.");
+		return;
+	}
+	if (globalThis.connectionState !== "open") {
+		console.warn("AutoName: Connection unstable.");
+		return;
+	}
 
-  const time = getCurrentTimeInZone();
-  const name = NAME_PREFIX.replace('{autoname}', time);
+	const time = getCurrentTimeInZone();
+	const name = NAME_PREFIX.replace("{autoname}", time);
 
-  try {
-    await globalThis.profileLimiter.schedule(() =>
-      sock.updateProfileName(name)
-    );
-    console.log('Name updated');
-  } catch (err) {
-    console.error('Failed to update name:', err.message);
-  }
+	try {
+		await globalThis.profileLimiter.schedule(() =>
+			sock.updateProfileName(name),
+		);
+		console.log("Name updated");
+	} catch (err) {
+		console.error("Failed to update name:", err.message);
+	}
 }
 
 export async function startAutoName() {
-  globalThis.autonameRunning = true;
+	globalThis.autonameRunning = true;
 
-  const runRecursiveLoop = async () => {
-    try {
-      await performNameUpdate();
-    } catch (err) {
-      console.error('Error in autoname loop:', err);
-    } finally {
-      const nextRunDelay =
-        AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
-      globalThis.autonameInterval = setTimeout(runRecursiveLoop, nextRunDelay);
-    }
-  };
+	const runRecursiveLoop = async () => {
+		try {
+			await performNameUpdate();
+		} catch (err) {
+			console.error("Error in autoname loop:", err);
+		} finally {
+			const nextRunDelay =
+				AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
+			globalThis.autonameInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+		}
+	};
 
-  const now = Date.now();
-  const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL);
-  globalThis.autonameInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
+	const now = Date.now();
+	const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL);
+	globalThis.autonameInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [
-  {
-    name: '.autoname',
-    description: 'Start updating WhatsApp name with a running clock',
-    usage: 'Type .autoname to start showing a live clock in your profile name.',
+	{
+		name: ".autoname",
+		description: "Start updating WhatsApp name with a running clock",
+		usage: "Type .autoname to start showing a live clock in your profile name.",
 
-    async execute(msg, _args, sock) {
-      const jid = msg.key.remoteJid;
+		async execute(msg, _args, sock) {
+			const jid = msg.key.remoteJid;
 
-      if (globalThis.autonameRunning) {
-        if (!msg.fromStartup) {
-          await sock.sendMessage(
-            jid,
-            { text: 'AutoName is already running!' },
-            { quoted: msg }
-          );
-        }
-        return;
-      }
+			if (globalThis.autonameRunning) {
+				if (!msg.fromStartup) {
+					await sock.sendMessage(
+						jid,
+						{ text: "AutoName is already running!" },
+						{ quoted: msg },
+					);
+				}
+				return;
+			}
 
-      if (!msg.fromStartup) {
-        await sock.sendMessage(
-          jid,
-          {
-            text: `AutoName started. Updating every ${
-              AUTO_NAME_INTERVAL / 1000
-            }s`,
-          },
-          { quoted: msg }
-        );
-      }
-      await startAutoName();
-    },
-  },
-  {
-    name: '.stopname',
-    description: 'Stop updating WhatsApp name with clock.',
-    usage: 'Type .stopname to stop showing clock in profile name.',
+			if (!msg.fromStartup) {
+				await sock.sendMessage(
+					jid,
+					{
+						text: `AutoName started. Updating every ${
+							AUTO_NAME_INTERVAL / 1000
+						}s`,
+					},
+					{ quoted: msg },
+				);
+			}
+			await startAutoName();
+		},
+	},
+	{
+		name: ".stopname",
+		description: "Stop updating WhatsApp name with clock.",
+		usage: "Type .stopname to stop showing clock in profile name.",
 
-    async execute(msg, _args, sock) {
-      if (globalThis.autonameInterval) {
-        clearTimeout(globalThis.autonameInterval);
-        globalThis.autonameInterval = null;
-        globalThis.autonameRunning = false;
+		async execute(msg, _args, sock) {
+			if (globalThis.autonameInterval) {
+				clearTimeout(globalThis.autonameInterval);
+				globalThis.autonameInterval = null;
+				globalThis.autonameRunning = false;
 
-        await sock.sendMessage(
-          msg.key.remoteJid,
-          {
-            text: 'AutoName stopped',
-          },
-          { quoted: msg }
-        );
-      } else {
-        await sock.sendMessage(
-          msg.key.remoteJid,
-          {
-            text: 'AutoName is not running',
-          },
-          { quoted: msg }
-        );
-      }
-    },
-  },
+				await sock.sendMessage(
+					msg.key.remoteJid,
+					{
+						text: "AutoName stopped",
+					},
+					{ quoted: msg },
+				);
+			} else {
+				await sock.sendMessage(
+					msg.key.remoteJid,
+					{
+						text: "AutoName is not running",
+					},
+					{ quoted: msg },
+				);
+			}
+		},
+	},
 ];

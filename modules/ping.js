@@ -15,27 +15,27 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 export default {
-  name: ['.ping'],
-  description: 'Replies with Pong and response time',
-  usage: 'Type .ping in any chat to check bot status and response time.',
+	name: [".ping"],
+	description: "Replies with Pong and response time",
+	usage: "Type .ping in any chat to check bot status and response time.",
 
-  async execute(msg, _args, sock) {
-    const start = Date.now();
-    const jid = msg.key.remoteJid;
+	async execute(msg, _args, sock) {
+		const start = Date.now();
+		const jid = msg.key.remoteJid;
 
-    const sent = await sock.sendMessage(
-      jid,
-      { text: '*Pong !*' },
-      { quoted: msg }
-    );
+		const sent = await sock.sendMessage(
+			jid,
+			{ text: "*Pong !*" },
+			{ quoted: msg },
+		);
 
-    const timeTaken = ((Date.now() - start) / 1000).toFixed(3);
+		const timeTaken = ((Date.now() - start) / 1000).toFixed(3);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
-    await sock.sendMessage(jid, {
-      text: `*Pong !*\nResponse time: ${timeTaken}s`,
-      edit: sent.key,
-    });
-  },
+		await sock.sendMessage(jid, {
+			text: `*Pong !*\nResponse time: ${timeTaken}s`,
+			edit: sent.key,
+		});
+	},
 };

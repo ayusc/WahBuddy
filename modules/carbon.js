@@ -14,72 +14,72 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import fetch from 'node-fetch';
+import fetch from "node-fetch";
 
 export default {
-  name: ['.carbon'],
-  description: 'Generate a code snippet image using carbon.now.sh',
-  usage:
-    'Type .carbon in reply to a code block to Generate a code snippet image using carbon.now.sh',
+	name: [".carbon"],
+	description: "Generate a code snippet image using carbon.now.sh",
+	usage:
+		"Type .carbon in reply to a code block to Generate a code snippet image using carbon.now.sh",
 
-  async execute(msg, args, sock) {
-    const jid = msg.key.remoteJid;
-    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+	async execute(msg, _args, sock) {
+		const jid = msg.key.remoteJid;
+		const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    let code = '';
+		let code = "";
 
-    if (quoted) {
-      const quotedType = Object.keys(quoted)[0];
-      if (quotedType === 'conversation') {
-        code = quoted.conversation.trim();
-      } else if (quotedType === 'extendedTextMessage') {
-        code = quoted.extendedTextMessage?.text?.trim() || '';
-      }
-    } else {
-      const type = Object.keys(msg.message || {})[0];
-      if (type === 'conversation') {
-        code = msg.message.conversation.replace(/^\.carbon\s*/, '').trim();
-      } else if (type === 'extendedTextMessage') {
-        code =
-          msg.message.extendedTextMessage?.text
-            ?.replace(/^\.carbon\s*/, '')
-            .trim() || '';
-      }
-    }
+		if (quoted) {
+			const quotedType = Object.keys(quoted)[0];
+			if (quotedType === "conversation") {
+				code = quoted.conversation.trim();
+			} else if (quotedType === "extendedTextMessage") {
+				code = quoted.extendedTextMessage?.text?.trim() || "";
+			}
+		} else {
+			const type = Object.keys(msg.message || {})[0];
+			if (type === "conversation") {
+				code = msg.message.conversation.replace(/^\.carbon\s*/, "").trim();
+			} else if (type === "extendedTextMessage") {
+				code =
+					msg.message.extendedTextMessage?.text
+						?.replace(/^\.carbon\s*/, "")
+						.trim() || "";
+			}
+		}
 
-    if (!code) {
-      return await sock.sendMessage(
-        jid,
-        { text: 'Please provide some code to render.' },
-        { quoted: msg }
-      );
-    }
+		if (!code) {
+			return await sock.sendMessage(
+				jid,
+				{ text: "Please provide some code to render." },
+				{ quoted: msg },
+			);
+		}
 
-    code = code
-      .split('\n')
-      .map(line => line.trimStart())
-      .join('\n');
+		code = code
+			.split("\n")
+			.map((line) => line.trimStart())
+			.join("\n");
 
-    const res = await fetch('https://carbonara.solopov.dev/api/cook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        backgroundColor: '#FFFFFF',
-        theme: '3024-night',
-      }),
-    });
+		const res = await fetch("https://carbonara.solopov.dev/api/cook", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				code,
+				backgroundColor: "#FFFFFF",
+				theme: "3024-night",
+			}),
+		});
 
-    if (!res.ok) {
-      return await sock.sendMessage(
-        jid,
-        { text: 'Failed to generate image from code.' },
-        { quoted: msg }
-      );
-    }
+		if (!res.ok) {
+			return await sock.sendMessage(
+				jid,
+				{ text: "Failed to generate image from code." },
+				{ quoted: msg },
+			);
+		}
 
-    const buffer = await res.buffer();
+		const buffer = await res.buffer();
 
-    await sock.sendMessage(jid, { image: buffer }, { quoted: msg });
-  },
+		await sock.sendMessage(jid, { image: buffer }, { quoted: msg });
+	},
 };

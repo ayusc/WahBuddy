@@ -14,19 +14,19 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import express from 'express';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
-app.get('/health', (req, res) => {
-  res.status(200).send('Wahbuddy is Running !');
+app.get("/health", (_req, res) => {
+	res.status(200).send("Wahbuddy is Running !");
 });
 
 export default app;
