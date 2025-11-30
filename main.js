@@ -106,7 +106,6 @@ async function saveAuthStateToMongo(attempt = 1) {
 
     const files = fs.readdirSync(authDir);
     
-    // OPTIMIZATION: Prepare all operations in parallel
     const operations = files.map(async (file) => {
       const filePath = path.join(authDir, file);
       const data = await fs.promises.readFile(filePath, 'utf-8');
@@ -117,13 +116,10 @@ async function saveAuthStateToMongo(attempt = 1) {
       );
     });
 
-    // Wait for all uploads to finish at once
     await Promise.all(operations);
 
-    // Now move from staging to main
     const staged = await staging.find({}).toArray();
     
-    // Bulk write to main collection for speed
     if (staged.length > 0) {
         const bulkOps = staged.map(doc => ({
             updateOne: {
@@ -140,7 +136,7 @@ async function saveAuthStateToMongo(attempt = 1) {
   } catch (err) {
     if (attempt < 5) {
       // console.warn(`Retrying creds update... attempt ${attempt + 1}`);
-      await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+      await new Promise(r => setTimeout(r, 2000)); 
       await saveAuthStateToMongo(attempt + 1);
     } else {
       console.error(
@@ -368,9 +364,7 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        // --- FIX 1: Check initialConnect flag ---
-        // This stops the "Logged out permanently" message on a fresh start
-        // when the bot is just clearing an invalid restored session.
+
         if (initialConnect) {
           console.log(
             'Restored session is invalid. Clearing session and restarting for new login...'
@@ -380,7 +374,6 @@ async function startBot() {
             'Logged out permanently or session crashed !\nYou need to login again.'
           );
         }
-        // --- END FIX 1 ---
         
         loggedIn = false;
 
@@ -395,11 +388,8 @@ async function startBot() {
         console.log('Restarting bot...');
         await startBot();
       
-      // --- FIX 2: Add DisconnectReason.timedOut (408) ---
-      // This will catch the QR timeout error and restart the bot
-      // to generate a new QR code.
       } else if (reason === 440 || reason === 500 || reason === 428 || reason === DisconnectReason.timedOut || reason === DisconnectReason.restartRequired) {
-      // --- END FIX 2 ---
+
         console.log(`Connection closed due to: ${reason}, Restarting bot...`);
         
         if (!globalThis.reconnecting) {
@@ -428,7 +418,6 @@ async function startBot() {
       io.emit('login-success');
       console.log('Authenticated with WhatsApp');
 
-      // --- FIX: Load commands BEFORE saving to DB ---
       if (!commandsLoaded) {
         await loadCommands();
       }
@@ -439,12 +428,11 @@ async function startBot() {
       
       initialConnect = false;
       
-      // Start Auto-functions immediately so the bot feels responsive
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
-          startAutoDP(); // Removed await so it doesn't block
+          startAutoDP(); 
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
@@ -454,7 +442,7 @@ async function startBot() {
       if (!autoNameStarted && autoname === 'True' && commands.has('.autoname')) {
         autoNameStarted = true;
         try {
-          startAutoName(); // Removed await
+          startAutoName();
         } catch (error) {
           console.error(`AutoName Error: ${error.message}`);
         }
@@ -464,15 +452,13 @@ async function startBot() {
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
         try {
-          startAutoBio(); // Removed await
+          startAutoBio(); 
         } catch (error) {
           console.error(`AutoBio Error: ${error.message}`);
         }
       }
 
-      // --- FIX: Save to MongoDB in the background ---
-      // We don't use 'await' here so the bot stays responsive while uploading
-      console.log('Saving session to MongoDB (background)...');
+      console.log('Saving session to MongoDB...');
       saveAuthStateToMongo()
         .then(() => console.log('Session saved to MongoDB.'))
         .catch(err => console.error('Failed to save session to Mongo:', err));
