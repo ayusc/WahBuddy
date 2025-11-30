@@ -30,8 +30,8 @@
     "node": "20.x"
   },
   "devDependencies": {
-    "eslint": "9.31.0",
-    "prettier": "latest"
+    "prettier": "latest",
+    "@biomejs/biome": "latest"
   },
   "prettier": {
     "arrowParens": "avoid",
