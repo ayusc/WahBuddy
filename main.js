@@ -86,7 +86,6 @@ function startSelfPing() {
 			const response = await fetch(pingUrl);
 			if (!response.ok) {
 				console.error(`Self-ping failed: ${response.statusText}`);
-			} else {
 			}
 		} catch (err) {
 			console.error("Self-ping error:", err.message);
