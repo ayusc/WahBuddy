@@ -110,7 +110,11 @@ export default {
         { quoted: msg }
       );
 
-      [audioPath, thumbPath].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
+      [audioPath, thumbPath].forEach(f => {
+        if (fs.existsSync(f)) {
+          fs.unlinkSync(f);
+        }
+      });
     } catch (err) {
       console.error('Song command error:', err);
       await sock.sendMessage(
