@@ -126,8 +126,10 @@ export function initAuth(getLoggedInState) {
 				const sock = makeWASocket({
 					version,
 					auth: state,
-					browser: Browsers.macOS("Safari"),
+					browser: Browsers.ubuntu("Chrome"),
 					printQRInTerminal: false,
+					syncFullHistory: false,
+					markOnlineOnConnect: false,
 					defaultQueryTimeoutMs: undefined,
 					logger: pino({ level: "silent" }),
 				});
