@@ -105,8 +105,8 @@ async function saveAuthStateToMongo(attempt = 1) {
     const main = sessionCollection;
 
     const files = fs.readdirSync(authDir);
-    
-    const operations = files.map(async (file) => {
+
+    const operations = files.map(async file => {
       const filePath = path.join(authDir, file);
       const data = await fs.promises.readFile(filePath, 'utf-8');
       return staging.updateOne(
@@ -119,16 +119,16 @@ async function saveAuthStateToMongo(attempt = 1) {
     await Promise.all(operations);
 
     const staged = await staging.find({}).toArray();
-    
+
     if (staged.length > 0) {
-        const bulkOps = staged.map(doc => ({
-            updateOne: {
-                filter: { _id: doc._id },
-                update: { $set: { data: doc.data } },
-                upsert: true
-            }
-        }));
-        await main.bulkWrite(bulkOps);
+      const bulkOps = staged.map(doc => ({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: { data: doc.data } },
+          upsert: true,
+        },
+      }));
+      await main.bulkWrite(bulkOps);
     }
 
     await staging.deleteMany({});
@@ -136,7 +136,7 @@ async function saveAuthStateToMongo(attempt = 1) {
   } catch (err) {
     if (attempt < 5) {
       // console.warn(`Retrying creds update... attempt ${attempt + 1}`);
-      await new Promise(r => setTimeout(r, 2000)); 
+      await new Promise(r => setTimeout(r, 2000));
       await saveAuthStateToMongo(attempt + 1);
     } else {
       console.error(
@@ -302,7 +302,7 @@ async function startBot() {
   sock.ev.on(
     'creds.update',
     debounce(async () => {
-      await saveCreds(); 
+      await saveCreds();
       await saveAuthStateToMongo();
     }, 1000)
   );
@@ -364,7 +364,6 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-
         if (initialConnect) {
           console.log(
             'Restored session is invalid. Clearing session and restarting for new login...'
@@ -374,7 +373,7 @@ async function startBot() {
             'Logged out permanently or session crashed !\nYou need to login again.'
           );
         }
-        
+
         loggedIn = false;
 
         lastQR = null;
@@ -387,28 +386,28 @@ async function startBot() {
         await stagingsessionCollection.deleteMany({});
         console.log('Restarting bot...');
         await startBot();
-      
-      } else if (reason === 440 || reason === 500 || reason === 428 || reason === DisconnectReason.timedOut || reason === DisconnectReason.restartRequired) {
-
+      } else if (
+        reason === 440 ||
+        reason === 500 ||
+        reason === 428 ||
+        reason === DisconnectReason.timedOut ||
+        reason === DisconnectReason.restartRequired
+      ) {
         console.log(`Connection closed due to: ${reason}, Restarting bot...`);
-        
+
         if (!globalThis.reconnecting) {
           globalThis.reconnecting = true;
           setTimeout(async () => {
             globalThis.reconnecting = false;
-            await startBot(); 
-          }, 5000); 
+            await startBot();
+          }, 5000);
         }
-
       } else {
         console.log(
           `Connection closed due to: ${reason}, restart not required !`
         );
-      } 
-    }
-      
-    else if (connection === 'open') {
-      
+      }
+    } else if (connection === 'open') {
       qrLogPrinted = false;
       loggedIn = true;
       lastQR = null;
@@ -425,21 +424,25 @@ async function startBot() {
       if (initialConnect) {
         console.log('WahBuddy is Online!');
       }
-      
+
       initialConnect = false;
-      
+
       // Start AutoDP if enabled
       if (!autoDPStarted && autoDP === 'True' && commands.has('.autodp')) {
         autoDPStarted = true;
         try {
-          startAutoDP(); 
+          startAutoDP();
         } catch (error) {
           console.error(`AutoDP Error: ${error.message}`);
         }
       }
 
       // Start AutoName if enabled
-      if (!autoNameStarted && autoname === 'True' && commands.has('.autoname')) {
+      if (
+        !autoNameStarted &&
+        autoname === 'True' &&
+        commands.has('.autoname')
+      ) {
         autoNameStarted = true;
         try {
           startAutoName();
@@ -452,7 +455,7 @@ async function startBot() {
       if (!autoBioStarted && autobio === 'True' && commands.has('.autobio')) {
         autoBioStarted = true;
         try {
-          startAutoBio(); 
+          startAutoBio();
         } catch (error) {
           console.error(`AutoBio Error: ${error.message}`);
         }
@@ -464,7 +467,7 @@ async function startBot() {
         .catch(err => console.error('Failed to save session to Mongo:', err));
     }
   });
-  
+
   sock.ev.on('chats.upsert', async chats => {
     for (const chat of chats) {
       await chatsCollection.updateOne(
