@@ -388,6 +388,7 @@ async function startBot() {
 				reason === 440 ||
 				reason === 500 ||
 				reason === 428 ||
+				reason === 503 ||
 				reason === DisconnectReason.timedOut ||
 				reason === DisconnectReason.restartRequired
 			) {
