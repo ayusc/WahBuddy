@@ -32,10 +32,5 @@
 	"devDependencies": {
 		"prettier": "latest",
 		"@biomejs/biome": "latest"
-	},
-	"prettier": {
-		"arrowParens": "avoid",
-		"singleQuote": true,
-		"trailingComma": "es5"
 	}
 }
