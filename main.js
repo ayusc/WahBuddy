@@ -71,7 +71,7 @@ function startSelfPing() {
 		console.error("SITE_URL is not set. Please set it first !");
 		return;
 	}
-	const pingInterval = 5 * 60 * 1000;
+	const pingInterval = 2 * 60 * 1000;
 	let cleanSiteUrl = SITE_URL;
 	if (
 		!cleanSiteUrl.startsWith("http://") &&
