@@ -49,7 +49,7 @@ const mongoUri = process.env.MONGO_URI;
 const SITE_URL = process.env.SITE_URL;
 const authDir = "./wahbuddy-auth";
 const dbName = "wahbuddy";
-let db, sessionCollection, stagingsessionCollection, mongoClient;
+let db, sessionCollection, stagingsessionCollection, _mongoClient;
 export let chatsCollection;
 export let messagesCollection;
 export let contactsCollection;
@@ -235,13 +235,16 @@ export function getAllCommands() {
 }
 
 async function startBot() {
-	globalThis.profileLimiter = new Bottleneck({ maxConcurrent: 1, minTime: 3000 });
-	const mongoClient = new MongoClient(mongoUri);
+	globalThis.profileLimiter = new Bottleneck({
+		maxConcurrent: 1,
+		minTime: 3000,
+	});
+	let mongoClient = new MongoClient(mongoUri);
 	if (!mongoClient) {
-        mongoClient = new MongoClient(mongoUri);
-        await mongoClient.connect();
-        console.log("Connected to MongoDB");
-    }
+		mongoClient = new MongoClient(mongoUri);
+		await mongoClient.connect();
+		console.log("Connected to MongoDB");
+	}
 	db = mongoClient.db(dbName);
 	sessionCollection = db.collection("wahbuddy_sessions");
 	stagingsessionCollection = db.collection("wahbuddy_sessions_staging");

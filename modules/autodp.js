@@ -88,89 +88,89 @@ const imagePath = path.join(__dirname, "dp.jpg");
 const outputImage = path.join(__dirname, "output.jpg");
 
 async function downloadImage(imagePath) {
-    const MAX_RETRIES = 3;
+	const MAX_RETRIES = 3;
 
-    async function tryDownload(attempt = 1) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+	async function tryDownload(attempt = 1) {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        try {
-            const response = await fetch(imageUrl, { 
-                redirect: "follow",
-                signal: controller.signal 
-            });
+		try {
+			const response = await fetch(imageUrl, {
+				redirect: "follow",
+				signal: controller.signal,
+			});
 
-            if (!response.ok) {
-                if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
-                return false;
-            }
+			if (!response.ok) {
+				if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
+				return false;
+			}
 
-            const buffer = await response.arrayBuffer();
-            const buf = Buffer.from(buffer);
+			const buffer = await response.arrayBuffer();
+			const buf = Buffer.from(buffer);
 
-            await sharp(buf).metadata();
-            fs.writeFileSync(imagePath, buf);
+			await sharp(buf).metadata();
+			fs.writeFileSync(imagePath, buf);
 
-            if (fs.statSync(imagePath).size === 0) {
-                if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
-                return false;
-            }
+			if (fs.statSync(imagePath).size === 0) {
+				if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
+				return false;
+			}
 
-            return true;
-        } catch (error) {
-            if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
-            return false;
-        } finally {
-            clearTimeout(timeoutId);
-        }
-    }
+			return true;
+		} catch (_error) {
+			if (attempt < MAX_RETRIES) return await tryDownload(attempt + 1);
+			return false;
+		} finally {
+			clearTimeout(timeoutId);
+		}
+	}
 
-    return await tryDownload();
+	return await tryDownload();
 }
 
 async function getWeather() {
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-            resolve({
-                temperature: "N/A",
-                feelsLike: "N/A",
-                sky: "N/A",
-                windSpeed: "N/A",
-                humidity: "N/A",
-                forecastText: "N/A",
-                rainChance: "N/A",
-            });
-        }, 10000);
+	return new Promise((resolve) => {
+		const timeout = setTimeout(() => {
+			resolve({
+				temperature: "N/A",
+				feelsLike: "N/A",
+				sky: "N/A",
+				windSpeed: "N/A",
+				humidity: "N/A",
+				forecastText: "N/A",
+				rainChance: "N/A",
+			});
+		}, 10000);
 
-        weather.find({ search: city, degreeType: "C" }, (error, result) => {
-            clearTimeout(timeout);
-            
-            if (error || !result || result.length === 0) {
-                return resolve({
-                    temperature: "N/A",
-                    feelsLike: "N/A",
-                    sky: "N/A",
-                    windSpeed: "N/A",
-                    humidity: "N/A",
-                    forecastText: "N/A",
-                    rainChance: "N/A",
-                });
-            }
+		weather.find({ search: city, degreeType: "C" }, (error, result) => {
+			clearTimeout(timeout);
 
-            const current = result[0].current || {};
-            const forecast = result[0].forecast?.[0] || {};
+			if (error || !result || result.length === 0) {
+				return resolve({
+					temperature: "N/A",
+					feelsLike: "N/A",
+					sky: "N/A",
+					windSpeed: "N/A",
+					humidity: "N/A",
+					forecastText: "N/A",
+					rainChance: "N/A",
+				});
+			}
 
-            resolve({
-                temperature: current.temperature ? `${current.temperature}°C` : "N/A",
-                feelsLike: current.feelslike ? `${current.feelslike}°C` : "N/A",
-                sky: current.skytext || "N/A",
-                windSpeed: current.winddisplay || "N/A",
-                humidity: current.humidity ? `${current.humidity}%` : "N/A",
-                forecastText: forecast.skytextday || "N/A",
-                rainChance: forecast.precip ? `${forecast.precip}%` : "N/A",
-            });
-        });
-    });
+			const current = result[0].current || {};
+			const forecast = result[0].forecast?.[0] || {};
+
+			resolve({
+				temperature: current.temperature ? `${current.temperature}°C` : "N/A",
+				feelsLike: current.feelslike ? `${current.feelslike}°C` : "N/A",
+				sky: current.skytext || "N/A",
+				windSpeed: current.winddisplay || "N/A",
+				humidity: current.humidity ? `${current.humidity}%` : "N/A",
+				forecastText: forecast.skytextday || "N/A",
+				rainChance: forecast.precip ? `${forecast.precip}%` : "N/A",
+			});
+		});
+	});
 }
 
 async function getAQI(cityName) {
@@ -395,28 +395,28 @@ async function performDpUpdate() {
 }
 
 export async function startAutoDP() {
-    await ensureFontDownloaded();
-    registerFont(fontPath, { family: "FancyFont" });
-    globalThis.autodpRunning = true;
+	await ensureFontDownloaded();
+	registerFont(fontPath, { family: "FancyFont" });
+	globalThis.autodpRunning = true;
 
-    const runRecursiveLoop = async () => {
-        if (!globalThis.autodpRunning) return;
+	const runRecursiveLoop = async () => {
+		if (!globalThis.autodpRunning) return;
 
-        try {
-            await performDpUpdate();
-        } catch (err) {
-            console.error("Error in autodp loop:", err);
-        } finally {
-            if (globalThis.autodpRunning) {
-                const nextRunDelay = intervalMs - (Date.now() % intervalMs);
-                globalThis.autodpInterval = setTimeout(runRecursiveLoop, nextRunDelay);
-            }
-        }
-    };
+		try {
+			await performDpUpdate();
+		} catch (err) {
+			console.error("Error in autodp loop:", err);
+		} finally {
+			if (globalThis.autodpRunning) {
+				const nextRunDelay = intervalMs - (Date.now() % intervalMs);
+				globalThis.autodpInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+			}
+		}
+	};
 
-    const now = Date.now();
-    const delayToNextMinute = intervalMs - (now % intervalMs);
-    globalThis.autodpInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
+	const now = Date.now();
+	const delayToNextMinute = intervalMs - (now % intervalMs);
+	globalThis.autodpInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [

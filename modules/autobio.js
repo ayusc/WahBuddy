@@ -49,40 +49,40 @@ function _getTimeInTimeZone(timeZone) {
 }
 
 async function runQuoteUpdate() {
-    try {
-        let quote = "";
-        let attempts = 0;
+	try {
+		let quote = "";
+		let attempts = 0;
 
-        while (!quote || quote.length > 139 || quote === lastQuote) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
+		while (!quote || quote.length > 139 || quote === lastQuote) {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-            try {
-                const res = await fetch("https://quotes-api-self.vercel.app/quote", {
-                    signal: controller.signal
-                });
-                const data = await res.json();
-                quote = data.quote;
-            } catch (fetchErr) {
-                if (fetchErr.name === 'AbortError') {
-                    console.log("Quote fetch timed out");
-                } else {
-                    throw fetchErr;
-                }
-            } finally {
-                clearTimeout(timeoutId);
-            }
+			try {
+				const res = await fetch("https://quotes-api-self.vercel.app/quote", {
+					signal: controller.signal,
+				});
+				const data = await res.json();
+				quote = data.quote;
+			} catch (fetchErr) {
+				if (fetchErr.name === "AbortError") {
+					console.log("Quote fetch timed out");
+				} else {
+					throw fetchErr;
+				}
+			} finally {
+				clearTimeout(timeoutId);
+			}
 
-            attempts++;
-            if (attempts >= 5) return null;
-        }
+			attempts++;
+			if (attempts >= 5) return null;
+		}
 
-        lastQuote = quote;
-        return quote;
-    } catch (error) {
-        console.error("Error fetching quote:", error.message);
-        return null;
-    }
+		lastQuote = quote;
+		return quote;
+	} catch (error) {
+		console.error("Error fetching quote:", error.message);
+		return null;
+	}
 }
 
 async function performBioUpdate() {
@@ -110,27 +110,27 @@ async function performBioUpdate() {
 }
 
 export async function startAutoBio() {
-    globalThis.autobioRunning = true;
-	
-    const runRecursiveLoop = async () => {
+	globalThis.autobioRunning = true;
 
-        if (!globalThis.autobioRunning) return;
+	const runRecursiveLoop = async () => {
+		if (!globalThis.autobioRunning) return;
 
-        try {
-            await performBioUpdate();
-        } catch (err) {
-            console.error("Error in autobio loop:", err);
-        } finally {
-            if (globalThis.autobioRunning) {
-                const nextRunDelay = AUTO_BIO_INTERVAL - (Date.now() % AUTO_BIO_INTERVAL);
-                globalThis.autobioInterval = setTimeout(runRecursiveLoop, nextRunDelay);
-            }
-        }
-    };
+		try {
+			await performBioUpdate();
+		} catch (err) {
+			console.error("Error in autobio loop:", err);
+		} finally {
+			if (globalThis.autobioRunning) {
+				const nextRunDelay =
+					AUTO_BIO_INTERVAL - (Date.now() % AUTO_BIO_INTERVAL);
+				globalThis.autobioInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+			}
+		}
+	};
 
-    const now = Date.now();
-    const delayToNextMinute = AUTO_BIO_INTERVAL - (now % AUTO_BIO_INTERVAL);
-    globalThis.autobioInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
+	const now = Date.now();
+	const delayToNextMinute = AUTO_BIO_INTERVAL - (now % AUTO_BIO_INTERVAL);
+	globalThis.autobioInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [
