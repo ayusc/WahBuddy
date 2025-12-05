@@ -342,8 +342,8 @@ async function startBot() {
 			qrLogPrinted = false;
 			commandsLoaded = false;
 
-			clearInterval(globalThis.autodpInterval);
-			clearInterval(globalThis.autobioInterval);
+			clearTimeout(globalThis.autodpInterval);
+			clearTimeout(globalThis.autobioInterval);
 			clearTimeout(globalThis.autonameInterval);
 			globalThis.autodpInterval = null;
 			globalThis.autobioInterval = null;
