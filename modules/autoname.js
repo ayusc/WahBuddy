@@ -59,23 +59,26 @@ async function performNameUpdate() {
 }
 
 export async function startAutoName() {
-	globalThis.autonameRunning = true;
+    globalThis.autonameRunning = true;
 
-	const runRecursiveLoop = async () => {
-		try {
-			await performNameUpdate();
-		} catch (err) {
-			console.error("Error in autoname loop:", err);
-		} finally {
-			const nextRunDelay =
-				AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
-			globalThis.autonameInterval = setTimeout(runRecursiveLoop, nextRunDelay);
-		}
-	};
+    const runRecursiveLoop = async () => {
+        if (!globalThis.autonameRunning) return;
 
-	const now = Date.now();
-	const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL);
-	globalThis.autonameInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
+        try {
+            await performNameUpdate();
+        } catch (err) {
+            console.error("Error in autoname loop:", err);
+        } finally {
+            if (globalThis.autonameRunning) {
+                const nextRunDelay = AUTO_NAME_INTERVAL - (Date.now() % AUTO_NAME_INTERVAL);
+                globalThis.autonameInterval = setTimeout(runRecursiveLoop, nextRunDelay);
+            }
+        }
+    };
+
+    const now = Date.now();
+    const delayToNextMinute = AUTO_NAME_INTERVAL - (now % AUTO_NAME_INTERVAL);
+    globalThis.autonameInterval = setTimeout(runRecursiveLoop, delayToNextMinute);
 }
 
 export default [
