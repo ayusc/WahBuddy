@@ -49,7 +49,20 @@ const mongoUri = process.env.MONGO_URI;
 const SITE_URL = process.env.SITE_URL;
 const authDir = "./wahbuddy-auth";
 const dbName = "wahbuddy";
-let db, sessionCollection, stagingsessionCollection;
+let db, sessionCollection, stagingsessionCollection, mongoClient;
+export let chatsCollection;
+export let messagesCollection;
+export let contactsCollection;
+let commandsLoaded = false;
+let initialConnect = true;
+globalThis.connectionState = "connecting";
+const commands = new Map();
+let loggedIn = false;
+let lastQR = null;
+let lastQrDataUrl = null;
+let lastQrTimestamp = 0;
+let qrLogPrinted = false;
+globalThis.sock = null;
 
 const debounce = (fn, delay) => {
 	let timer;
@@ -58,13 +71,6 @@ const debounce = (fn, delay) => {
 		timer = setTimeout(() => fn(...args), delay);
 	};
 };
-
-let loggedIn = false;
-let lastQR = null;
-let lastQrDataUrl = null;
-let lastQrTimestamp = 0;
-let qrLogPrinted = false;
-globalThis.sock = null;
 
 function startSelfPing() {
 	if (!SITE_URL) {
@@ -184,19 +190,6 @@ async function restoreAuthStateFromMongo() {
 	}
 }
 
-export let chatsCollection;
-export let messagesCollection;
-export let contactsCollection;
-
-let mongoConnected = false;
-let commandsLoaded = false;
-let initialConnect = true;
-
-globalThis.profileLimiter = new Bottleneck({ maxConcurrent: 1, minTime: 3000 });
-globalThis.connectionState = "connecting";
-
-const commands = new Map();
-
 async function loadCommands() {
 	if (commandsLoaded) return commands;
 
@@ -242,12 +235,13 @@ export function getAllCommands() {
 }
 
 async function startBot() {
+	globalThis.profileLimiter = new Bottleneck({ maxConcurrent: 1, minTime: 3000 });
 	const mongoClient = new MongoClient(mongoUri);
-	if (!mongoConnected) {
-		await mongoClient.connect();
-		mongoConnected = true;
-		if (initialConnect) console.log("Connected to MongoDB");
-	}
+	if (!mongoClient) {
+        mongoClient = new MongoClient(mongoUri);
+        await mongoClient.connect();
+        console.log("Connected to MongoDB");
+    }
 	db = mongoClient.db(dbName);
 	sessionCollection = db.collection("wahbuddy_sessions");
 	stagingsessionCollection = db.collection("wahbuddy_sessions_staging");
@@ -310,7 +304,6 @@ async function startBot() {
 
 		if (connection) globalThis.connectionState = connection;
 
-		// --- QR handling ---
 		if (qr && qr !== lastQR) {
 			lastQR = qr;
 			loggedIn = false;
@@ -334,7 +327,7 @@ async function startBot() {
 				qrLogPrinted = true;
 			}
 
-			// Expire the buffered QR after ~65s
+			// Expire the QR after 65s
 			setTimeout(() => {
 				if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
 					lastQR = null;
@@ -351,7 +344,7 @@ async function startBot() {
 
 			clearInterval(globalThis.autodpInterval);
 			clearInterval(globalThis.autobioInterval);
-			clearInterval(globalThis.autonameInterval);
+			clearTimeout(globalThis.autonameInterval);
 			globalThis.autodpInterval = null;
 			globalThis.autobioInterval = null;
 			globalThis.autonameInterval = null;
