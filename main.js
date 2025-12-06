@@ -348,9 +348,9 @@ async function startBot() {
 			clearTimeout(globalThis.autodpInterval);
 			clearTimeout(globalThis.autobioInterval);
 			clearTimeout(globalThis.autonameInterval);
-			globalThis.autodpInterval = null;
-			globalThis.autobioInterval = null;
-			globalThis.autonameInterval = null;
+			globalThis.autodpInterval = false;
+			globalThis.autobioInterval = false;
+			globalThis.autonameInterval = false;
 			autoDPStarted = false;
 			autoBioStarted = false;
 			autoNameStarted = false;
