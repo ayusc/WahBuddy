@@ -110,6 +110,7 @@ async function performBioUpdate() {
 }
 
 export async function startAutoBio() {
+	if (globalThis.autobioRunning) return;
 	globalThis.autobioRunning = true;
 
 	const runRecursiveLoop = async () => {
