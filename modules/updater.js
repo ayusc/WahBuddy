@@ -16,108 +16,169 @@
 
 import { exec } from "node:child_process";
 import util from "node:util";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import fetch from "node-fetch";
 
-const asyncExec = util.promisify(exec);
+const execPromise = util.promisify(exec);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const KOYEB_TOKEN = process.env.KOYEB_TOKEN;
 const KOYEB_SERVICE_ID = process.env.KOYEB_SERVICE_ID;
-const REPO_BRANCH = process.env.REPO_BRANCH || "main";
+const BRANCH = process.env.REPO_BRANCH || "main";
 
-async function getGitInfo() {
+async function git_check() {
 	try {
-		await asyncExec("git fetch origin");
-
-		const { stdout: count } = await asyncExec(
-			`git rev-list --count HEAD..origin/${REPO_BRANCH}`,
+		await execPromise("git fetch origin");
+		const { stdout: count } = await execPromise(
+			`git rev-list --count HEAD..origin/${BRANCH}`,
 		);
-		const commitCount = parseInt(count.trim(), 10);
+		if (parseInt(count.trim()) === 0) return null;
 
-		if (commitCount === 0) return null;
-
-		const { stdout: hashLog } = await asyncExec(
-			`git log HEAD..origin/${REPO_BRANCH} --format="%h"`,
+		const { stdout: hashLog } = await execPromise(
+			`git log HEAD..origin/${BRANCH} --format="%h"`,
 		);
 		const hashes = hashLog.trim().split("\n").filter(Boolean);
 
-		const { stdout: commitInfo } = await asyncExec(
-			`git log origin/${REPO_BRANCH} -n 1 --format="%an|%cd|%s"`,
+		const { stdout: details } = await execPromise(
+			`git log origin/${BRANCH} -n 1 --format="%an|%cd|%s"`,
 		);
-		const [author, date, message] = commitInfo.trim().split("|");
+		const [author, date, msg] = details.trim().split("|");
 
-		const { stdout: fileChanges } = await asyncExec(
-			`git diff --name-only HEAD..origin/${REPO_BRANCH}`,
+		const { stdout: files } = await execPromise(
+			`git diff --name-only HEAD..origin/${BRANCH}`,
 		);
-		const files = fileChanges.trim().split("\n").filter(Boolean);
+		const fileList = files.trim().split("\n").filter(Boolean);
 
-		return { hashes, author, date, message, files };
-	} catch (err) {
+		return { hashes, author, date, msg, fileList };
+	} catch (e) {
 		return null;
 	}
+}
+
+async function reload_stuff(changed) {
+	if (!globalThis.cmdMap) {
+		throw new Error("Global command map missing in main.js");
+	}
+
+	const modulesDir = __dirname;
+	const targets =
+		changed.length > 0
+			? changed
+					.filter((f) => f.startsWith("modules/") && f.endsWith(".js"))
+					.map((f) => path.basename(f))
+			: fs.readdirSync(modulesDir).filter((f) => f.endsWith(".js"));
+
+	if (targets.length === 0) return "No command modules to reload";
+
+	let count = 0;
+
+	for (const file of targets) {
+		try {
+			const targetPath = `./${file}?t=${Date.now()}`;
+			const newMod = await import(targetPath);
+
+			const cmds = Array.isArray(newMod.default)
+				? newMod.default
+				: [newMod.default];
+
+			for (const cmd of cmds) {
+				if (cmd.name && cmd.execute) {
+					const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
+					for (const name of names) {
+						globalThis.cmdMap.set(name, cmd);
+					}
+				}
+			}
+			count++;
+		} catch (e) {
+			console.error(`Failed to reload ${file}`, e);
+		}
+	}
+	return `Reloaded ${count} modules`;
 }
 
 export default [
 	{
 		name: ".update",
-		description: "Update the bot from the repository",
+		description: "Updates the userbot locally (Temporary).",
 		usage: ".update",
 
 		async execute(msg, _args, sock) {
 			const jid = msg.key.remoteJid;
-			let sentMsg = await sock.sendMessage(
+			let statusMsg = await sock.sendMessage(
 				jid,
 				{ text: "Checking for updates..." },
 				{ quoted: msg },
 			);
 
 			try {
-				const info = await getGitInfo();
+				const info = await git_check();
 
 				if (!info) {
 					return await sock.sendMessage(jid, {
-						text: "Bot is already up to date.",
-						edit: sentMsg.key,
+						text: "Already up to date",
+						edit: statusMsg.key,
 					});
 				}
 
-				const hashLabel = info.hashes.length > 1 ? "Commits" : "Commit";
-				const hashValue = info.hashes.join(", ");
+				const label = info.hashes.length > 1 ? "Commits" : "Commit";
+				const fileStr = info.fileList.map((f) => `- ${f}`).join("\n");
 
-				const updateText =
-					`New Update Available\n\n` +
-					`${hashLabel}: ${hashValue}\n` +
-					`Author: ${info.author}\n` +
-					`Date: ${info.date}\n` +
-					`Message: ${info.message}\n\n` +
-					`Files Changed:\n${info.files.map((f) => `- ${f}`).join("\n")}`;
+				const text =
+					`Update Available\n\n` +
+					`${label}: ${info.hashes.join(", ")}\n` +
+					`Msg: ${info.msg}\n\n` +
+					`Files:\n${fileStr}`;
 
-				await sock.sendMessage(jid, { text: updateText, edit: sentMsg.key });
+				await sock.sendMessage(jid, { text: text, edit: statusMsg.key });
+
 				await sock.sendMessage(
 					jid,
 					{ text: "Pulling changes..." },
-					{ quoted: sentMsg },
+					{ quoted: statusMsg },
 				);
+				await execPromise(`git pull origin ${BRANCH}`);
 
-				await asyncExec(`git pull origin ${REPO_BRANCH}`);
-
-				if (info.files.some((f) => f.includes("package.json"))) {
+				if (info.fileList.some((f) => f.includes("package.json"))) {
 					await sock.sendMessage(
 						jid,
 						{ text: "Installing dependencies..." },
-						{ quoted: sentMsg },
+						{ quoted: statusMsg },
 					);
-					await asyncExec("npm install");
+					await execPromise("npm install");
 				}
 
-				await sock.sendMessage(
-					jid,
-					{ text: "Restarting bot to apply changes..." },
-					{ quoted: sentMsg },
+				let resultMsg = "";
+				const coreFiles = info.fileList.some(
+					(f) =>
+						f.includes("main.js") ||
+						f.includes("auth.js") ||
+						f.includes("package.json"),
 				);
-				process.exit(0);
-			} catch (err) {
+
+				if (coreFiles) {
+					resultMsg =
+						"\nCore files changed. Run .upgrade or .restart to apply fully.";
+				} else {
+					await sock.sendMessage(
+						jid,
+						{ text: "Hot-reloading commands..." },
+						{ quoted: statusMsg },
+					);
+					const res = await reload_stuff(info.fileList);
+					resultMsg = `\n${res}`;
+				}
+
+				await sock.sendMessage(jid, {
+					text: `Done${resultMsg}`,
+					edit: statusMsg.key,
+				});
+			} catch (e) {
 				await sock.sendMessage(
 					jid,
-					{ text: `Update Failed: ${err.message}` },
+					{ text: `Error: ${e.message}` },
 					{ quoted: msg },
 				);
 			}
@@ -125,7 +186,7 @@ export default [
 	},
 	{
 		name: ".upgrade",
-		description: "Trigger a fresh build and redeploy on Koyeb",
+		description: "Redeploy the userbot with new changes.",
 		usage: ".upgrade",
 
 		async execute(msg, _args, sock) {
@@ -134,35 +195,25 @@ export default [
 			if (!KOYEB_TOKEN || !KOYEB_SERVICE_ID) {
 				return await sock.sendMessage(
 					jid,
-					{
-						text: "Error: KOYEB_TOKEN or KOYEB_SERVICE_ID is missing in .env",
-					},
+					{ text: "Missing Koyeb keys" },
 					{ quoted: msg },
 				);
 			}
 
-			let sentMsg = await sock.sendMessage(
+			let statusMsg = await sock.sendMessage(
 				jid,
 				{ text: "Connecting to Koyeb..." },
 				{ quoted: msg },
 			);
 
 			try {
-				const info = await getGitInfo();
-
-				let details = "";
+				const info = await git_check();
+				let note = "";
 				if (info) {
-					const hashLabel = info.hashes.length > 1 ? "Commits" : "Commit";
-					const hashValue = info.hashes.join(", ");
-
-					details =
-						`\n\nDeploying New Version:\n` +
-						`${hashLabel}: ${hashValue}\n` +
-						`Message: ${info.message}\n` +
-						`Files: ${info.files.length} changed`;
+					note = `\n\nCommit: ${info.hashes[0]}\nMsg: ${info.msg}`;
 				}
 
-				const response = await fetch(
+				const res = await fetch(
 					`https://app.koyeb.com/v1/services/${KOYEB_SERVICE_ID}/redeploy`,
 					{
 						method: "POST",
@@ -174,26 +225,25 @@ export default [
 					},
 				);
 
-				if (!response.ok) {
-					const errText = await response.text();
-					throw new Error(`Koyeb API Error: ${response.status} - ${errText}`);
+				if (!res.ok) {
+					throw new Error(`${res.status} ${await res.text()}`);
 				}
 
 				await sock.sendMessage(jid, {
-					text: `Build Triggered Successfully!${details}\n\nThe bot will restart once the build finishes.`,
-					edit: sentMsg.key,
+					text: `Build triggered${note}\nBot will restart in a few minutes`,
+					edit: statusMsg.key,
 				});
-			} catch (err) {
+			} catch (e) {
 				await sock.sendMessage(jid, {
-					text: `Upgrade Failed: ${err.message}`,
-					edit: sentMsg.key,
+					text: `Failed: ${e.message}`,
+					edit: statusMsg.key,
 				});
 			}
 		},
 	},
 	{
 		name: ".restart",
-		description: "Restart the bot process",
+		description: "Restart the userbot.",
 		usage: ".restart",
 
 		async execute(msg, _args, sock) {
