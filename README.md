@@ -47,7 +47,9 @@ Here's a list of the environment variables that needs to be set:
 | `CITY`                 | String  | The city where the user resides (required for AutoDP).                        | No        |
 | `IMAGE_URL`            | String  | The URL containing the user's profile picture (required for AutoDP).          | No        |
 | `TIME_ZONE`            | String  | The time zone where the user resides (e.g., `Asia/Kolkata`).                  | No        |
-| `AUTO_DP_INTERVAL_MS`  | Integer | How often the user's DP should be updated (in milliseconds).                  | No        |
-| `AUTO_BIO_INTERVAL_MS` | Integer | How often the user's bio should be updated (in milliseconds).                 | No        |
+| `AUTO_NAME_INTERVAL_MS`| Integer | How often the user's name should be updated (in seconds).                     | No        |
+| `AUTO_DP_INTERVAL_MS`  | Integer | How often the user's DP should be updated (in seconds).                       | No        |
+| `AUTO_BIO_INTERVAL_MS` | Integer | How often the user's about should be updated (in seconds).                    | No        |
 | `OCR_SPACE_API_KEY`    | String  | Required for the .ocr command. Obtain it from https://ocr.space               | Yes       |
 | `RMBG_API_KEY`         | String  | Required for the .rmbg command. Obtain it from https://www.remove.bg          | Yes       |
+
