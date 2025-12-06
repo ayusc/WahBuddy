@@ -21,19 +21,35 @@ import fetch from "node-fetch";
 const asyncExec = util.promisify(exec);
 const KOYEB_TOKEN = process.env.KOYEB_TOKEN;
 const KOYEB_SERVICE_ID = process.env.KOYEB_SERVICE_ID;
+const REPO_BRANCH = process.env.REPO_BRANCH || "main";
 
 async function getGitInfo() {
 	try {
 		await asyncExec("git fetch origin");
-		const { stdout: commitInfo } = await asyncExec(
-			'git log origin/main -n 1 --format="%h|%an|%cd|%s"',
+
+		const { stdout: count } = await asyncExec(
+			`git rev-list --count HEAD..origin/${REPO_BRANCH}`,
 		);
-		const [hash, author, date, message] = commitInfo.trim().split("|");
+		const commitCount = parseInt(count.trim(), 10);
+
+		if (commitCount === 0) return null;
+
+		const { stdout: hashLog } = await asyncExec(
+			`git log HEAD..origin/${REPO_BRANCH} --format="%h"`,
+		);
+		const hashes = hashLog.trim().split("\n").filter(Boolean);
+
+		const { stdout: commitInfo } = await asyncExec(
+			`git log origin/${REPO_BRANCH} -n 1 --format="%an|%cd|%s"`,
+		);
+		const [author, date, message] = commitInfo.trim().split("|");
+
 		const { stdout: fileChanges } = await asyncExec(
-			"git diff --name-only HEAD..origin/main",
+			`git diff --name-only HEAD..origin/${REPO_BRANCH}`,
 		);
 		const files = fileChanges.trim().split("\n").filter(Boolean);
-		return { hash, author, date, message, files };
+
+		return { hashes, author, date, message, files };
 	} catch (err) {
 		return null;
 	}
@@ -56,20 +72,23 @@ export default [
 			try {
 				const info = await getGitInfo();
 
-				if (!info || (info.files.length === 0 && !info.message)) {
+				if (!info) {
 					return await sock.sendMessage(jid, {
-						text: "Your bot is already up to date.",
+						text: "Bot is already up to date.",
 						edit: sentMsg.key,
 					});
 				}
 
+				const hashLabel = info.hashes.length > 1 ? "Commits" : "Commit";
+				const hashValue = info.hashes.join(", ");
+
 				const updateText =
-					`*New Update Available*\n\n` +
-					`*Commit:* ${info.hash}\n` +
-					`*Author:* ${info.author}\n` +
-					`*Date:* ${info.date}\n` +
-					`*Message:* ${info.message}\n\n` +
-					`*Files Changed:* \n${info.files.map((f) => `- ${f}`).join("\n") || "None"}`;
+					`New Update Available\n\n` +
+					`${hashLabel}: ${hashValue}\n` +
+					`Author: ${info.author}\n` +
+					`Date: ${info.date}\n` +
+					`Message: ${info.message}\n\n` +
+					`Files Changed:\n${info.files.map((f) => `- ${f}`).join("\n")}`;
 
 				await sock.sendMessage(jid, { text: updateText, edit: sentMsg.key });
 				await sock.sendMessage(
@@ -78,7 +97,7 @@ export default [
 					{ quoted: sentMsg },
 				);
 
-				await asyncExec("git pull");
+				await asyncExec(`git pull origin ${REPO_BRANCH}`);
 
 				if (info.files.some((f) => f.includes("package.json"))) {
 					await sock.sendMessage(
@@ -133,11 +152,14 @@ export default [
 
 				let details = "";
 				if (info) {
+					const hashLabel = info.hashes.length > 1 ? "Commits" : "Commit";
+					const hashValue = info.hashes.join(", ");
+
 					details =
-						`\n\n*Deploying Commit:*\n` +
-						`${info.message}\n` +
-						`${info.author}\n` +
-						`${info.files.length} files changed`;
+						`\n\nDeploying New Version:\n` +
+						`${hashLabel}: ${hashValue}\n` +
+						`Message: ${info.message}\n` +
+						`Files: ${info.files.length} changed`;
 				}
 
 				const response = await fetch(
@@ -158,7 +180,7 @@ export default [
 				}
 
 				await sock.sendMessage(jid, {
-					text: `*Build Triggered Successfully!*${details}\n\nThe bot will restart once the build finishes.`,
+					text: `Build Triggered Successfully!${details}\n\nThe bot will restart once the build finishes.`,
 					edit: sentMsg.key,
 				});
 			} catch (err) {
@@ -177,7 +199,7 @@ export default [
 		async execute(msg, _args, sock) {
 			await sock.sendMessage(
 				msg.key.remoteJid,
-				{ text: "Restarting..." },
+				{ text: "Restarting the bot..." },
 				{ quoted: msg },
 			);
 			process.exit(0);
