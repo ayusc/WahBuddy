@@ -395,10 +395,11 @@ async function performDpUpdate() {
 }
 
 export async function startAutoDP() {
+	if (globalThis.autodpRunning) return;
+	globalThis.autodpRunning = true;
 	await ensureFontDownloaded();
 	registerFont(fontPath, { family: "FancyFont" });
-	globalThis.autodpRunning = true;
-
+	
 	const runRecursiveLoop = async () => {
 		if (!globalThis.autodpRunning) return;
 
