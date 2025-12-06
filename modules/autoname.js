@@ -59,6 +59,7 @@ async function performNameUpdate() {
 }
 
 export async function startAutoName() {
+	if (globalThis.autonameRunning) return;
 	globalThis.autonameRunning = true;
 
 	const runRecursiveLoop = async () => {
