@@ -16,12 +16,28 @@
 
 import { exec } from "node:child_process";
 import util from "node:util";
+import fetch from "node-fetch";
 
 const asyncExec = util.promisify(exec);
+const KOYEB_TOKEN = process.env.KOYEB_TOKEN;
+const KOYEB_SERVICE_ID = process.env.KOYEB_SERVICE_ID;
 
-const REPO_URL =
-	process.env.REPO_URL || "https://github.com/ayusc/WahBuddy.git";
-const REPO_BRANCH = process.env.REPO_BRANCH || "main";
+async function getGitInfo() {
+	try {
+		await asyncExec("git fetch origin");
+		const { stdout: commitInfo } = await asyncExec(
+			'git log origin/main -n 1 --format="%h|%an|%cd|%s"',
+		);
+		const [hash, author, date, message] = commitInfo.trim().split("|");
+		const { stdout: fileChanges } = await asyncExec(
+			"git diff --name-only HEAD..origin/main",
+		);
+		const files = fileChanges.trim().split("\n").filter(Boolean);
+		return { hash, author, date, message, files };
+	} catch (err) {
+		return null;
+	}
+}
 
 export default [
 	{
@@ -31,57 +47,124 @@ export default [
 
 		async execute(msg, _args, sock) {
 			const jid = msg.key.remoteJid;
-			const sent = await sock.sendMessage(
+			let sentMsg = await sock.sendMessage(
 				jid,
-				{ text: "[░░░░░░░░░░] 0% Checking for updates" },
+				{ text: "Checking for updates..." },
 				{ quoted: msg },
 			);
 
-			const step = async (progress, label) => {
-				await sock.sendMessage(jid, {
-					text: `[${"█".repeat(progress / 10)}${"░".repeat(10 - progress / 10)}] ${progress}% ${label}`,
-					edit: sent.key,
-				});
-			};
-
 			try {
-				await step(10, "Fetching changes");
-				const { stdout } = await asyncExec(
-					`git pull ${REPO_URL} ${REPO_BRANCH}`,
+				const info = await getGitInfo();
+
+				if (!info || (info.files.length === 0 && !info.message)) {
+					return await sock.sendMessage(jid, {
+						text: "Your bot is already up to date.",
+						edit: sentMsg.key,
+					});
+				}
+
+				const updateText =
+					`*New Update Available*\n\n` +
+					`*Commit:* ${info.hash}\n` +
+					`*Author:* ${info.author}\n` +
+					`*Date:* ${info.date}\n` +
+					`*Message:* ${info.message}\n\n` +
+					`*Files Changed:* \n${info.files.map((f) => `- ${f}`).join("\n") || "None"}`;
+
+				await sock.sendMessage(jid, { text: updateText, edit: sentMsg.key });
+				await sock.sendMessage(
+					jid,
+					{ text: "Pulling changes..." },
+					{ quoted: sentMsg },
 				);
 
-				if (/Already up to date/i.test(stdout)) {
-					await sock.sendMessage(jid, {
-						text: "[██████████] 100% No updates found",
-						edit: sent.key,
-					});
-					return;
-				}
+				await asyncExec("git pull");
 
-				// Only reinstall if deps changed
-				if (/package\.json|package-lock\.json/i.test(stdout)) {
-					await step(50, "Installing dependencies");
+				if (info.files.some((f) => f.includes("package.json"))) {
+					await sock.sendMessage(
+						jid,
+						{ text: "Installing dependencies..." },
+						{ quoted: sentMsg },
+					);
 					await asyncExec("npm install");
-				} else {
-					await step(50, "Dependencies unchanged, skipping install");
 				}
 
-				await step(80, "Rebuilding project");
-				try {
-					await asyncExec("npm run build");
-				} catch {}
+				await sock.sendMessage(
+					jid,
+					{ text: "Restarting bot to apply changes..." },
+					{ quoted: sentMsg },
+				);
+				process.exit(0);
+			} catch (err) {
+				await sock.sendMessage(
+					jid,
+					{ text: `Update Failed: ${err.message}` },
+					{ quoted: msg },
+				);
+			}
+		},
+	},
+	{
+		name: ".upgrade",
+		description: "Trigger a fresh build and redeploy on Koyeb",
+		usage: ".upgrade",
 
-				await step(100, "Reloading modules");
-				const { loadCommands } = await import("../main.js");
-				await loadCommands();
+		async execute(msg, _args, sock) {
+			const jid = msg.key.remoteJid;
+
+			if (!KOYEB_TOKEN || !KOYEB_SERVICE_ID) {
+				return await sock.sendMessage(
+					jid,
+					{
+						text: "Error: KOYEB_TOKEN or KOYEB_SERVICE_ID is missing in .env",
+					},
+					{ quoted: msg },
+				);
+			}
+
+			let sentMsg = await sock.sendMessage(
+				jid,
+				{ text: "Connecting to Koyeb..." },
+				{ quoted: msg },
+			);
+
+			try {
+				const info = await getGitInfo();
+
+				let details = "";
+				if (info) {
+					details =
+						`\n\n*Deploying Commit:*\n` +
+						`${info.message}\n` +
+						`${info.author}\n` +
+						`${info.files.length} files changed`;
+				}
+
+				const response = await fetch(
+					`https://app.koyeb.com/v1/services/${KOYEB_SERVICE_ID}/redeploy`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${KOYEB_TOKEN}`,
+						},
+						body: JSON.stringify({}),
+					},
+				);
+
+				if (!response.ok) {
+					const errText = await response.text();
+					throw new Error(`Koyeb API Error: ${response.status} - ${errText}`);
+				}
+
 				await sock.sendMessage(jid, {
-					text: "[██████████] 100% Update completed successfully",
-					edit: sent.key,
+					text: `*Build Triggered Successfully!*${details}\n\nThe bot will restart once the build finishes.`,
+					edit: sentMsg.key,
 				});
 			} catch (err) {
 				await sock.sendMessage(jid, {
-					text: `Update failed: ${err.message}`,
-					edit: sent.key,
+					text: `Upgrade Failed: ${err.message}`,
+					edit: sentMsg.key,
 				});
 			}
 		},
@@ -92,32 +175,12 @@ export default [
 		usage: ".restart",
 
 		async execute(msg, _args, sock) {
-			const jid = msg.key.remoteJid;
-			const sent = await sock.sendMessage(
-				jid,
-				{ text: "[░░░░░░░░░░] 0% Restarting bot" },
+			await sock.sendMessage(
+				msg.key.remoteJid,
+				{ text: "Restarting..." },
 				{ quoted: msg },
 			);
-
-			const step = async (progress, label) => {
-				await sock.sendMessage(jid, {
-					text: `[${"█".repeat(progress / 10)}${"░".repeat(10 - progress / 10)}] ${progress}% ${label}`,
-					edit: sent.key,
-				});
-			};
-
-			try {
-				await step(30, "Cleaning up");
-				await step(60, "Shutting down");
-				await step(90, "Preparing restart");
-				await step(100, "Exiting now");
-				process.exit(0);
-			} catch (err) {
-				await sock.sendMessage(jid, {
-					text: `Restart failed: ${err.message}`,
-					edit: sent.key,
-				});
-			}
+			process.exit(0);
 		},
 	},
 ];
