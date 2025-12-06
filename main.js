@@ -57,6 +57,7 @@ let commandsLoaded = false;
 let initialConnect = true;
 globalThis.connectionState = "connecting";
 const commands = new Map();
+globalThis.cmdMap = commands;
 let loggedIn = false;
 let lastQR = null;
 let lastQrDataUrl = null;
