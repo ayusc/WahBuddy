@@ -21,7 +21,7 @@ export default {
 
 	async execute(msg, _args, sock) {
 		const jid = msg.key.remoteJid;
-		const SLEEP = 200;
+		const SLEEP = 500;
 
 		const R = "❤️";
 		const W = "🤍";
@@ -44,22 +44,10 @@ export default {
 
 		const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-		const delid = await sock.sendMessage(jid, { delete: msg.key });
-
-		await sock.chatModify(
-			{
-				deleteForMe: {
-					deleteMedia: true,
-					key: {
-						id: delid.key.id,
-						remoteJid: jid,
-						fromMe: true,
-					},
-					timestamp: Number(delid.messageTimestamp),
-				},
-			},
-			jid,
-		);
+		try {
+			await sock.sendMessage(jid, { delete: msg.key });
+		} catch (err) {
+		}
 
 		const sent = await sock.sendMessage(jid, { text: joinedHeart });
 
@@ -80,10 +68,11 @@ export default {
 		}
 
 		let fillMatrix = joinedHeart;
-		const totalWhites = (fillMatrix.match(/🤍/g) || []).length;
 
-		for (let i = 0; i < totalWhites; i++) {
-			fillMatrix = fillMatrix.replace("🤍", "❤️");
+		while (fillMatrix.includes("🤍")) {
+			for (let k = 0; k < 4; k++) {
+				fillMatrix = fillMatrix.replace("🤍", "❤️");
+			}
 			await sock.sendMessage(jid, { text: fillMatrix, edit: sent.key });
 			await delay(SLEEP);
 		}
