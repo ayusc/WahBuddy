@@ -39,7 +39,7 @@ Here's a list of the environment variables that needs to be set:
 | Field                  | Type    | Description                                                                   | Mandatory |
 | ---------------------- | ------- | ----------------------------------------------------------------------------- | --------- |
 | `MONGO_URI`            | String  | Required for storing the RemoteAuth session. Without this, the bot won't run. | Yes       |
-| `SITE_URL`             | String  | Required for login                                                            | Yes       |
+| `SITE_URL`             | String  | Required for login.                                                           | Yes       |
 | `ALWAYS_AUTO_DP`       | Boolean | Whether the user wants the AutoDP feature to start on boot.                   | No        |
 | `ALWAYS_AUTO_BIO`      | Boolean | Whether the user wants the AutoBio feature to start on boot.                  | No        |
 | `SHOW_HOROSCOPE`       | Boolean | Whether to show the current horoscope on the user's profile picture.          | No        |
