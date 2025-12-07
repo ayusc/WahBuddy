@@ -20,9 +20,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fetch from "node-fetch";
+import dotenv from "dotenv";
 
 const execPromise = util.promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config();
 
 const KOYEB_TOKEN = process.env.KOYEB_TOKEN;
 const KOYEB_SERVICE_ID = process.env.KOYEB_SERVICE_ID;
@@ -59,7 +61,7 @@ async function git_check() {
 
 async function reload_stuff(changed) {
 	if (!globalThis.cmdMap) {
-		throw new Error("Global command map missing in main.js");
+		throw new Error("Global command map missing");
 	}
 
 	const modulesDir = __dirname;
