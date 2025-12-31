@@ -46,8 +46,7 @@ export default {
 
 		try {
 			await sock.sendMessage(jid, { delete: msg.key });
-		} catch (err) {
-		}
+		} catch (_err) {}
 
 		const sent = await sock.sendMessage(jid, { text: joinedHeart });
 
