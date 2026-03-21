@@ -399,7 +399,7 @@ export async function startAutoDP() {
 	globalThis.autodpRunning = true;
 	await ensureFontDownloaded();
 	registerFont(fontPath, { family: "FancyFont" });
-	
+
 	const runRecursiveLoop = async () => {
 		if (!globalThis.autodpRunning) return;
 

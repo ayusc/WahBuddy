@@ -15,12 +15,12 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { exec } from "node:child_process";
-import util from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import fetch from "node-fetch";
+import util from "node:util";
 import dotenv from "dotenv";
+import fetch from "node-fetch";
 
 const execPromise = util.promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,7 @@ async function git_check() {
 		const { stdout: count } = await execPromise(
 			`git rev-list --count HEAD..origin/${BRANCH}`,
 		);
-		if (parseInt(count.trim()) === 0) return null;
+		if (parseInt(count.trim(), 10) === 0) return null;
 
 		const { stdout: hashLog } = await execPromise(
 			`git log HEAD..origin/${BRANCH} --format="%h"`,
@@ -54,7 +54,7 @@ async function git_check() {
 		const fileList = files.trim().split("\n").filter(Boolean);
 
 		return { hashes, author, date, msg, fileList };
-	} catch (e) {
+	} catch (_e) {
 		return null;
 	}
 }
@@ -109,7 +109,7 @@ export default [
 
 		async execute(msg, _args, sock) {
 			const jid = msg.key.remoteJid;
-			let statusMsg = await sock.sendMessage(
+			const statusMsg = await sock.sendMessage(
 				jid,
 				{ text: "Checking for updates..." },
 				{ quoted: msg },
@@ -202,7 +202,7 @@ export default [
 				);
 			}
 
-			let statusMsg = await sock.sendMessage(
+			const statusMsg = await sock.sendMessage(
 				jid,
 				{ text: "Connecting to Koyeb..." },
 				{ quoted: msg },
