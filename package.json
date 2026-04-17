@@ -24,7 +24,9 @@
 		"base64url": "^3.0.1",
 		"qrcode": "^1.5.3",
 		"socket.io": "^4.7.5",
-		"bottleneck": "^2.19.5"
+		"bottleneck": "^2.19.5",
+		"@distube/ytdl-core": "latest",
+		"yt-search": "latest"
 	},
 	"engines": {
 		"node": "20.x"
