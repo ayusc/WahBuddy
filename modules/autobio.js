@@ -14,9 +14,9 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
-import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
@@ -95,7 +95,7 @@ async function fetchEmoji(quoteText) {
 			contents: `Given this quote: "${quoteText}", respond with ONLY ONE single emoji that perfectly represents its core emotion, tone, or theme. Do not write any text or explanations.`,
 		});
 		return response.text.trim();
-	} catch (err) {
+	} catch (_err) {
 		return "✨"; // fallback
 	}
 }

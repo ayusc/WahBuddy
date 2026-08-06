@@ -18,7 +18,7 @@
 		"node-cache": "^5.1.2",
 		"node-fetch": "^3.3.2",
 		"qrcode-terminal": "latest",
-		"sharp": "^0.34.2",
+		"sharp": "^0.35.3",
 		"weather-js": "latest",
 		"jimp": "^1.6.0",
 		"base64url": "^3.0.1",
