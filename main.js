@@ -239,25 +239,25 @@ export function getAllCommands() {
 }
 
 async function startBot() {
-	globalThis.profileLimiter = new Bottleneck({
-		maxConcurrent: 1,
-		minTime: 3000,
-	});
-
-	let mongoClient = new MongoClient(mongoUri);
-
-	if (!mongoClient) {
-		mongoClient = new MongoClient(mongoUri);
+	if (!globalThis.profileLimiter) {
+		globalThis.profileLimiter = new Bottleneck({
+			maxConcurrent: 1,
+			minTime: 3000,
+		});
 	}
-	await mongoClient.connect();
-	console.log("Connected to MongoDB");
 
-	db = mongoClient.db(dbName);
-	sessionCollection = db.collection("wahbuddy_sessions");
-	stagingsessionCollection = db.collection("wahbuddy_sessions_staging");
-	chatsCollection = db.collection("chats");
-	messagesCollection = db.collection("messages");
-	contactsCollection = db.collection("contacts");
+	if (!_mongoClient) {
+		_mongoClient = new MongoClient(mongoUri);
+		await _mongoClient.connect();
+		console.log("Connected to MongoDB");
+
+		db = _mongoClient.db(dbName);
+		sessionCollection = db.collection("wahbuddy_sessions");
+		stagingsessionCollection = db.collection("wahbuddy_sessions_staging");
+		chatsCollection = db.collection("chats");
+		messagesCollection = db.collection("messages");
+		contactsCollection = db.collection("contacts");
+	}
 
 	initAuth(() => loggedIn);
 
@@ -416,45 +416,45 @@ async function startBot() {
 			if (initialConnect) {
 				console.log("WahBuddy is Online!");
 				initialConnect = false;
-
-				if (!autoDPStarted && autoDP === "True" && commands.has(".autodp")) {
-					autoDPStarted = true;
-					try {
-						startAutoDP();
-					} catch (error) {
-						console.error(`AutoDP Error: ${error.message}`);
-					}
-				}
-
-				if (
-					!autoNameStarted &&
-					autoname === "True" &&
-					commands.has(".autoname")
-				) {
-					autoNameStarted = true;
-					try {
-						startAutoName();
-					} catch (error) {
-						console.error(`AutoName Error: ${error.message}`);
-					}
-				}
-
-				if (!autoBioStarted && autobio === "True" && commands.has(".autobio")) {
-					autoBioStarted = true;
-					try {
-						startAutoBio();
-					} catch (error) {
-						console.error(`AutoBio Error: ${error.message}`);
-					}
-				}
-
-				console.log("Saving session to MongoDB...");
-				saveAuthStateToMongo()
-					.then(() => console.log("Session saved to MongoDB."))
-					.catch((err) =>
-						console.error("Failed to save session to Mongo:", err),
-					);
 			}
+
+			if (!autoDPStarted && autoDP === "True" && commands.has(".autodp")) {
+				autoDPStarted = true;
+				try {
+					startAutoDP();
+				} catch (error) {
+					console.error(`AutoDP Error: ${error.message}`);
+				}
+			}
+
+			if (
+				!autoNameStarted &&
+				autoname === "True" &&
+				commands.has(".autoname")
+			) {
+				autoNameStarted = true;
+				try {
+					startAutoName();
+				} catch (error) {
+					console.error(`AutoName Error: ${error.message}`);
+				}
+			}
+
+			if (!autoBioStarted && autobio === "True" && commands.has(".autobio")) {
+				autoBioStarted = true;
+				try {
+					startAutoBio();
+				} catch (error) {
+					console.error(`AutoBio Error: ${error.message}`);
+				}
+			}
+
+			console.log("Saving session to MongoDB...");
+			saveAuthStateToMongo()
+				.then(() => console.log("Session saved to MongoDB."))
+				.catch((err) =>
+					console.error("Failed to save session to Mongo:", err),
+				);
 		}
 	});
 
