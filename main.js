@@ -18,11 +18,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-	Browsers,
-	DisconnectReason,
-	fetchLatestBaileysVersion,
-	makeWASocket,
-	useMultiFileAuthState,
+  Browsers,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  makeWASocket,
+  useMultiFileAuthState,
 } from "baileys";
 import Bottleneck from "bottleneck";
 import dotenv from "dotenv";
@@ -39,9 +39,11 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 let autoDPStarted = false;
 let autoBioStarted = false;
 let autoNameStarted = false;
+
 const autoDP = process.env.ALWAYS_AUTO_DP || "False";
 const autobio = process.env.ALWAYS_AUTO_BIO || "False";
 const autoname = process.env.ALWAYS_AUTO_NAME || "False";
@@ -49,566 +51,558 @@ const mongoUri = process.env.MONGO_URI;
 const SITE_URL = process.env.SITE_URL;
 const authDir = "./wahbuddy-auth";
 const dbName = "wahbuddy";
+
 let db, sessionCollection, stagingsessionCollection, _mongoClient;
 export let chatsCollection;
 export let messagesCollection;
 export let contactsCollection;
+
 let commandsLoaded = false;
 let initialConnect = true;
 globalThis.connectionState = "connecting";
+
 const commands = new Map();
 globalThis.cmdMap = commands;
+
 let loggedIn = false;
 let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;
 let qrLogPrinted = false;
+
 globalThis.sock = null;
 
 const debounce = (fn, delay) => {
-	let timer;
-	return (...args) => {
-		clearTimeout(timer);
-		timer = setTimeout(() => fn(...args), delay);
-	};
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
 };
 
 function startSelfPing() {
-	if (!SITE_URL) {
-		console.error("SITE_URL is not set. Please set it first !");
-		return;
-	}
-	const pingInterval = 2 * 60 * 1000;
-	let cleanSiteUrl = SITE_URL;
-	if (
-		!cleanSiteUrl.startsWith("http://") &&
-		!cleanSiteUrl.startsWith("https://")
-	) {
-		cleanSiteUrl = `https://${cleanSiteUrl}`;
-	}
+  if (!SITE_URL) {
+    console.error("SITE_URL is not set. Please set it first !");
+    return;
+  }
 
-	const pingUrl = `${cleanSiteUrl}/health`;
-	setInterval(async () => {
-		try {
-			const response = await fetch(pingUrl);
-			if (!response.ok) {
-				console.error(`Self-ping failed: ${response.statusText}`);
-			}
-		} catch (err) {
-			console.error("Self-ping error:", err.message);
-		}
-	}, pingInterval);
+  const pingInterval = 2 * 60 * 1000;
+  let cleanSiteUrl = SITE_URL;
+  if (
+    !cleanSiteUrl.startsWith("http://") &&
+    !cleanSiteUrl.startsWith("https://")
+  ) {
+    cleanSiteUrl = `https://${cleanSiteUrl}`;
+  }
+
+  const pingUrl = `${cleanSiteUrl}/health`;
+
+  setInterval(async () => {
+    try {
+      const response = await fetch(pingUrl);
+      if (!response.ok) {
+        console.error(`Self-ping failed: ${response.statusText}`);
+      }
+    } catch (err) {
+      console.error("Self-ping error:", err.message);
+    }
+  }, pingInterval);
 }
 
 async function saveAuthStateToMongo(attempt = 1) {
-	try {
-		if (!fs.existsSync(authDir)) {
-			return;
-		}
+  try {
+    if (!fs.existsSync(authDir)) {
+      return;
+    }
+    const staging = db.collection("wahbuddy_sessions_staging");
+    const main = sessionCollection;
 
-		const staging = db.collection("wahbuddy_sessions_staging");
-		const main = sessionCollection;
+    const files = fs.readdirSync(authDir);
+    const operations = files.map(async (file) => {
+      const filePath = path.join(authDir, file);
+      const data = await fs.promises.readFile(filePath, "utf-8");
+      return staging.updateOne(
+        { _id: file },
+        { $set: { data } },
+        { upsert: true }
+      );
+    });
 
-		const files = fs.readdirSync(authDir);
+    await Promise.all(operations);
 
-		const operations = files.map(async (file) => {
-			const filePath = path.join(authDir, file);
-			const data = await fs.promises.readFile(filePath, "utf-8");
-			return staging.updateOne(
-				{ _id: file },
-				{ $set: { data } },
-				{ upsert: true },
-			);
-		});
-
-		await Promise.all(operations);
-
-		const staged = await staging.find({}).toArray();
-
-		if (staged.length > 0) {
-			const bulkOps = staged.map((doc) => ({
-				updateOne: {
-					filter: { _id: doc._id },
-					update: { $set: { data: doc.data } },
-					upsert: true,
-				},
-			}));
-			await main.bulkWrite(bulkOps);
-		}
-
-		await staging.deleteMany({});
-		// console.log('Session credentials successfully saved/updated in MongoDB.');
-	} catch (err) {
-		if (attempt < 5) {
-			// console.warn(`Retrying creds update... attempt ${attempt + 1}`);
-			await new Promise((r) => setTimeout(r, 2000));
-			await saveAuthStateToMongo(attempt + 1);
-		} else {
-			console.error(
-				`Failed to update creds in MongoDB after ${attempt} attempts:`,
-				err,
-			);
-		}
-	}
+    const staged = await staging.find({}).toArray();
+    if (staged.length > 0) {
+      const bulkOps = staged.map((doc) => ({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: { data: doc.data } },
+          upsert: true,
+        },
+      }));
+      await main.bulkWrite(bulkOps);
+      await staging.deleteMany({});
+    }
+  } catch (err) {
+    if (attempt < 5) {
+      await new Promise((r) => setTimeout(r, 2000));
+      await saveAuthStateToMongo(attempt + 1);
+    } else {
+      console.error(
+        `Failed to update creds in MongoDB after ${attempt} attempts:`,
+        err
+      );
+    }
+  }
 }
 
 async function restoreAuthStateFromMongo() {
-	if (fs.existsSync(authDir))
-		await fs.promises.rm(authDir, { recursive: true, force: true });
-	await fs.promises.mkdir(authDir, { recursive: true });
+  if (fs.existsSync(authDir))
+    await fs.promises.rm(authDir, { recursive: true, force: true });
+  await fs.promises.mkdir(authDir, { recursive: true });
 
-	if (!sessionCollection) {
-		console.error("Failed to connect to MongoDB !");
-		initialConnect = true;
-		return false;
-	}
+  if (!sessionCollection) {
+    console.error("Failed to connect to MongoDB !");
+    initialConnect = true;
+    return false;
+  }
 
-	const savedCreds = await sessionCollection.find({}).toArray();
-	if (!savedCreds.length) {
-		console.warn("No session found in MongoDB! Starting fresh.");
-		initialConnect = true;
-		return false;
-	}
+  const savedCreds = await sessionCollection.find({}).toArray();
+  if (!savedCreds.length) {
+    console.warn("No session found in MongoDB! Starting fresh.");
+    initialConnect = true;
+    return false;
+  }
 
-	try {
-		await Promise.all(
-			savedCreds.map(({ _id, data }) =>
-				fs.promises.writeFile(path.join(authDir, _id), data, "utf-8"),
-			),
-		);
-		console.log("Session restored from MongoDB");
-		return true;
-	} catch (err) {
-		console.error("Failed to restore session from MongoDB:", err);
-		await sessionCollection.deleteMany({});
-		await stagingsessionCollection.deleteMany({});
-		if (fs.existsSync(authDir))
-			await fs.promises.rm(authDir, { recursive: true, force: true });
-		await fs.promises.mkdir(authDir, { recursive: true });
-
-		initialConnect = true;
-		return false;
-	}
+  try {
+    await Promise.all(
+      savedCreds.map(({ _id, data }) =>
+        fs.promises.writeFile(path.join(authDir, _id), data, "utf-8")
+      )
+    );
+    console.log("Session restored from MongoDB");
+    return true;
+  } catch (err) {
+    console.error("Failed to restore session from MongoDB:", err);
+    await sessionCollection.deleteMany({});
+    await stagingsessionCollection.deleteMany({});
+    if (fs.existsSync(authDir))
+      await fs.promises.rm(authDir, { recursive: true, force: true });
+    await fs.promises.mkdir(authDir, { recursive: true });
+    initialConnect = true;
+    return false;
+  }
 }
 
 async function loadCommands() {
-	if (commandsLoaded) return commands;
+  if (commandsLoaded) return commands;
 
-	const modulesPath = path.join(__dirname, "modules");
-	const moduleFiles = fs
-		.readdirSync(modulesPath)
-		.filter((file) => file.endsWith(".js"));
+  const modulesPath = path.join(__dirname, "modules");
+  const moduleFiles = fs
+    .readdirSync(modulesPath)
+    .filter((file) => file.endsWith(".js"));
 
-	for (const file of moduleFiles) {
-		const module = await import(`./modules/${file}`);
+  for (const file of moduleFiles) {
+    const module = await import(`./modules/${file}`);
+    const entries = Array.isArray(module.default)
+      ? module.default
+      : [module.default];
 
-		const entries = Array.isArray(module.default)
-			? module.default
-			: [module.default];
+    for (const cmd of entries) {
+      if (cmd.name && cmd.execute) {
+        const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
+        for (const name of names) {
+          commands.set(name, cmd);
+          if (initialConnect) {
+            const cleanName = name.startsWith(".") ? name.slice(1) : name;
+            console.log(`Loaded Module: ${cleanName}`);
+          }
+        }
+      }
+    }
+  }
 
-		for (const cmd of entries) {
-			if (cmd.name && cmd.execute) {
-				const names = Array.isArray(cmd.name) ? cmd.name : [cmd.name];
-				for (const name of names) {
-					commands.set(name, cmd);
-					if (initialConnect) {
-						const cleanName = name.startsWith(".") ? name.slice(1) : name;
-						console.log(`Loaded Module: ${cleanName}`);
-					}
-				}
-			}
-		}
-	}
-	commandsLoaded = true;
-	return commands;
+  commandsLoaded = true;
+  return commands;
 }
 
 export function getAllCommands() {
-	const seen = new Set();
-	const uniqueCommands = [];
-	for (const cmd of commands.values()) {
-		if (!seen.has(cmd)) {
-			uniqueCommands.push(cmd);
-			seen.add(cmd);
-		}
-	}
-	return uniqueCommands;
+  const seen = new Set();
+  const uniqueCommands = [];
+
+  for (const cmd of commands.values()) {
+    if (!seen.has(cmd)) {
+      uniqueCommands.push(cmd);
+      seen.add(cmd);
+    }
+  }
+  return uniqueCommands;
 }
 
 async function startBot() {
-	globalThis.profileLimiter = new Bottleneck({
-		maxConcurrent: 1,
-		minTime: 3000,
-	});
-	let mongoClient = new MongoClient(mongoUri);
-	if (!mongoClient) {
-		mongoClient = new MongoClient(mongoUri);
-		await mongoClient.connect();
-		console.log("Connected to MongoDB");
-	}
-	db = mongoClient.db(dbName);
-	sessionCollection = db.collection("wahbuddy_sessions");
-	stagingsessionCollection = db.collection("wahbuddy_sessions_staging");
-	chatsCollection = db.collection("chats");
-	messagesCollection = db.collection("messages");
-	contactsCollection = db.collection("contacts");
+  globalThis.profileLimiter = new Bottleneck({
+    maxConcurrent: 1,
+    minTime: 3000,
+  });
 
-	initAuth(() => loggedIn);
+  let mongoClient = new MongoClient(mongoUri);
 
-	io.on("connection", (socket) => {
-		if (lastQrDataUrl) {
-			socket.emit("qr", lastQrDataUrl);
-			socket.emit("qr-meta", {
-				ts: lastQrTimestamp,
-				qrLen: lastQR?.length || 0,
-			});
-		}
-	});
+  if (!mongoClient) {
+    mongoClient = new MongoClient(mongoUri);
+  }
+  await mongoClient.connect();
+  console.log("Connected to MongoDB");
 
-	const _restored = await restoreAuthStateFromMongo();
+  db = mongoClient.db(dbName);
+  sessionCollection = db.collection("wahbuddy_sessions");
+  stagingsessionCollection = db.collection("wahbuddy_sessions_staging");
+  chatsCollection = db.collection("chats");
+  messagesCollection = db.collection("messages");
+  contactsCollection = db.collection("contacts");
 
-	const [{ version }, { state, saveCreds }] = await Promise.all([
-		fetchLatestBaileysVersion(),
-		useMultiFileAuthState(authDir),
-	]);
+  initAuth(() => loggedIn);
 
-	const getMessage = async (key) => {
-		const message = await messagesCollection.findOne({
-			"key.id": key.id,
-			"key.remoteJid": key.remoteJid,
-			"key.fromMe": key.fromMe,
-		});
-		return message?.message || null;
-	};
+  io.on("connection", (socket) => {
+    if (lastQrDataUrl) {
+      socket.emit("qr", lastQrDataUrl);
+      socket.emit("qr-meta", {
+        ts: lastQrTimestamp,
+        qrLen: lastQR?.length || 0,
+      });
+    }
+  });
 
-	const sock = makeWASocket({
-		version,
-		auth: state,
-		browser: Browsers.macOS("Desktop"),
-		syncFullHistory: true,
-		getMessage,
-		generateHighQualityLinkPreview: true,
-		logger: pino({ level: "silent" }),
-		defaultQueryTimeoutMs: undefined,
-		markOnlineOnConnect: false,
-	});
+  const _restored = await restoreAuthStateFromMongo();
 
-	globalThis.sock = sock;
+  const [{ version }, { state, saveCreds }] = await Promise.all([
+    fetchLatestBaileysVersion(),
+    useMultiFileAuthState(authDir),
+  ]);
 
-	sock.ev.on(
-		"creds.update",
-		debounce(async () => {
-			await saveCreds();
-			await saveAuthStateToMongo();
-		}, 1000),
-	);
+  const getMessage = async (key) => {
+    const message = await messagesCollection.findOne({
+      "key.id": key.id,
+      "key.remoteJid": key.remoteJid,
+      "key.fromMe": key.fromMe,
+    });
+    return message?.message || null;
+  };
 
-	sock.ev.on("connection.update", async (update) => {
-		const { connection, lastDisconnect, qr } = update;
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    browser: Browsers.macOS("Desktop"),
+    syncFullHistory: true,
+    getMessage,
+    generateHighQualityLinkPreview: true,
+    logger: pino({ level: "silent" }),
+    defaultQueryTimeoutMs: undefined,
+    markOnlineOnConnect: false,
+  });
 
-		if (connection) globalThis.connectionState = connection;
+  globalThis.sock = sock;
 
-		if (qr && qr !== lastQR) {
-			lastQR = qr;
-			loggedIn = false;
-			lastQrTimestamp = Date.now();
+  sock.ev.on(
+    "creds.update",
+    debounce(async () => {
+      await saveCreds();
+      await saveAuthStateToMongo();
+    }, 1000)
+  );
 
-			qrcode
-				.toDataURL(qr)
-				.then((qrDataUrl) => {
-					lastQrDataUrl = qrDataUrl;
-					io.emit("qr", qrDataUrl);
-					io.emit("qr-meta", { ts: lastQrTimestamp, qrLen: qr.length });
-				})
-				.catch((err) => {
-					console.error("Failed to generate QR image:", err);
-					lastQrDataUrl = null;
-					io.emit("qr-raw", qr);
-				});
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-			if (!qrLogPrinted) {
-				console.log(`Please visit ${SITE_URL} to get the login instructions.`);
-				qrLogPrinted = true;
-			}
+    if (connection) globalThis.connectionState = connection;
 
-			// Expire the QR after 65s
-			setTimeout(() => {
-				if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
-					lastQR = null;
-					lastQrDataUrl = null;
-					lastQrTimestamp = 0;
-				}
-			}, 66_000);
-		}
+    if (qr && qr !== lastQR) {
+      lastQR = qr;
+      loggedIn = false;
+      lastQrTimestamp = Date.now();
 
-		if (connection === "close") {
-			loggedIn = false;
-			qrLogPrinted = false;
-			commandsLoaded = false;
+      qrcode
+        .toDataURL(qr)
+        .then((qrDataUrl) => {
+          lastQrDataUrl = qrDataUrl;
+          io.emit("qr", qrDataUrl);
+          io.emit("qr-meta", { ts: lastQrTimestamp, qrLen: qr.length });
+        })
+        .catch((err) => {
+          console.error("Failed to generate QR image:", err);
+          lastQrDataUrl = null;
+          io.emit("qr-raw", qr);
+        });
 
-			clearTimeout(globalThis.autodpInterval);
-			clearTimeout(globalThis.autobioInterval);
-			clearTimeout(globalThis.autonameInterval);
-			globalThis.autodpInterval = null;
-			globalThis.autobioInterval = null;
-			globalThis.autonameInterval = null;
-			globalThis.autodpRunning = false;
-			globalThis.autobioRunning = false;
-			globalThis.autonameRunning = false;
-			autoDPStarted = false;
-			autoBioStarted = false;
-			autoNameStarted = false;
+      if (!qrLogPrinted) {
+        console.log(`Please visit ${SITE_URL} to get the login instructions.`);
+        qrLogPrinted = true;
+      }
 
-			const reason = lastDisconnect?.error?.output?.statusCode;
-			const isAuthenticated = Boolean(state?.creds?.me);
+      setTimeout(() => {
+        if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
+          lastQR = null;
+          lastQrDataUrl = null;
+          lastQrTimestamp = 0;
+        }
+      }, 66_000);
+    }
 
-			// Only wipe session if logged out OR if 428 occurs on an already authenticated session
-			if (reason === DisconnectReason.loggedOut || (reason === 428 && isAuthenticated)) {
-				console.log(
-					reason === 428
-						? "Session corrupted or out of sync (428). Clearing session for fresh login..."
-						: "Logged out permanently. Clearing session for new login..."
-				);
+    if (connection === "close") {
+      loggedIn = false;
+      qrLogPrinted = false;
+      commandsLoaded = false;
+      clearTimeout(globalThis.autodpInterval);
+      clearTimeout(globalThis.autobioInterval);
+      clearTimeout(globalThis.autonameInterval);
+      globalThis.autodpInterval = null;
+      globalThis.autobioInterval = null;
+      globalThis.autonameInterval = null;
+      globalThis.autodpRunning = false;
+      globalThis.autobioRunning = false;
+      globalThis.autonameRunning = false;
+      autoDPStarted = false;
+      autoBioStarted = false;
+      autoNameStarted = false;
 
-				loggedIn = false;
-				lastQR = null;
-				lastQrDataUrl = null;
-				lastQrTimestamp = 0;
+      const reason = lastDisconnect?.error?.output?.statusCode;
 
-				if (fs.existsSync(authDir))
-					await fs.promises.rm(authDir, { recursive: true, force: true });
-				await sessionCollection.deleteMany({});
-				await stagingsessionCollection.deleteMany({});
+      // Clear corrupted or expired sessions unconditionally on 428 or 401/loggedOut
+      if (
+        reason === DisconnectReason.loggedOut ||
+        reason === 401 ||
+        reason === 428
+      ) {
+        console.log(
+          `Session invalid, corrupted, or out of sync (${reason}). Clearing remnants for fresh login...`
+        );
+        loggedIn = false;
+        lastQR = null;
+        lastQrDataUrl = null;
+        lastQrTimestamp = 0;
 
-				console.log("Restarting bot...");
-				initialConnect = true;
-				await startBot();
-			} else if (
-				reason === 428 || 
-				reason === 440 ||
-				reason === 500 ||
-				reason === 503 ||
-				reason === DisconnectReason.timedOut ||
-				reason === DisconnectReason.restartRequired
-			) {
-				console.log(`Connection closed due to: ${reason}, Retrying connection...`);
+        if (fs.existsSync(authDir))
+          await fs.promises.rm(authDir, { recursive: true, force: true });
+        await sessionCollection.deleteMany({});
+        await stagingsessionCollection.deleteMany({});
 
-				if (!globalThis.reconnecting) {
-					globalThis.reconnecting = true;
-					setTimeout(async () => {
-						globalThis.reconnecting = false;
-						await startBot();
-					}, 5000);
-				}
-			} else {
-				console.log(
-					`Connection closed due to: ${reason}, restart not required !`,
-				);
-			}
-		} else if (connection === "open") {
-			qrLogPrinted = false;
-			loggedIn = true;
-			lastQR = null;
-			lastQrDataUrl = null;
-			lastQrTimestamp = 0;
+        console.log("Restarting bot to serve login page...");
+        initialConnect = true;
+        await startBot();
+      } else if (
+        reason === 440 ||
+        reason === 500 ||
+        reason === 503 ||
+        reason === DisconnectReason.timedOut ||
+        reason === DisconnectReason.restartRequired
+      ) {
+        console.log(`Connection closed due to: ${reason}, Retrying connection...`);
+        if (!globalThis.reconnecting) {
+          globalThis.reconnecting = true;
+          setTimeout(async () => {
+            globalThis.reconnecting = false;
+            await startBot();
+          }, 5000);
+        }
+      } else {
+        console.log(
+          `Connection closed due to: ${reason}, restart not required !`
+        );
+      }
+    } else if (connection === "open") {
+      qrLogPrinted = false;
+      loggedIn = true;
+      lastQR = null;
+      lastQrDataUrl = null;
+      lastQrTimestamp = 0;
+      io.emit("login-success");
+      console.log("Authenticated with WhatsApp");
 
-			io.emit("login-success");
-			console.log("Authenticated with WhatsApp");
+      if (!commandsLoaded) {
+        await loadCommands();
+      }
 
-			if (!commandsLoaded) {
-				await loadCommands();
-			}
+      if (initialConnect) {
+        console.log("WahBuddy is Online!");
+        initialConnect = false;
 
-			if (initialConnect) {
-				console.log("WahBuddy is Online!");
-			}
+        if (!autoDPStarted && autoDP === "True" && commands.has(".autodp")) {
+          autoDPStarted = true;
+          try {
+            startAutoDP();
+          } catch (error) {
+            console.error(`AutoDP Error: ${error.message}`);
+          }
+        }
 
-			initialConnect = false;
+        if (
+          !autoNameStarted &&
+          autoname === "True" &&
+          commands.has(".autoname")
+        ) {
+          autoNameStarted = true;
+          try {
+            startAutoName();
+          } catch (error) {
+            console.error(`AutoName Error: ${error.message}`);
+          }
+        }
 
-			// Start AutoDP if enabled
-			if (!autoDPStarted && autoDP === "True" && commands.has(".autodp")) {
-				autoDPStarted = true;
-				try {
-					startAutoDP();
-				} catch (error) {
-					console.error(`AutoDP Error: ${error.message}`);
-				}
-			}
+        if (!autoBioStarted && autobio === "True" && commands.has(".autobio")) {
+          autoBioStarted = true;
+          try {
+            startAutoBio();
+          } catch (error) {
+            console.error(`AutoBio Error: ${error.message}`);
+          }
+        }
 
-			// Start AutoName if enabled
-			if (
-				!autoNameStarted &&
-				autoname === "True" &&
-				commands.has(".autoname")
-			) {
-				autoNameStarted = true;
-				try {
-					startAutoName();
-				} catch (error) {
-					console.error(`AutoName Error: ${error.message}`);
-				}
-			}
+        console.log("Saving session to MongoDB...");
+        saveAuthStateToMongo()
+          .then(() => console.log("Session saved to MongoDB."))
+          .catch((err) =>
+            console.error("Failed to save session to Mongo:", err)
+          );
+      }
+    }
+  });
 
-			// Start AutoBio if enabled
-			if (!autoBioStarted && autobio === "True" && commands.has(".autobio")) {
-				autoBioStarted = true;
-				try {
-					startAutoBio();
-				} catch (error) {
-					console.error(`AutoBio Error: ${error.message}`);
-				}
-			}
+  sock.ev.on("chats.upsert", async (chats) => {
+    for (const chat of chats) {
+      await chatsCollection.updateOne(
+        { id: chat.id },
+        { $set: chat },
+        { upsert: true }
+      );
+    }
+  });
 
-			console.log("Saving session to MongoDB...");
-			saveAuthStateToMongo()
-				.then(() => console.log("Session saved to MongoDB."))
-				.catch((err) => console.error("Failed to save session to Mongo:", err));
-		}
-	});
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (!messages || !messages.length) return;
+    for (const msg of messages) {
+      await messagesCollection.updateOne(
+        { "key.id": msg.key.id },
+        { $set: msg },
+        { upsert: true }
+      );
+    }
 
-	sock.ev.on("chats.upsert", async (chats) => {
-		for (const chat of chats) {
-			await chatsCollection.updateOne(
-				{ id: chat.id },
-				{ $set: chat },
-				{ upsert: true },
-			);
-		}
-	});
+    if (type !== "notify") return;
+    const msg = messages[0];
+    if (!msg.message) return;
 
-	sock.ev.on("messages.upsert", async ({ messages, type }) => {
-		if (!messages || !messages.length) return;
+    if (!msg.key.fromMe) {
+      try {
+        await handleAfkMessages(msg, sock);
+      } catch (err) {
+        console.error("Error in AFK module:", err);
+      }
+    }
 
-		for (const msg of messages) {
-			await messagesCollection.updateOne(
-				{ "key.id": msg.key.id },
-				{ $set: msg },
-				{ upsert: true },
-			);
-		}
+    if (msg.key.fromMe) {
+      const messageContent =
+        msg.message.conversation ||
+        msg.message.extendedTextMessage?.text ||
+        msg.message.imageMessage?.caption ||
+        msg.message.videoMessage?.caption ||
+        "";
 
-		if (type !== "notify") return;
+      const args = messageContent.trim().split(/\s+/);
+      const command = args.shift().toLowerCase();
 
-		const msg = messages[0];
-		if (!msg.message) return;
+      if (commands.has(command)) {
+        try {
+          await commands.get(command).execute(msg, args, sock);
+        } catch (err) {
+          console.error(`Error executing ${command}:`, err);
+        }
+      }
+    }
+  });
 
-		if (!msg.key.fromMe) {
-			try {
-				await handleAfkMessages(msg, sock);
-			} catch (err) {
-				console.error("Error in AFK module:", err);
-			}
-		}
+  sock.ev.on("contacts.upsert", async (contacts) => {
+    for (const contact of contacts) {
+      await contactsCollection.updateOne(
+        { id: contact.id },
+        { $set: contact },
+        { upsert: true }
+      );
+    }
+  });
 
-		if (msg.key.fromMe) {
-			const messageContent =
-				msg.message.conversation ||
-				msg.message.extendedTextMessage?.text ||
-				msg.message.imageMessage?.caption ||
-				msg.message.videoMessage?.caption ||
-				"";
+  sock.ev.on("messaging-history.set", async ({ chats, contacts, messages }) => {
+    for (const chat of chats) {
+      await chatsCollection.updateOne(
+        { id: chat.id },
+        { $set: chat },
+        { upsert: true }
+      );
+    }
+    for (const contact of contacts) {
+      await contactsCollection.updateOne(
+        { id: contact.id },
+        { $set: contact },
+        { upsert: true }
+      );
+    }
+    for (const message of messages) {
+      await messagesCollection.updateOne(
+        { "key.id": message.key },
+        { $set: message },
+        { upsert: true }
+      );
+    }
+    console.log("Full sync done !");
+  });
 
-			const args = messageContent.trim().split(/\s+/);
-			const command = args.shift().toLowerCase();
+  sock.ev.on("messages.update", async (updates) => {
+    for (const update of updates) {
+      if (!update.key?.id) continue;
+      await messagesCollection.updateOne(
+        { "key.id": update.key.id },
+        { $set: update },
+        { upsert: true }
+      );
+    }
+  });
 
-			if (commands.has(command)) {
-				try {
-					await commands.get(command).execute(msg, args, sock);
-				} catch (err) {
-					console.error(`Error executing ${command}:`, err);
-				}
-			}
-		}
-	});
+  sock.ev.on("messages.delete", async ({ keys }) => {
+    for (const key of keys) {
+      await messagesCollection.deleteOne({ "key.id": key.id });
+    }
+  });
 
-	sock.ev.on("contacts.upsert", async (contacts) => {
-		for (const contact of contacts) {
-			await contactsCollection.updateOne(
-				{ id: contact.id },
-				{ $set: contact },
-				{ upsert: true },
-			);
-		}
-	});
+  sock.ev.on("contacts.update", async (updates) => {
+    for (const update of updates) {
+      await contactsCollection.updateOne(
+        { id: update.id },
+        { $set: update },
+        { upsert: true }
+      );
+    }
+  });
 
-	sock.ev.on("messaging-history.set", async ({ chats, contacts, messages }) => {
-		for (const chat of chats) {
-			await chatsCollection.updateOne(
-				{ id: chat.id },
-				{ $set: chat },
-				{ upsert: true },
-			);
-		}
-
-		for (const contact of contacts) {
-			await contactsCollection.updateOne(
-				{ id: contact.id },
-				{ $set: contact },
-				{ upsert: true },
-			);
-		}
-
-		for (const message of messages) {
-			await messagesCollection.updateOne(
-				{ "key.id": message.key },
-				{ $set: message },
-				{ upsert: true },
-			);
-		}
-		console.log("Full sync done !");
-	});
-
-	sock.ev.on("messages.update", async (updates) => {
-		for (const update of updates) {
-			if (!update.key?.id) continue;
-			await messagesCollection.updateOne(
-				{ "key.id": update.key.id },
-				{ $set: update },
-				{ upsert: true },
-			);
-		}
-	});
-
-	sock.ev.on("messages.delete", async ({ keys }) => {
-		for (const key of keys) {
-			await messagesCollection.deleteOne({ "key.id": key.id });
-		}
-	});
-
-	sock.ev.on("contacts.update", async (updates) => {
-		for (const update of updates) {
-			await contactsCollection.updateOne(
-				{ id: update.id },
-				{ $set: update },
-				{ upsert: true },
-			);
-		}
-	});
-
-	sock.ev.on("chats.update", async (updates) => {
-		for (const update of updates) {
-			if (!update.id) continue;
-			await chatsCollection.updateOne(
-				{ id: update.id },
-				{ $set: update },
-				{ upsert: true },
-			);
-		}
-	});
+  sock.ev.on("chats.update", async (updates) => {
+    for (const update of updates) {
+      if (!update.id) continue;
+      await chatsCollection.updateOne(
+        { id: update.id },
+        { $set: update },
+        { upsert: true }
+      );
+    }
+  });
 }
 
 (async () => {
-	try {
-		await startBot();
-
-		server.listen(process.env.PORT || 8000, () => {
-			console.log(`Server listening on port ${process.env.PORT || 8000}`);
-			startSelfPing();
-		});
-	} catch (err) {
-		console.error("Failed to start bot or server:", err);
-		process.exit(1);
-	}
+  try {
+    await startBot();
+    server.listen(process.env.PORT || 8000, () => {
+      console.log(`Server listening on port ${process.env.PORT || 8000}`);
+      startSelfPing();
+    });
+  } catch (err) {
+    console.error("Failed to start bot or server:", err);
+    process.exit(1);
+  }
 })();
 
 export { db };
