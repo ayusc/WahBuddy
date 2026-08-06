@@ -122,7 +122,7 @@ async function performBioUpdate() {
 	const q = await runQuoteUpdate();
 	if (q) {
 		try {
-			const emoji = await fetchEmoji();
+			const emoji = await fetchEmoji(q);
 			await globalThis.profileLimiter.schedule(() =>
 				sock.updateProfileStatus(q, emoji, 3600),
 			);
