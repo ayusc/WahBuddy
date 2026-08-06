@@ -261,23 +261,35 @@ async function startBot() {
 
 	initAuth(() => loggedIn);
 
-	io.on("connection", (socket) => {
-		if (lastQrDataUrl) {
-			socket.emit("qr", lastQrDataUrl);
-			socket.emit("qr-meta", {
-				ts: lastQrTimestamp,
-				qrLen: lastQR?.length || 0,
-			});
-		}
-	});
+	if (!globalThis.ioQrInitialized) {
+    globalThis.ioQrInitialized = true;
+    io.on("connection", (socket) => {
+      if (lastQrDataUrl) {
+        socket.emit("qr", lastQrDataUrl);
+        socket.emit("qr-meta", {
+          ts: lastQrTimestamp,
+          qrLen: lastQR?.length || 0,
+        });
+      }
+    });
+    }
 
 	const _restored = await restoreAuthStateFromMongo();
 
-	const [{ version }, { state, saveCreds }] = await Promise.all([
-		fetchLatestBaileysVersion(),
-		useMultiFileAuthState(authDir),
-	]);
+    const [{ version }, { state, saveCreds }] = await Promise.all([
+     fetchLatestBaileysVersion(),
+     useMultiFileAuthState(authDir),
+    ]);
 
+    if (_restored && !state?.creds?.registered) {
+	    console.warn("Unauthenticated session found in MongoDB. Cleaning storage...");
+	    if (fs.existsSync(authDir))
+	      await fs.promises.rm(authDir, { recursive: true, force: true });
+	    await sessionCollection.deleteMany({});
+	    await stagingsessionCollection.deleteMany({});
+	    await fs.promises.mkdir(authDir, { recursive: true });
+    }
+	
 	const getMessage = async (key) => {
 		const message = await messagesCollection.findOne({
 			"key.id": key.id,
