@@ -384,7 +384,7 @@ async function startBot() {
 				await sessionCollection.deleteMany({});
 				await stagingsessionCollection.deleteMany({});
 				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
-				return; 
+				return;
 			}
 
 			if (isRegistered && !globalThis.reconnecting) {
