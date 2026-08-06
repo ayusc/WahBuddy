@@ -58,8 +58,8 @@ async function runQuoteUpdate() {
 			const timeoutId = setTimeout(() => controller.abort(), 5000);
 
 			try {
-				const res = await fetch("https://quotes-api-self.vercel.app/quote", {
-					signal: controller.signal,
+				const res = await fetch("https://dummyjson.com/quotes/random", {
+				    signal: controller.signal,
 				});
 				const data = await res.json();
 				quote = data.quote;
