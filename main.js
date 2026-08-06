@@ -384,10 +384,22 @@ async function startBot() {
 				await stagingsessionCollection.deleteMany({});
 				console.log("Restarting bot...");
 				await startBot();
+			} else if (reason === 428) {
+				console.log("Session corrupted or out of sync. Clearing session for fresh login...");
+				loggedIn = false;
+				lastQR = null;
+				lastQrDataUrl = null;
+				lastQrTimestamp = 0;
+
+				if (fs.existsSync(authDir))
+					await fs.promises.rm(authDir, { recursive: true, force: true });
+				await sessionCollection.deleteMany({});
+				await stagingsessionCollection.deleteMany({});
+				initialConnect = true;
+				await startBot();
 			} else if (
 				reason === 440 ||
 				reason === 500 ||
-				reason === 428 ||
 				reason === 503 ||
 				reason === DisconnectReason.timedOut ||
 				reason === DisconnectReason.restartRequired
@@ -401,6 +413,7 @@ async function startBot() {
 						await startBot();
 					}, 5000);
 				}
+			
 			} else {
 				console.log(
 					`Connection closed due to: ${reason}, restart not required !`,
