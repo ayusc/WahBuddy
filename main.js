@@ -39,9 +39,11 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 let autoDPStarted = false;
 let autoBioStarted = false;
 let autoNameStarted = false;
+
 const autoDP = process.env.ALWAYS_AUTO_DP || "False";
 const autobio = process.env.ALWAYS_AUTO_BIO || "False";
 const autoname = process.env.ALWAYS_AUTO_NAME || "False";
@@ -49,20 +51,25 @@ const mongoUri = process.env.MONGO_URI;
 const SITE_URL = process.env.SITE_URL;
 const authDir = "./wahbuddy-auth";
 const dbName = "wahbuddy";
+
 let db, sessionCollection, stagingsessionCollection, _mongoClient;
 export let chatsCollection;
 export let messagesCollection;
 export let contactsCollection;
+
 let commandsLoaded = false;
 let initialConnect = true;
 globalThis.connectionState = "connecting";
+
 const commands = new Map();
 globalThis.cmdMap = commands;
+
 let loggedIn = false;
 let lastQR = null;
 let lastQrDataUrl = null;
 let lastQrTimestamp = 0;
 let qrLogPrinted = false;
+
 globalThis.sock = null;
 
 const debounce = (fn, delay) => {
@@ -78,6 +85,7 @@ function startSelfPing() {
 		console.error("SITE_URL is not set. Please set it first !");
 		return;
 	}
+
 	const pingInterval = 2 * 60 * 1000;
 	let cleanSiteUrl = SITE_URL;
 	if (
@@ -88,6 +96,7 @@ function startSelfPing() {
 	}
 
 	const pingUrl = `${cleanSiteUrl}/health`;
+
 	setInterval(async () => {
 		try {
 			const response = await fetch(pingUrl);
@@ -105,12 +114,10 @@ async function saveAuthStateToMongo(attempt = 1) {
 		if (!fs.existsSync(authDir)) {
 			return;
 		}
-
 		const staging = db.collection("wahbuddy_sessions_staging");
 		const main = sessionCollection;
 
 		const files = fs.readdirSync(authDir);
-
 		const operations = files.map(async (file) => {
 			const filePath = path.join(authDir, file);
 			const data = await fs.promises.readFile(filePath, "utf-8");
@@ -124,7 +131,6 @@ async function saveAuthStateToMongo(attempt = 1) {
 		await Promise.all(operations);
 
 		const staged = await staging.find({}).toArray();
-
 		if (staged.length > 0) {
 			const bulkOps = staged.map((doc) => ({
 				updateOne: {
@@ -134,13 +140,10 @@ async function saveAuthStateToMongo(attempt = 1) {
 				},
 			}));
 			await main.bulkWrite(bulkOps);
+			await staging.deleteMany({});
 		}
-
-		await staging.deleteMany({});
-		// console.log('Session credentials successfully saved/updated in MongoDB.');
 	} catch (err) {
 		if (attempt < 5) {
-			// console.warn(`Retrying creds update... attempt ${attempt + 1}`);
 			await new Promise((r) => setTimeout(r, 2000));
 			await saveAuthStateToMongo(attempt + 1);
 		} else {
@@ -185,7 +188,6 @@ async function restoreAuthStateFromMongo() {
 		if (fs.existsSync(authDir))
 			await fs.promises.rm(authDir, { recursive: true, force: true });
 		await fs.promises.mkdir(authDir, { recursive: true });
-
 		initialConnect = true;
 		return false;
 	}
@@ -201,7 +203,6 @@ async function loadCommands() {
 
 	for (const file of moduleFiles) {
 		const module = await import(`./modules/${file}`);
-
 		const entries = Array.isArray(module.default)
 			? module.default
 			: [module.default];
@@ -219,6 +220,7 @@ async function loadCommands() {
 			}
 		}
 	}
+
 	commandsLoaded = true;
 	return commands;
 }
@@ -226,6 +228,7 @@ async function loadCommands() {
 export function getAllCommands() {
 	const seen = new Set();
 	const uniqueCommands = [];
+
 	for (const cmd of commands.values()) {
 		if (!seen.has(cmd)) {
 			uniqueCommands.push(cmd);
@@ -240,12 +243,15 @@ async function startBot() {
 		maxConcurrent: 1,
 		minTime: 3000,
 	});
+
 	let mongoClient = new MongoClient(mongoUri);
+
 	if (!mongoClient) {
 		mongoClient = new MongoClient(mongoUri);
-		await mongoClient.connect();
-		console.log("Connected to MongoDB");
 	}
+	await mongoClient.connect();
+	console.log("Connected to MongoDB");
+
 	db = mongoClient.db(dbName);
 	sessionCollection = db.collection("wahbuddy_sessions");
 	stagingsessionCollection = db.collection("wahbuddy_sessions_staging");
@@ -255,23 +261,35 @@ async function startBot() {
 
 	initAuth(() => loggedIn);
 
-	io.on("connection", (socket) => {
-		if (lastQrDataUrl) {
-			socket.emit("qr", lastQrDataUrl);
-			socket.emit("qr-meta", {
-				ts: lastQrTimestamp,
-				qrLen: lastQR?.length || 0,
-			});
-		}
-	});
+	if (!globalThis.ioQrInitialized) {
+    globalThis.ioQrInitialized = true;
+    io.on("connection", (socket) => {
+      if (lastQrDataUrl) {
+        socket.emit("qr", lastQrDataUrl);
+        socket.emit("qr-meta", {
+          ts: lastQrTimestamp,
+          qrLen: lastQR?.length || 0,
+        });
+      }
+    });
+    }
 
 	const _restored = await restoreAuthStateFromMongo();
 
-	const [{ version }, { state, saveCreds }] = await Promise.all([
-		fetchLatestBaileysVersion(),
-		useMultiFileAuthState(authDir),
-	]);
+    const [{ version }, { state, saveCreds }] = await Promise.all([
+     fetchLatestBaileysVersion(),
+     useMultiFileAuthState(authDir),
+    ]);
 
+    if (_restored && !state?.creds?.registered) {
+	    console.warn("Unauthenticated session found in MongoDB. Cleaning storage...");
+	    if (fs.existsSync(authDir))
+	      await fs.promises.rm(authDir, { recursive: true, force: true });
+	    await sessionCollection.deleteMany({});
+	    await stagingsessionCollection.deleteMany({});
+	    await fs.promises.mkdir(authDir, { recursive: true });
+    }
+	
 	const getMessage = async (key) => {
 		const message = await messagesCollection.findOne({
 			"key.id": key.id,
@@ -331,7 +349,6 @@ async function startBot() {
 				qrLogPrinted = true;
 			}
 
-			// Expire the QR after 65s
 			setTimeout(() => {
 				if (lastQrTimestamp && Date.now() - lastQrTimestamp > 65_000) {
 					lastQR = null;
@@ -345,7 +362,6 @@ async function startBot() {
 			loggedIn = false;
 			qrLogPrinted = false;
 			commandsLoaded = false;
-
 			clearTimeout(globalThis.autodpInterval);
 			clearTimeout(globalThis.autobioInterval);
 			clearTimeout(globalThis.autonameInterval);
@@ -360,40 +376,46 @@ async function startBot() {
 			autoNameStarted = false;
 
 			const reason = lastDisconnect?.error?.output?.statusCode;
+			const isRegistered = Boolean(
+				state?.creds?.registered || state?.creds?.me,
+			);
 
-			if (reason === DisconnectReason.loggedOut) {
-				if (initialConnect) {
-					console.log(
-						"Restored session is invalid. Clearing session and restarting for new login...",
-					);
-				} else {
-					console.log(
-						"Logged out permanently or session crashed !\nYou need to login again.",
-					);
-				}
-
-				loggedIn = false;
-
-				lastQR = null;
-				lastQrDataUrl = null;
-				lastQrTimestamp = 0;
-
+			if (reason === DisconnectReason.loggedOut || reason === 401) {
+				console.log(
+					`Logged out or unauthorized (${reason}). Clearing session...`,
+				);
 				if (fs.existsSync(authDir))
 					await fs.promises.rm(authDir, { recursive: true, force: true });
 				await sessionCollection.deleteMany({});
 				await stagingsessionCollection.deleteMany({});
-				console.log("Restarting bot...");
-				await startBot();
-			} else if (
+				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
+				return;
+			}
+
+			if (!globalThis.reconnecting) {
+				globalThis.reconnecting = true;
+				if (!_restored && !isRegistered && !qrLogPrinted) {
+					console.log(
+						`No active session found. Please visit ${SITE_URL} to log in.`,
+					);
+					qrLogPrinted = true;
+				}
+				setTimeout(async () => {
+					globalThis.reconnecting = false;
+					await startBot();
+				}, 5000);
+			}
+
+			if (
 				reason === 440 ||
 				reason === 500 ||
-				reason === 428 ||
 				reason === 503 ||
 				reason === DisconnectReason.timedOut ||
 				reason === DisconnectReason.restartRequired
 			) {
-				console.log(`Connection closed due to: ${reason}, Restarting bot...`);
-
+				console.log(
+					`Connection closed due to: ${reason}, Retrying connection...`,
+				);
 				if (!globalThis.reconnecting) {
 					globalThis.reconnecting = true;
 					setTimeout(async () => {
@@ -412,7 +434,6 @@ async function startBot() {
 			lastQR = null;
 			lastQrDataUrl = null;
 			lastQrTimestamp = 0;
-
 			io.emit("login-success");
 			console.log("Authenticated with WhatsApp");
 
@@ -422,48 +443,46 @@ async function startBot() {
 
 			if (initialConnect) {
 				console.log("WahBuddy is Online!");
-			}
+				initialConnect = false;
 
-			initialConnect = false;
-
-			// Start AutoDP if enabled
-			if (!autoDPStarted && autoDP === "True" && commands.has(".autodp")) {
-				autoDPStarted = true;
-				try {
-					startAutoDP();
-				} catch (error) {
-					console.error(`AutoDP Error: ${error.message}`);
+				if (!autoDPStarted && autoDP === "True" && commands.has(".autodp")) {
+					autoDPStarted = true;
+					try {
+						startAutoDP();
+					} catch (error) {
+						console.error(`AutoDP Error: ${error.message}`);
+					}
 				}
-			}
 
-			// Start AutoName if enabled
-			if (
-				!autoNameStarted &&
-				autoname === "True" &&
-				commands.has(".autoname")
-			) {
-				autoNameStarted = true;
-				try {
-					startAutoName();
-				} catch (error) {
-					console.error(`AutoName Error: ${error.message}`);
+				if (
+					!autoNameStarted &&
+					autoname === "True" &&
+					commands.has(".autoname")
+				) {
+					autoNameStarted = true;
+					try {
+						startAutoName();
+					} catch (error) {
+						console.error(`AutoName Error: ${error.message}`);
+					}
 				}
-			}
 
-			// Start AutoBio if enabled
-			if (!autoBioStarted && autobio === "True" && commands.has(".autobio")) {
-				autoBioStarted = true;
-				try {
-					startAutoBio();
-				} catch (error) {
-					console.error(`AutoBio Error: ${error.message}`);
+				if (!autoBioStarted && autobio === "True" && commands.has(".autobio")) {
+					autoBioStarted = true;
+					try {
+						startAutoBio();
+					} catch (error) {
+						console.error(`AutoBio Error: ${error.message}`);
+					}
 				}
-			}
 
-			console.log("Saving session to MongoDB...");
-			saveAuthStateToMongo()
-				.then(() => console.log("Session saved to MongoDB."))
-				.catch((err) => console.error("Failed to save session to Mongo:", err));
+				console.log("Saving session to MongoDB...");
+				saveAuthStateToMongo()
+					.then(() => console.log("Session saved to MongoDB."))
+					.catch((err) =>
+						console.error("Failed to save session to Mongo:", err),
+					);
+			}
 		}
 	});
 
@@ -478,8 +497,7 @@ async function startBot() {
 	});
 
 	sock.ev.on("messages.upsert", async ({ messages, type }) => {
-		if (!messages || !messages.length) return;
-
+		if (!messages?.length) return;
 		for (const msg of messages) {
 			await messagesCollection.updateOne(
 				{ "key.id": msg.key.id },
@@ -489,7 +507,6 @@ async function startBot() {
 		}
 
 		if (type !== "notify") return;
-
 		const msg = messages[0];
 		if (!msg.message) return;
 
@@ -540,7 +557,6 @@ async function startBot() {
 				{ upsert: true },
 			);
 		}
-
 		for (const contact of contacts) {
 			await contactsCollection.updateOne(
 				{ id: contact.id },
@@ -548,7 +564,6 @@ async function startBot() {
 				{ upsert: true },
 			);
 		}
-
 		for (const message of messages) {
 			await messagesCollection.updateOne(
 				{ "key.id": message.key },
@@ -601,7 +616,6 @@ async function startBot() {
 (async () => {
 	try {
 		await startBot();
-
 		server.listen(process.env.PORT || 8000, () => {
 			console.log(`Server listening on port ${process.env.PORT || 8000}`);
 			startSelfPing();
