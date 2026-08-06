@@ -42,7 +42,7 @@ export default {
 		const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 		const sender = msg.key.remoteJid;
 
-		if (!quoted || !quoted.imageMessage) {
+		if (!quoted?.imageMessage) {
 			await sock.sendMessage(
 				sender,
 				{ text: "Please reply to an image message." },

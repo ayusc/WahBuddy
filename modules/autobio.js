@@ -104,7 +104,7 @@ async function fetchRandomEmoji() {
 				? parseInt(rawCode.slice(1), 16)
 				: parseInt(rawCode, 10);
 
-			if (!isNaN(codePoint)) {
+			if (!Number.isNaN(codePoint)) {
 				return String.fromCodePoint(codePoint);
 			}
 		}

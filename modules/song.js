@@ -16,9 +16,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import ytdl from "@distube/ytdl-core";
 import fetch from "node-fetch";
 import ytSearch from "yt-search";
-import ytdl from "@distube/ytdl-core";
 
 export default {
 	name: [".song"],
@@ -43,7 +43,8 @@ export default {
 			);
 
 			const searchResults = await ytSearch(query);
-			const song = searchResults.videos.length > 0 ? searchResults.videos[0] : null;
+			const song =
+				searchResults.videos.length > 0 ? searchResults.videos[0] : null;
 
 			if (!song) {
 				return await sock.sendMessage(
@@ -56,7 +57,7 @@ export default {
 			const songName = song.title;
 			const songUrl = song.url;
 			const thumbUrl = song.thumbnail;
-			const artistName = "Artist:" + song.author.name;
+			const artistName = `Artist:${song.author.name}`;
 
 			const tempDir = path.resolve("./temp");
 			if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
@@ -77,7 +78,8 @@ export default {
 			}
 
 			const audioStream = ytdl(songUrl, {
-				filter: (format) => format.container === "mp4" && !format.hasVideo && format.hasAudio,
+				filter: (format) =>
+					format.container === "mp4" && !format.hasVideo && format.hasAudio,
 				quality: "highestaudio",
 			});
 
