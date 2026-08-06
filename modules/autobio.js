@@ -23,6 +23,8 @@ const AUTO_BIO_INTERVAL =
 	parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
 const openrouter_key = process.env.OPENROUTER_API_KEY;
 let lastQuote = "";
+let nextBio = null;
+let isFetching = false;
 
 function _getTimeInTimeZone(timeZone) {
 	const now = new Date();
@@ -92,6 +94,21 @@ Rules:
 	}
 }
 
+async function preloadBio() {
+	if (nextBio || isFetching) return;
+	isFetching = true;
+	try {
+		const res = await fetchBioAndEmoji();
+		if (res) {
+			nextBio = res;
+		}
+	} catch (err) {
+		console.error("Preload error:", err.message);
+	} finally {
+		isFetching = false;
+	}
+}
+
 async function performBioUpdate() {
 	const sock = globalThis.sock;
 	if (!sock) {
@@ -103,7 +120,15 @@ async function performBioUpdate() {
 		return;
 	}
 
-	const res = await fetchBioAndEmoji();
+	let res = nextBio;
+	nextBio = null;
+
+	if (!res) {
+		res = await fetchBioAndEmoji();
+	}
+
+	preloadBio();
+
 	if (res) {
 		try {
 			await globalThis.profileLimiter.schedule(() =>
@@ -119,6 +144,8 @@ async function performBioUpdate() {
 export async function startAutoBio() {
 	if (globalThis.autobioRunning) return;
 	globalThis.autobioRunning = true;
+
+	preloadBio();
 
 	const runRecursiveLoop = async () => {
 		if (!globalThis.autobioRunning) return;
