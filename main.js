@@ -360,20 +360,17 @@ async function startBot() {
 			autoNameStarted = false;
 
 			const reason = lastDisconnect?.error?.output?.statusCode;
+			const isAuthenticated = Boolean(state?.creds?.me);
 
-			if (reason === DisconnectReason.loggedOut) {
-				if (initialConnect) {
-					console.log(
-						"Restored session is invalid. Clearing session and restarting for new login...",
-					);
-				} else {
-					console.log(
-						"Logged out permanently or session crashed !\nYou need to login again.",
-					);
-				}
+			// Only wipe session if logged out OR if 428 occurs on an already authenticated session
+			if (reason === DisconnectReason.loggedOut || (reason === 428 && isAuthenticated)) {
+				console.log(
+					reason === 428
+						? "Session corrupted or out of sync (428). Clearing session for fresh login..."
+						: "Logged out permanently. Clearing session for new login..."
+				);
 
 				loggedIn = false;
-
 				lastQR = null;
 				lastQrDataUrl = null;
 				lastQrTimestamp = 0;
@@ -382,29 +379,19 @@ async function startBot() {
 					await fs.promises.rm(authDir, { recursive: true, force: true });
 				await sessionCollection.deleteMany({});
 				await stagingsessionCollection.deleteMany({});
+
 				console.log("Restarting bot...");
-				await startBot();
-			} else if (reason === 428) {
-				console.log("Session corrupted or out of sync. Clearing session for fresh login...");
-				loggedIn = false;
-				lastQR = null;
-				lastQrDataUrl = null;
-				lastQrTimestamp = 0;
-
-				if (fs.existsSync(authDir))
-					await fs.promises.rm(authDir, { recursive: true, force: true });
-				await sessionCollection.deleteMany({});
-				await stagingsessionCollection.deleteMany({});
 				initialConnect = true;
 				await startBot();
 			} else if (
+				reason === 428 || 
 				reason === 440 ||
 				reason === 500 ||
 				reason === 503 ||
 				reason === DisconnectReason.timedOut ||
 				reason === DisconnectReason.restartRequired
 			) {
-				console.log(`Connection closed due to: ${reason}, Restarting bot...`);
+				console.log(`Connection closed due to: ${reason}, Retrying connection...`);
 
 				if (!globalThis.reconnecting) {
 					globalThis.reconnecting = true;
@@ -413,7 +400,6 @@ async function startBot() {
 						await startBot();
 					}, 5000);
 				}
-			
 			} else {
 				console.log(
 					`Connection closed due to: ${reason}, restart not required !`,
