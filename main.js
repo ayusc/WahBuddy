@@ -366,8 +366,8 @@ async function startBot() {
       const reason = lastDisconnect?.error?.output?.statusCode;
       const isRegistered = Boolean(state?.creds?.registered || state?.creds?.me);
 
-      if (_restored && (reason === DisconnectReason.loggedOut || reason === 401 || reason === 428)) {
-        console.log(`Corrupted session detected (${reason}). Clearing remnants from MongoDB...`);
+      if (reason === DisconnectReason.loggedOut || reason === 401) {
+        console.log(`Logged out or unauthorized (${reason}). Clearing session...`);
         if (fs.existsSync(authDir))
           await fs.promises.rm(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
@@ -376,12 +376,16 @@ async function startBot() {
         return;
       }
 
-      if (!_restored && !isRegistered) {
-        if (!qrLogPrinted) {
+      if (!globalThis.reconnecting) {
+        globalThis.reconnecting = true;
+        if (!_restored && !isRegistered && !qrLogPrinted) {
           console.log(`No active session found. Please visit ${SITE_URL} to log in.`);
           qrLogPrinted = true;
         }
-        return;ogin
+        setTimeout(async () => {
+          globalThis.reconnecting = false;
+          await startBot();
+        }, 5000);
       }
 
       if (
