@@ -262,34 +262,36 @@ async function startBot() {
 	initAuth(() => loggedIn);
 
 	if (!globalThis.ioQrInitialized) {
-    globalThis.ioQrInitialized = true;
-    io.on("connection", (socket) => {
-      if (lastQrDataUrl) {
-        socket.emit("qr", lastQrDataUrl);
-        socket.emit("qr-meta", {
-          ts: lastQrTimestamp,
-          qrLen: lastQR?.length || 0,
-        });
-      }
-    });
-    }
+		globalThis.ioQrInitialized = true;
+		io.on("connection", (socket) => {
+			if (lastQrDataUrl) {
+				socket.emit("qr", lastQrDataUrl);
+				socket.emit("qr-meta", {
+					ts: lastQrTimestamp,
+					qrLen: lastQR?.length || 0,
+				});
+			}
+		});
+	}
 
 	const _restored = await restoreAuthStateFromMongo();
 
-    const [{ version }, { state, saveCreds }] = await Promise.all([
-     fetchLatestBaileysVersion(),
-     useMultiFileAuthState(authDir),
-    ]);
+	const [{ version }, { state, saveCreds }] = await Promise.all([
+		fetchLatestBaileysVersion(),
+		useMultiFileAuthState(authDir),
+	]);
 
-    if (_restored && !state?.creds?.registered) {
-	    console.warn("Unauthenticated session found in MongoDB. Cleaning storage...");
-	    if (fs.existsSync(authDir))
-	      await fs.promises.rm(authDir, { recursive: true, force: true });
-	    await sessionCollection.deleteMany({});
-	    await stagingsessionCollection.deleteMany({});
-	    await fs.promises.mkdir(authDir, { recursive: true });
-    }
-	
+	if (_restored && !state?.creds?.registered) {
+		console.warn(
+			"Unauthenticated session found in MongoDB. Cleaning storage...",
+		);
+		if (fs.existsSync(authDir))
+			await fs.promises.rm(authDir, { recursive: true, force: true });
+		await sessionCollection.deleteMany({});
+		await stagingsessionCollection.deleteMany({});
+		await fs.promises.mkdir(authDir, { recursive: true });
+	}
+
 	const getMessage = async (key) => {
 		const message = await messagesCollection.findOne({
 			"key.id": key.id,
@@ -359,46 +361,52 @@ async function startBot() {
 		}
 
 		if (connection === "close") {
-	      loggedIn = false;
-	      qrLogPrinted = false;
-	      commandsLoaded = false;
-	      clearTimeout(globalThis.autodpInterval);
-	      clearTimeout(globalThis.autobioInterval);
-	      clearTimeout(globalThis.autonameInterval);
-	      globalThis.autodpInterval = null;
-	      globalThis.autobioInterval = null;
-	      globalThis.autonameInterval = null;
-	      globalThis.autodpRunning = false;
-	      globalThis.autobioRunning = false;
-	      globalThis.autonameRunning = false;
-	      autoDPStarted = false;
-	      autoBioStarted = false;
-	      autoNameStarted = false;
-	
-	      const reason = lastDisconnect?.error?.output?.statusCode;
-	      const isRegistered = Boolean(state?.creds?.registered || state?.creds?.me);
-	
-	      if (reason === DisconnectReason.loggedOut || reason === 401) {
-	        console.log(`Logged out or unauthorized (${reason}). Clearing session...`);
-	        if (fs.existsSync(authDir))
-	          await fs.promises.rm(authDir, { recursive: true, force: true });
-	        await sessionCollection.deleteMany({});
-	        await stagingsessionCollection.deleteMany({});
-	        console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
-	        return;
-	      }
-				
-	      if (isRegistered && !globalThis.reconnecting) {
-	        globalThis.reconnecting = true;
-	        console.log(`Connection closed (${reason}). Retrying connection...`);
-	        setTimeout(async () => {
-	          globalThis.reconnecting = false;
-	          await startBot();
-	        }, 5000);
-	      } else if (!isRegistered && !qrLogPrinted) {
-	        console.log(`No active session found. Waiting for QR scan at ${SITE_URL}...`);
-	        qrLogPrinted = true;
-	      }
+			loggedIn = false;
+			qrLogPrinted = false;
+			commandsLoaded = false;
+			clearTimeout(globalThis.autodpInterval);
+			clearTimeout(globalThis.autobioInterval);
+			clearTimeout(globalThis.autonameInterval);
+			globalThis.autodpInterval = null;
+			globalThis.autobioInterval = null;
+			globalThis.autonameInterval = null;
+			globalThis.autodpRunning = false;
+			globalThis.autobioRunning = false;
+			globalThis.autonameRunning = false;
+			autoDPStarted = false;
+			autoBioStarted = false;
+			autoNameStarted = false;
+
+			const reason = lastDisconnect?.error?.output?.statusCode;
+			const isRegistered = Boolean(
+				state?.creds?.registered || state?.creds?.me,
+			);
+
+			if (reason === DisconnectReason.loggedOut || reason === 401) {
+				console.log(
+					`Logged out or unauthorized (${reason}). Clearing session...`,
+				);
+				if (fs.existsSync(authDir))
+					await fs.promises.rm(authDir, { recursive: true, force: true });
+				await sessionCollection.deleteMany({});
+				await stagingsessionCollection.deleteMany({});
+				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
+				return;
+			}
+
+			if (isRegistered && !globalThis.reconnecting) {
+				globalThis.reconnecting = true;
+				console.log(`Connection closed (${reason}). Retrying connection...`);
+				setTimeout(async () => {
+					globalThis.reconnecting = false;
+					await startBot();
+				}, 5000);
+			} else if (!isRegistered && !qrLogPrinted) {
+				console.log(
+					`No active session found. Waiting for QR scan at ${SITE_URL}...`,
+				);
+				qrLogPrinted = true;
+			}
 		} else if (connection === "open") {
 			qrLogPrinted = false;
 			loggedIn = true;
