@@ -371,7 +371,11 @@ async function startBot() {
 				state?.creds?.registered || state?.creds?.me,
 			);
 
-			if (reason === DisconnectReason.loggedOut || reason === 401) {
+			if (
+				reason === DisconnectReason.loggedOut ||
+				reason === 401 ||
+				(reason === 428 && _restored && !isRegistered)
+			) {
 				console.log(
 					`Logged out or unauthorized (${reason}). Clearing session...`,
 				);
@@ -380,7 +384,7 @@ async function startBot() {
 				await sessionCollection.deleteMany({});
 				await stagingsessionCollection.deleteMany({});
 				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
-				return;
+				return; 
 			}
 
 			if (isRegistered && !globalThis.reconnecting) {
