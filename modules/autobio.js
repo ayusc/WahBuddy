@@ -118,7 +118,7 @@ async function performBioUpdate() {
 			await globalThis.profileLimiter.schedule(() =>
 				sock.updateProfileStatus(q, emoji, 3600),
 			);
-			console.log(`About updated: ${emoji} "${q}"`);
+			console.log("About updated");
 		} catch (err) {
 			console.error("About update failed:", err.message);
 		}
