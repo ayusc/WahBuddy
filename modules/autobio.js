@@ -85,6 +85,38 @@ async function runQuoteUpdate() {
 	}
 }
 
+async function fetchRandomEmoji() {
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+	try {
+		const res = await fetch(
+			"https://emojihub.yurace.pro/api/random/group/face-positive",
+			{ signal: controller.signal },
+		);
+
+		if (!res.ok) throw new Error("Emoji API error");
+
+		const json = await res.json();
+		if (json?.htmlCode?.length) {
+			const rawCode = json.htmlCode[0].replace("&#", "").replace(";", "");
+			const codePoint = rawCode.toLowerCase().startsWith("x")
+				? parseInt(rawCode.slice(1), 16)
+				: parseInt(rawCode, 10);
+
+			if (!isNaN(codePoint)) {
+				return String.fromCodePoint(codePoint);
+			}
+		}
+	} catch (err) {
+		console.error("Error fetching emoji:", err.message);
+	} finally {
+		clearTimeout(timeoutId);
+	}
+
+	return "👽";
+}
+
 async function performBioUpdate() {
 	const sock = globalThis.sock;
 	if (!sock) {
@@ -99,10 +131,11 @@ async function performBioUpdate() {
 	const q = await runQuoteUpdate();
 	if (q) {
 		try {
+			const emoji = await fetchRandomEmoji();
 			await globalThis.profileLimiter.schedule(() =>
-				sock.updateProfileStatus(q),
+				sock.updateProfileStatus(q, emoji, 3600),
 			);
-			console.log("About updated");
+			console.log(`About updated: ${emoji} "${q}"`);
 		} catch (err) {
 			console.error("About update failed:", err.message);
 		}
