@@ -14,18 +14,14 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
 
 dotenv.config();
 
 const _TIME_ZONE = process.env.TIME_ZONE || "Asia/Kolkata";
 const AUTO_BIO_INTERVAL =
 	parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
-const gemini_key = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: gemini_key });
-
+const openrouter_key = process.env.OPENROUTER_API_KEY;
 let lastQuote = "";
 
 function _getTimeInTimeZone(timeZone) {
@@ -51,63 +47,51 @@ function _getTimeInTimeZone(timeZone) {
 	);
 }
 
-async function runQuoteUpdate() {
+async function fetchBioAndEmoji() {
 	try {
-		let quote = "";
-		let attempts = 0;
+		const prompt = `Generate a completely random quote, thought, or saying under STRICTLY 50 characters and 1 matching emoji.
+Rules:
+1. Do NOT use out of scope emojis which has no connection to the quote.
+2. Do NOT repeat or paraphrase: "${lastQuote}".
+3. Pick an emoji that directly fits the tone/vibe of the quote.
+4. Respond STRICTLY in this format with a pipe separator and NOTHING ELSE: EMOJI|QUOTE`;
 
-		while (!quote || quote.length > 50 || quote === lastQuote) {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 5000);
+		const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${openrouter_key}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model: "openrouter/free",
+				messages: [{ role: "user", content: prompt }],
+				temperature: 1.1,
+			}),
+		});
 
-			try {
-				const res = await fetch("https://dummyjson.com/quotes/random", {
-					signal: controller.signal,
-				});
-				const data = await res.json();
-				quote = data.quote;
-			} catch (fetchErr) {
-				if (fetchErr.name === "AbortError") {
-					console.log("Quote fetch timed out");
-				} else {
-					throw fetchErr;
-				}
-			} finally {
-				clearTimeout(timeoutId);
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+		const data = await res.json();
+		let text = data.choices[0]?.message?.content || "";
+		text = text.replace(/```[a-z]*/gi, "").replace(/```/g, "").trim();
+
+		const parts = text.split("|");
+		if (parts.length >= 2) {
+			const emoji = parts[0].trim();
+			let quote = parts.slice(1).join("|").trim().replace(/^["']|["']$/g, "");
+
+			if (quote.length > 0 && quote.length <= 50 && emoji) {
+				lastQuote = quote;
+				return { quote, emoji };
 			}
-
-			attempts++;
-			if (attempts >= 10) return null;
 		}
-
-		lastQuote = quote;
-		return quote;
+		return null;
 	} catch (error) {
-		console.error("Error fetching quote:", error.message);
+		console.error("Error fetching quote from OpenRouter:", error.message);
 		return null;
 	}
 }
 
-async function fetchEmoji(quoteText) {
-	try {
-		const response = await ai.models.generateContent({
-			model: "gemini-2.5-flash",
-			contents: quoteText,
-			config: {
-				systemInstruction: `You are an expert sentiment-to-emoji translator. Express the core emotion, philosophy, or theme of the given quote using EXACTLY ONE expressive emoji.
-				Rules:
-				1. Respond ONLY with a single emoji. No text, spaces, or extra characters.
-				2. Never use question marks or uncertain emojis.
-				3. Pick vivid, representative emojis based on context (e.g., growth, wisdom, strength, focus, peace).`,
-				temperature: 0.7,
-			},
-		});
-
-		return response.text.trim();
-	} catch (_err) {
-		return "✨";
-	}
-}
 async function performBioUpdate() {
 	const sock = globalThis.sock;
 	if (!sock) {
@@ -119,12 +103,11 @@ async function performBioUpdate() {
 		return;
 	}
 
-	const q = await runQuoteUpdate();
-	if (q) {
+	const res = await fetchBioAndEmoji();
+	if (res) {
 		try {
-			const emoji = await fetchEmoji(q);
 			await globalThis.profileLimiter.schedule(() =>
-				sock.updateProfileStatus(q, emoji, 3600),
+				sock.updateProfileStatus(res.quote, res.emoji, 3600),
 			);
 			console.log("About updated");
 		} catch (err) {
