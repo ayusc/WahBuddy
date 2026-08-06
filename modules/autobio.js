@@ -92,14 +92,22 @@ async function fetchEmoji(quoteText) {
 	try {
 		const response = await ai.models.generateContent({
 			model: "gemini-2.5-flash",
-			contents: `Given this quote: "${quoteText}", respond with ONLY ONE single emoji that perfectly represents its core emotion, tone, or theme. Do not write any text or explanations.`,
+			contents: quoteText,
+			config: {
+				systemInstruction: `You are an expert sentiment-to-emoji translator. Express the core emotion, philosophy, or theme of the given quote using EXACTLY ONE expressive emoji.
+				Rules:
+				1. Respond ONLY with a single emoji. No text, spaces, or extra characters.
+				2. Never use question marks or uncertain emojis.
+				3. Pick vivid, representative emojis based on context (e.g., growth, wisdom, strength, focus, peace).`,
+				temperature: 0.7,
+			},
 		});
+
 		return response.text.trim();
 	} catch (_err) {
-		return "✨"; // fallback
+		return "✨";
 	}
 }
-
 async function performBioUpdate() {
 	const sock = globalThis.sock;
 	if (!sock) {
