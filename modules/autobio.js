@@ -16,12 +16,15 @@
 
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
 const _TIME_ZONE = process.env.TIME_ZONE || "Asia/Kolkata";
 const AUTO_BIO_INTERVAL =
 	parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
+const gemini_key = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: gemini_key });
 
 let lastQuote = "";
 
@@ -85,36 +88,16 @@ async function runQuoteUpdate() {
 	}
 }
 
-async function fetchRandomEmoji() {
-	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), 5000);
-
+async function fetchEmoji(quoteText) {
 	try {
-		const res = await fetch(
-			"https://emojihub.yurace.pro/api/random/group/face-positive",
-			{ signal: controller.signal },
-		);
-
-		if (!res.ok) throw new Error("Emoji API error");
-
-		const json = await res.json();
-		if (json?.htmlCode?.length) {
-			const rawCode = json.htmlCode[0].replace("&#", "").replace(";", "");
-			const codePoint = rawCode.toLowerCase().startsWith("x")
-				? parseInt(rawCode.slice(1), 16)
-				: parseInt(rawCode, 10);
-
-			if (!Number.isNaN(codePoint)) {
-				return String.fromCodePoint(codePoint);
-			}
-		}
+		const response = await ai.models.generateContent({
+			model: "gemini-2.5-flash",
+			contents: `Given this quote: "${quoteText}", respond with ONLY ONE single emoji that perfectly represents its core emotion, tone, or theme. Do not write any text or explanations.`,
+		});
+		return response.text.trim();
 	} catch (err) {
-		console.error("Error fetching emoji:", err.message);
-	} finally {
-		clearTimeout(timeoutId);
+		return "✨"; // fallback
 	}
-
-	return "👽";
 }
 
 async function performBioUpdate() {
@@ -131,7 +114,7 @@ async function performBioUpdate() {
 	const q = await runQuoteUpdate();
 	if (q) {
 		try {
-			const emoji = await fetchRandomEmoji();
+			const emoji = await fetchEmoji();
 			await globalThis.profileLimiter.schedule(() =>
 				sock.updateProfileStatus(q, emoji, 3600),
 			);
