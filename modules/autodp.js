@@ -37,15 +37,19 @@ const intervalMs =
 const SHOW_HOROSCOPE = process.env.SHOW_HOROSCOPE || "False";
 let lastFetchedHoroscope = null;
 let lastFetchedTime = 0;
+let nextImageBuffer = null;
+let isGenerating = false;
 
 globalThis.autodpInterval = globalThis.autodpInterval || null;
 const fontPath = path.join(__dirname, "Lobster-Regular.ttf");
 const fontUrl =
 	"https://raw.githubusercontent.com/google/fonts/main/ofl/lobster/Lobster-Regular.ttf";
+const imagePath = path.join(__dirname, "dp.jpg");
+const outputImage = path.join(__dirname, "output.jpg");
 
-function getDateTimeString() {
+function getDateTimeString(targetDate = new Date()) {
 	const options = { timeZone: TIME_ZONE, hour12: true };
-	const now = new Date();
+	const now = targetDate;
 
 	const day = now.toLocaleString("en-IN", { weekday: "short", ...options });
 	const dd = now.toLocaleString("en-IN", { day: "2-digit", ...options });
@@ -58,7 +62,6 @@ function getDateTimeString() {
 		...options,
 	});
 
-	// Convert "AM"/"PM" to "A.M"/"P.M"
 	time = time.replace(/\s?am/, " A.M").replace(/\s?pm/, " P.M");
 
 	return `${day} ${dd}.${mm}.${yyyy} ${time}`;
@@ -83,9 +86,6 @@ async function ensureFontDownloaded() {
 			.on("error", reject);
 	});
 }
-
-const imagePath = path.join(__dirname, "dp.jpg");
-const outputImage = path.join(__dirname, "output.jpg");
 
 async function downloadImage(imagePath) {
 	const MAX_RETRIES = 3;
@@ -179,7 +179,7 @@ async function getAQI(cityName) {
 			`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`,
 			{
 				headers: {
-					"User-Agent": "WahBuddy (https://github.com/ayusc/WahBuddy)", // REQUIRED by Nominatim
+					"User-Agent": "WahBuddy (https://github.com/ayusc/WahBuddy)",
 				},
 			},
 		);
@@ -221,14 +221,13 @@ async function getAQI(cityName) {
 		const aqi = aqiData?.current?.us_aqi;
 		if (typeof aqi !== "number") throw new Error("Invalid AQI data");
 
-		// IN ACCORDANCE WITH U.S. AQI (EPA) scale.
 		let status = "N/A";
 		if (aqi <= 50) status = "Good";
 		else if (aqi <= 100) status = "Moderate";
 		else if (aqi <= 150) status = "Unhealthy for Sensitive Groups";
 		else if (aqi <= 200) status = "Unhealthy";
 		else if (aqi <= 300) status = "Very Unhealthy";
-		else status = "Hazardous"; // 301-500
+		else status = "Hazardous";
 
 		return {
 			aqi: aqi.toString(),
@@ -270,23 +269,23 @@ async function getHoroscopes() {
 	}
 }
 
-async function generateImage() {
+async function generateImage(targetDate = new Date()) {
 	await downloadImage(imagePath);
 
 	if (!fs.existsSync(imagePath)) {
 		console.error("Image not found, cannot process.");
-		return;
+		return null;
 	}
 
 	const imageSize = fs.statSync(imagePath).size;
 	if (imageSize === 0) {
 		console.error("Downloaded image is empty!");
-		return;
+		return null;
 	}
 
 	const weatherInfo = await getWeather();
 	const aqiresult = await getAQI(city);
-	const dateText = getDateTimeString();
+	const dateText = getDateTimeString(targetDate);
 	const { daily, sign } = await getHoroscopes();
 
 	const finalText = `     ${dateText}, ${weatherInfo.temperature} (Feels Like ${weatherInfo.feelsLike}), ${city}
@@ -358,12 +357,31 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 
 	const overlayBuffer = canvas.toBuffer();
 
-	await sharp(imagePath)
+	const buffer = await sharp(imagePath)
 		.composite([{ input: overlayBuffer, top: 0, left: 0 }])
 		.jpeg({ quality: 100 })
-		.toFile(outputImage);
+		.toBuffer();
 
-	//console.log('Image generated successfully!');
+	fs.writeFileSync(outputImage, buffer);
+	return buffer;
+}
+
+async function preloadDp() {
+	if (nextImageBuffer || isGenerating) return;
+	isGenerating = true;
+	try {
+		const nextTargetTime = new Date(
+			Date.now() + (intervalMs - (Date.now() % intervalMs)),
+		);
+		const buf = await generateImage(nextTargetTime);
+		if (buf && buf.length > 0) {
+			nextImageBuffer = buf;
+		}
+	} catch (err) {
+		console.error("Preload DP error:", err.message);
+	} finally {
+		isGenerating = false;
+	}
 }
 
 async function performDpUpdate() {
@@ -378,19 +396,24 @@ async function performDpUpdate() {
 		return;
 	}
 
-	try {
-		await generateImage();
-		if (!fs.existsSync(outputImage) || fs.statSync(outputImage).size === 0) {
-			console.error("DP update skipped: output image is empty or missing");
-			return;
+	let buffer = nextImageBuffer;
+	nextImageBuffer = null;
+
+	if (!buffer) {
+		buffer = await generateImage(new Date());
+	}
+
+	preloadDp();
+
+	if (buffer && buffer.length > 0) {
+		try {
+			await globalThis.profileLimiter.schedule(() =>
+				sock.updateProfilePicture(jid, buffer),
+			);
+			console.log("DP updated");
+		} catch (error) {
+			console.error("DP update failed:", error.message);
 		}
-		const buffer = fs.readFileSync(outputImage);
-		await globalThis.profileLimiter.schedule(() =>
-			sock.updateProfilePicture(jid, buffer),
-		);
-		console.log("DP updated");
-	} catch (error) {
-		console.error("DP update failed:", error.message);
 	}
 }
 
@@ -399,6 +422,8 @@ export async function startAutoDP() {
 	globalThis.autodpRunning = true;
 	await ensureFontDownloaded();
 	registerFont(fontPath, { family: "FancyFont" });
+
+	preloadDp();
 
 	const runRecursiveLoop = async () => {
 		if (!globalThis.autodpRunning) return;
