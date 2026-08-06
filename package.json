@@ -26,7 +26,8 @@
 		"socket.io": "^4.7.5",
 		"bottleneck": "^2.19.5",
 		"@distube/ytdl-core": "latest",
-		"yt-search": "latest"
+		"yt-search": "latest",
+		"@gpt4free/g4f.dev": "latest"
 	},
 	"engines": {
 		"node": "20.x"
