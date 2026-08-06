@@ -297,7 +297,7 @@ async function startBot() {
 		syncFullHistory: true,
 		getMessage,
 		generateHighQualityLinkPreview: true,
-		logger: pino({ level: "silent" }),
+		logger: pino({ level: "warn" }),
 		defaultQueryTimeoutMs: undefined,
 		markOnlineOnConnect: false,
 	});
