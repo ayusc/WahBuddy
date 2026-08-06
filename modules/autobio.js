@@ -77,7 +77,7 @@ async function runQuoteUpdate() {
 			}
 
 			attempts++;
-			if (attempts >= 5) return null;
+			if (attempts >= 10) return null;
 		}
 
 		lastQuote = quote;
