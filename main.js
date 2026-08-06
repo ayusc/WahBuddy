@@ -281,17 +281,6 @@ async function startBot() {
 		useMultiFileAuthState(authDir),
 	]);
 
-	if (_restored && !state?.creds?.registered) {
-		console.warn(
-			"Unauthenticated session found in MongoDB. Cleaning storage...",
-		);
-		if (fs.existsSync(authDir))
-			await fs.promises.rm(authDir, { recursive: true, force: true });
-		await sessionCollection.deleteMany({});
-		await stagingsessionCollection.deleteMany({});
-		await fs.promises.mkdir(authDir, { recursive: true });
-	}
-
 	const getMessage = async (key) => {
 		const message = await messagesCollection.findOne({
 			"key.id": key.id,
