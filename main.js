@@ -364,30 +364,27 @@ async function startBot() {
       autoNameStarted = false;
 
       const reason = lastDisconnect?.error?.output?.statusCode;
+      const isRegistered = Boolean(state?.creds?.registered || state?.creds?.me);
 
-      // Clear corrupted or expired sessions unconditionally on 428 or 401/loggedOut
-      if (
-        reason === DisconnectReason.loggedOut ||
-        reason === 401 ||
-        reason === 428
-      ) {
-        console.log(
-          `Session invalid, corrupted, or out of sync (${reason}). Clearing remnants for fresh login...`
-        );
-        loggedIn = false;
-        lastQR = null;
-        lastQrDataUrl = null;
-        lastQrTimestamp = 0;
-
+      if (_restored && (reason === DisconnectReason.loggedOut || reason === 401 || reason === 428)) {
+        console.log(`Corrupted session detected (${reason}). Clearing remnants from MongoDB...`);
         if (fs.existsSync(authDir))
           await fs.promises.rm(authDir, { recursive: true, force: true });
         await sessionCollection.deleteMany({});
         await stagingsessionCollection.deleteMany({});
+        console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
+        return;
+      }
 
-        console.log("Restarting bot to serve login page...");
-        initialConnect = true;
-        await startBot();
-      } else if (
+      if (!_restored && !isRegistered) {
+        if (!qrLogPrinted) {
+          console.log(`No active session found. Please visit ${SITE_URL} to log in.`);
+          qrLogPrinted = true;
+        }
+        return;ogin
+      }
+
+      if (
         reason === 440 ||
         reason === 500 ||
         reason === 503 ||
@@ -403,9 +400,7 @@ async function startBot() {
           }, 5000);
         }
       } else {
-        console.log(
-          `Connection closed due to: ${reason}, restart not required !`
-        );
+        console.log(`Connection closed due to: ${reason}, restart not required !`);
       }
     } else if (connection === "open") {
       qrLogPrinted = false;
