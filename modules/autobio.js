@@ -53,13 +53,13 @@ async function runQuoteUpdate() {
 		let quote = "";
 		let attempts = 0;
 
-		while (!quote || quote.length > 139 || quote === lastQuote) {
+		while (!quote || quote.length > 50 || quote === lastQuote) {
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 5000);
 
 			try {
 				const res = await fetch("https://dummyjson.com/quotes/random", {
-				    signal: controller.signal,
+					signal: controller.signal,
 				});
 				const data = await res.json();
 				quote = data.quote;
