@@ -359,75 +359,46 @@ async function startBot() {
 		}
 
 		if (connection === "close") {
-			loggedIn = false;
-			qrLogPrinted = false;
-			commandsLoaded = false;
-			clearTimeout(globalThis.autodpInterval);
-			clearTimeout(globalThis.autobioInterval);
-			clearTimeout(globalThis.autonameInterval);
-			globalThis.autodpInterval = null;
-			globalThis.autobioInterval = null;
-			globalThis.autonameInterval = null;
-			globalThis.autodpRunning = false;
-			globalThis.autobioRunning = false;
-			globalThis.autonameRunning = false;
-			autoDPStarted = false;
-			autoBioStarted = false;
-			autoNameStarted = false;
-
-			const reason = lastDisconnect?.error?.output?.statusCode;
-			const isRegistered = Boolean(
-				state?.creds?.registered || state?.creds?.me,
-			);
-
-			if (reason === DisconnectReason.loggedOut || reason === 401) {
-				console.log(
-					`Logged out or unauthorized (${reason}). Clearing session...`,
-				);
-				if (fs.existsSync(authDir))
-					await fs.promises.rm(authDir, { recursive: true, force: true });
-				await sessionCollection.deleteMany({});
-				await stagingsessionCollection.deleteMany({});
-				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
-				return;
-			}
-
-			if (!globalThis.reconnecting) {
-				globalThis.reconnecting = true;
-				if (!_restored && !isRegistered && !qrLogPrinted) {
-					console.log(
-						`No active session found. Please visit ${SITE_URL} to log in.`,
-					);
-					qrLogPrinted = true;
-				}
-				setTimeout(async () => {
-					globalThis.reconnecting = false;
-					await startBot();
-				}, 5000);
-			}
-
-			if (
-				reason === 440 ||
-				reason === 500 ||
-				reason === 503 ||
-				reason === DisconnectReason.timedOut ||
-				reason === DisconnectReason.restartRequired
-			) {
-				console.log(
-					`Connection closed due to: ${reason}, Retrying connection...`,
-				);
-				if (!globalThis.reconnecting) {
-					globalThis.reconnecting = true;
-					setTimeout(async () => {
-						globalThis.reconnecting = false;
-						await startBot();
-					}, 5000);
-				}
-			} else {
-				console.log(
-					`Connection closed due to: ${reason}, restart not required !`,
-				);
-			}
+	      loggedIn = false;
+	      qrLogPrinted = false;
+	      commandsLoaded = false;
+	      clearTimeout(globalThis.autodpInterval);
+	      clearTimeout(globalThis.autobioInterval);
+	      clearTimeout(globalThis.autonameInterval);
+	      globalThis.autodpInterval = null;
+	      globalThis.autobioInterval = null;
+	      globalThis.autonameInterval = null;
+	      globalThis.autodpRunning = false;
+	      globalThis.autobioRunning = false;
+	      globalThis.autonameRunning = false;
+	      autoDPStarted = false;
+	      autoBioStarted = false;
+	      autoNameStarted = false;
+	
+	      const reason = lastDisconnect?.error?.output?.statusCode;
+	      const isRegistered = Boolean(state?.creds?.registered || state?.creds?.me);
+	
+	      if (reason === DisconnectReason.loggedOut || reason === 401) {
+	        console.log(`Logged out or unauthorized (${reason}). Clearing session...`);
+	        if (fs.existsSync(authDir))
+	          await fs.promises.rm(authDir, { recursive: true, force: true });
+	        await sessionCollection.deleteMany({});
+	        await stagingsessionCollection.deleteMany({});
+	        console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
+	        return;
+	      }
+				
+	      if (isRegistered && !globalThis.reconnecting) {
+	        globalThis.reconnecting = true;
+	        console.log(`Connection closed (${reason}). Retrying connection...`);
+	        setTimeout(async () => {
+	          globalThis.reconnecting = false;
+	          await startBot();
+	        }, 5000);
+	      } else if (!isRegistered && !qrLogPrinted) {
+	        console.log(`No active session found. Waiting for QR scan at ${SITE_URL}...`);
+	        qrLogPrinted = true;
+	      }
 		} else if (connection === "open") {
 			qrLogPrinted = false;
 			loggedIn = true;
