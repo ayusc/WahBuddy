@@ -295,6 +295,7 @@ async function startBot() {
 		auth: state,
 		browser: Browsers.windows("Desktop"),
 		syncFullHistory: true,
+		shouldSyncHistoryMessage: () => true,
 		getMessage,
 		generateHighQualityLinkPreview: true,
 		logger: pino({ level: "warn" }),
