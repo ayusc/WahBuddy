@@ -75,12 +75,19 @@ Rules:
 
 		const data = await res.json();
 		let text = data.choices[0]?.message?.content || "";
-		text = text.replace(/```[a-z]*/gi, "").replace(/```/g, "").trim();
+		text = text
+			.replace(/```[a-z]*/gi, "")
+			.replace(/```/g, "")
+			.trim();
 
 		const parts = text.split("|");
 		if (parts.length >= 2) {
 			const emoji = parts[0].trim();
-			let quote = parts.slice(1).join("|").trim().replace(/^["']|["']$/g, "");
+			const quote = parts
+				.slice(1)
+				.join("|")
+				.trim()
+				.replace(/^["']|["']$/g, "");
 
 			if (quote.length > 0 && quote.length <= 50 && emoji) {
 				lastQuote = quote;

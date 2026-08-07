@@ -452,9 +452,7 @@ async function startBot() {
 			console.log("Saving session to MongoDB...");
 			saveAuthStateToMongo()
 				.then(() => console.log("Session saved to MongoDB."))
-				.catch((err) =>
-					console.error("Failed to save session to Mongo:", err),
-				);
+				.catch((err) => console.error("Failed to save session to Mongo:", err));
 		}
 	});
 
