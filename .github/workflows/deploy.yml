@@ -30,8 +30,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Trigger Koyeb Redeploy
+      - name: Setup Koyeb CLI
         uses: koyeb-community/koyeb-actions@v2
         with:
           api_token: "${{ secrets.KOYEB_API_TOKEN }}"
-          docker: "ghcr.io/${{ github.repository }}:latest"
+
+      - name: Redeploy Koyeb Service
+        run: |
+          koyeb service redeploy ${{ secrets.KOYEB_APP_NAME }}/${{ secrets.KOYEB_SERVICE_NAME }}
