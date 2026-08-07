@@ -21,7 +21,7 @@ dotenv.config();
 const _TIME_ZONE = process.env.TIME_ZONE || "Asia/Kolkata";
 const AUTO_BIO_INTERVAL =
 	parseInt(process.env.AUTO_BIO_INTERVAL_MS, 10) || 60000;
-const openrouter_key = process.env.OPENROUTER_API_KEY;
+const groq_key = process.env.GROQ_API_KEY;
 let lastQuote = "";
 let nextBio = null;
 let isFetching = false;
@@ -58,14 +58,14 @@ Rules:
 3. Pick an emoji that directly fits the tone/vibe of the quote.
 4. Respond STRICTLY in this format with a pipe separator and NOTHING ELSE: EMOJI|QUOTE`;
 
-		const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+		const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${openrouter_key}`,
+				Authorization: `Bearer ${groq_key}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				model: "openrouter/free",
+				model: "llama-3.1-8b-instant",
 				messages: [{ role: "user", content: prompt }],
 				temperature: 1.1,
 			}),
@@ -89,7 +89,7 @@ Rules:
 		}
 		return null;
 	} catch (error) {
-		console.error("Error fetching quote from OpenRouter:", error.message);
+		console.error("Error fetching quote from Groq:", error.message);
 		return null;
 	}
 }
