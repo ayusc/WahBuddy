@@ -29,7 +29,7 @@ async function getYT() {
 
 export default {
 	name: [".song"],
-	description: "Searches and sends a song from YouTube using YouTube.js",
+	description: "Searches and sends a song from YouTube",
 	usage: ".song <song name>",
 
 	async execute(msg, _args, sock) {
@@ -90,7 +90,6 @@ export default {
 				}
 			}
 
-			// Extract audio via Cobalt API to avoid Koyeb datacenter IP bans
 			const cobaltRes = await fetch("https://api.cobalt.tools/", {
 				method: "POST",
 				headers: {
