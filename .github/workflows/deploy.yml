@@ -27,10 +27,10 @@ jobs:
           push: true
           tags: ghcr.io/ayusc/wahbuddy:latest
           provenance: false
-          sboms: false
+          sbom: false
           cache-from: type=registry,ref=ghcr.io/ayusc/wahbuddy:buildcache
           cache-to: type=registry,ref=ghcr.io/ayusc/wahbuddy:buildcache,mode=max
-
+          
       - name: Setup Koyeb CLI
         uses: koyeb-community/koyeb-actions@v2
         with:
