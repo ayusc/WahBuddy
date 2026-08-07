@@ -78,7 +78,8 @@ export default {
 			);
 		}
 
-		const buffer = await res.buffer();
+		const arrayBuffer = await res.arrayBuffer();
+		const buffer = Buffer.from(arrayBuffer);
 
 		await sock.sendMessage(jid, { image: buffer }, { quoted: msg });
 	},
