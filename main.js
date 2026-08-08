@@ -293,7 +293,7 @@ async function startBot() {
 	const sock = makeWASocket({
 		version,
 		auth: state,
-		browser: Browsers.windows("Desktop"),
+		browser: ['Windows', 'Desktop', '10.0.26100'],
 		syncFullHistory: true,
 		shouldSyncHistoryMessage: () => true,
 		getMessage,
