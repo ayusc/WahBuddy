@@ -29,6 +29,7 @@ import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
 import pino from "pino";
 import qrcode from "qrcode";
+import NodeCache from 'node-cache'
 import { initAuth, io, server } from "./auth.js";
 import { handleAfkMessages } from "./modules/afk.js";
 import { startAutoBio } from "./modules/autobio.js";
@@ -238,6 +239,10 @@ export function getAllCommands() {
 	return uniqueCommands;
 }
 
+const userDevicesCache = new NodeCache({ stdTTL: 0, useClones: false });
+const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
+const msgRetryCounterCache = new NodeCache();
+
 async function startBot() {
 	if (!globalThis.profileLimiter) {
 		globalThis.profileLimiter = new Bottleneck({
@@ -300,6 +305,9 @@ async function startBot() {
 		logger: pino({ level: "warn" }),
 		defaultQueryTimeoutMs: undefined,
 		markOnlineOnConnect: false,
+		userDevicesCache,
+		msgRetryCounterCache,
+		cachedGroupMetadata: async (jid) => groupCache.get(jid),
 	});
 
 	globalThis.sock = sock;
@@ -579,6 +587,22 @@ async function startBot() {
 				{ $set: update },
 				{ upsert: true },
 			);
+		}
+	});
+
+	sock.ev.on("groups.update", async (groups) => {
+		for (const group of groups) {
+			if (group.id) {
+				const metadata = await sock.groupMetadata(group.id).catch(() => null);
+				if (metadata) groupCache.set(group.id, metadata);
+			}
+		}
+	});
+
+	sock.ev.on("group-participants.update", async (event) => {
+		if (event.id) {
+			const metadata = await sock.groupMetadata(event.id).catch(() => null);
+			if (metadata) groupCache.set(event.id, metadata);
 		}
 	});
 }
