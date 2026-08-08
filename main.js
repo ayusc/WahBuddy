@@ -298,7 +298,7 @@ async function startBot() {
 	const sock = makeWASocket({
 		version,
 		auth: state,
-		browser: Browsers.windows("Desktop"),
+		browser: Browsers.macOS("Desktop"),
 		syncFullHistory: true,
 		getMessage,
 		generateHighQualityLinkPreview: true,
