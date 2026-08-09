@@ -397,7 +397,13 @@ async function startBot() {
 				await sessionCollection.deleteMany({});
 				await stagingsessionCollection.deleteMany({});
 
-				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
+				console.log(`Session cleared. Restarting bot...`);
+
+				sock.ev.removeAllListeners();
+				setTimeout(async () => {
+				    await startBot();
+				}, 2000);
+				
 				return;
 			}
 
