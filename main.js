@@ -239,8 +239,8 @@ export function getAllCommands() {
 	return uniqueCommands;
 }
 
-const userDevicesCache = new NodeCache({ stdTTL: 0, useClones: false });
-const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
+const userDevicesCache = new NodeCache();
+const groupCache = new NodeCache({ stdTTL: 5 * 60 });
 const msgRetryCounterCache = new NodeCache();
 
 async function startBot() {
@@ -303,7 +303,11 @@ async function startBot() {
 		getMessage,
 		generateHighQualityLinkPreview: true,
 		logger: pino({ level: "debug" }),
-		defaultQueryTimeoutMs: undefined,
+		defaultQueryTimeoutMs: 60000,
+		connectTimeoutMs: 60000,
+    	keepAliveIntervalMs: 20000,
+    	qrTimeout: 60000,
+    	retryRequestDelayMs: 2500,
 		markOnlineOnConnect: false,
 		userDevicesCache,
 		msgRetryCounterCache,
