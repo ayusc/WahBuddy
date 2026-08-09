@@ -305,9 +305,9 @@ async function startBot() {
 		logger: pino({ level: "debug" }),
 		defaultQueryTimeoutMs: 60000,
 		markOnlineOnConnect: false,
-		//userDevicesCache,
-		//msgRetryCounterCache,
-		//cachedGroupMetadata: async (jid) => groupCache.get(jid),
+		userDevicesCache,
+		msgRetryCounterCache,
+		cachedGroupMetadata: async (jid) => groupCache.get(jid),
 	});
 
 	globalThis.sock = sock;
@@ -376,9 +376,7 @@ async function startBot() {
 
 			const reason = lastDisconnect?.error?.output?.statusCode;
 			const isRegistered = Boolean(
-				state?.creds?.registered === true &&
-					typeof state?.creds?.me?.id === "string" &&
-					state.creds.me.id.length > 0,
+				state?.creds?.registered || state?.creds?.me,
 			);
 
 			if (
