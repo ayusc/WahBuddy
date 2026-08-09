@@ -376,23 +376,27 @@ async function startBot() {
 
 			const reason = lastDisconnect?.error?.output?.statusCode;
 			const isRegistered = Boolean(
-				state?.creds?.registered || state?.creds?.me,
+			    state?.creds?.registered === true &&
+			    typeof state?.creds?.me?.id === 'string' &&
+			    state.creds.me.id.length > 0
 			);
 
 			if (
-				reason === DisconnectReason.loggedOut ||
-				reason === 401 ||
-				(reason === 428 && _restored && !isRegistered)
+			    reason === DisconnectReason.loggedOut ||
+			    reason === DisconnectReason.badSession ||
+			    reason === 401 ||
+			    (reason === 428 && !isRegistered)
 			) {
-				console.log(
-					`Logged out or unauthorized (${reason}). Clearing session...`,
-				);
-				if (fs.existsSync(authDir))
-					await fs.promises.rm(authDir, { recursive: true, force: true });
-				await sessionCollection.deleteMany({});
-				await stagingsessionCollection.deleteMany({});
-				console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
-				return;
+				console.log(`Logged out or unauthorized (${reason}). Clearing session...`);
+				
+			    if (fs.existsSync(authDir)) {
+			        await fs.promises.rm(authDir, { recursive: true, force: true });
+			    }
+			    await sessionCollection.deleteMany({});
+			    await stagingsessionCollection.deleteMany({});
+			    
+			    console.log(`Session cleared. Please visit ${SITE_URL} to log in.`);
+			    return;
 			}
 
 			if (isRegistered && !globalThis.reconnecting) {
