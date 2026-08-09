@@ -304,14 +304,10 @@ async function startBot() {
 		generateHighQualityLinkPreview: true,
 		logger: pino({ level: "debug" }),
 		defaultQueryTimeoutMs: 60000,
-		connectTimeoutMs: 60000,
-    	keepAliveIntervalMs: 20000,
-    	qrTimeout: 60000,
-    	retryRequestDelayMs: 2500,
 		markOnlineOnConnect: false,
-		userDevicesCache,
-		msgRetryCounterCache,
-		cachedGroupMetadata: async (jid) => groupCache.get(jid),
+		//userDevicesCache,
+		//msgRetryCounterCache,
+		//cachedGroupMetadata: async (jid) => groupCache.get(jid),
 	});
 
 	globalThis.sock = sock;
