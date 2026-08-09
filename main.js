@@ -302,7 +302,7 @@ async function startBot() {
 		syncFullHistory: true,
 		getMessage,
 		generateHighQualityLinkPreview: true,
-		logger: pino({ level: "warn" }),
+		logger: pino({ level: "debug" }),
 		defaultQueryTimeoutMs: undefined,
 		markOnlineOnConnect: false,
 		userDevicesCache,
