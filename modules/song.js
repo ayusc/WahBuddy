@@ -102,6 +102,7 @@ export default {
 				noWarnings: true,
 				preferFreeFormats: true,
 				geoBypass: true,
+				extractorArgs: "youtube:player_client=ios,android",
 			});
 
 			if (!fs.existsSync(audioPath)) {
