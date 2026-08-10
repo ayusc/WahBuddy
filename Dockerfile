@@ -1,7 +1,9 @@
 FROM node:20
 
-RUN apt-get install -y python3 
-
+RUN apt-get install -y \
+    python3 \
+    python-is-python3 
+    
 WORKDIR /wahbuddy
 
 COPY package.json ./
