@@ -14,7 +14,9 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import fetch from "node-fetch";
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 export default {
 	name: [".carbon"],
@@ -60,27 +62,40 @@ export default {
 			.map((line) => line.trimStart())
 			.join("\n");
 
-		const res = await fetch("https://carbonara.solopov.dev/api/cook", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				code,
-				backgroundColor: "#FFFFFF",
-				theme: "3024-night",
-			}),
-		});
+		const tempDir = path.resolve("./temp");
+		if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
-		if (!res.ok) {
+		const timeStamp = Date.now();
+		const codeFilePath = path.join(tempDir, `${timeStamp}.txt`);
+		const imagePath = path.join(tempDir, `${timeStamp}.png`);
+
+		try {
+			fs.writeFileSync(codeFilePath, code);
+
+			execSync(
+				`npx carbon-now "${codeFilePath}" --settings '{"theme": "one-light", "backgroundColor": "#FF0000", "dropShadow": true, "fontFamily": "Monoid", "prettify": true} --target-dir "${tempDir}" --target-file "${timeStamp}" -s`,
+			);
+
+			if (!fs.existsSync(imagePath)) {
+				throw new Error("Carbon image file was not created.");
+			}
+
+			const buffer = fs.readFileSync(imagePath);
+
+			await sock.sendMessage(jid, { image: buffer }, { quoted: msg });
+		} catch (err) {
+			console.error("Carbon command error:", err);
 			return await sock.sendMessage(
 				jid,
 				{ text: "Failed to generate image from code." },
 				{ quoted: msg },
 			);
+		} finally {
+			[codeFilePath, imagePath].forEach((file) => {
+				if (fs.existsSync(file)) {
+					fs.unlinkSync(file);
+				}
+			});
 		}
-
-		const arrayBuffer = await res.arrayBuffer();
-		const buffer = Buffer.from(arrayBuffer);
-
-		await sock.sendMessage(jid, { image: buffer }, { quoted: msg });
 	},
 };
