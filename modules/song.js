@@ -17,15 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import fetch from "node-fetch";
-import { Innertube } from "youtubei.js";
-
-let yt = null;
-async function getYT() {
-	if (!yt) {
-		yt = await Innertube.create();
-	}
-	return yt;
-}
+import ytDlp from "yt-dlp-exec";
 
 export default {
 	name: [".song"],
@@ -52,11 +44,18 @@ export default {
 				{ quoted: msg },
 			);
 
-			const youtube = await getYT();
-			const search = await youtube.search(query, { type: "video" });
-			const video = search.videos?.[0];
+			const metadata = await ytDlp(`ytsearch1:${query}`, {
+				dumpSingleJson: true,
+				noWarnings: true,
+				noCheckCertificates: true,
+				preferFreeFormats: true,
+				geoBypass: true,
+				addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+			});
 
-			if (!video) {
+			const video = metadata.entries?.[0] || metadata;
+
+			if (!video || !video.webpage_url) {
 				return await sock.sendMessage(
 					jid,
 					{ text: `No results found for "${query}".`, edit: progressMsg.key },
@@ -64,16 +63,16 @@ export default {
 				);
 			}
 
-			const songName = video.title?.text || video.title || "Unknown Song";
-			const songUrl = `https://www.youtube.com/watch?v=${video.id}`;
-			const thumbUrl = video.thumbnails?.[0]?.url || "";
-			const artistName = `Artist: ${video.author?.name || "Unknown"}`;
+			const songName = video.title || video.fulltitle || "Unknown Song";
+			const songUrl = video.webpage_url;
+			const thumbUrl = video.thumbnail || "";
+			const artistName = `Artist: ${video.uploader || video.channel || "Unknown"}`;
 
 			const tempDir = path.resolve("./temp");
 			if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
 			const timeStamp = Date.now();
-			audioPath = path.join(tempDir, `${timeStamp}.mp3`);
+			audioPath = path.join(tempDir, `${timeStamp}.m4a`);
 			thumbPath = path.join(tempDir, `${timeStamp}.jpg`);
 
 			await sock.sendMessage(
@@ -83,42 +82,30 @@ export default {
 			);
 
 			if (thumbUrl) {
-				const thumbRes = await fetch(thumbUrl);
-				if (thumbRes.ok) {
-					const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
-					fs.writeFileSync(thumbPath, thumbBuffer);
+				try {
+					const thumbRes = await fetch(thumbUrl);
+					if (thumbRes.ok) {
+						const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
+						fs.writeFileSync(thumbPath, thumbBuffer);
+					}
+				} catch (e) {
+					console.warn("Failed to fetch thumbnail preview:", e.message);
 				}
 			}
 
-			const cobaltRes = await fetch("https://api.cobalt.tools/", {
-				method: "POST",
-				headers: {
-					Accept: "application/json",
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					url: songUrl,
-					downloadMode: "audio",
-					audioFormat: "mp3",
-				}),
+			await ytDlp(songUrl, {
+				format: "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
+				output: audioPath,
+				addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+				noCheckCertificates: true,
+				noWarnings: true,
+				preferFreeFormats: true,
+				geoBypass: true,
 			});
 
-			if (!cobaltRes.ok) {
-				throw new Error(`Cobalt API error: HTTP ${cobaltRes.status}`);
+			if (!fs.existsSync(audioPath)) {
+				throw new Error("Audio file was not generated.");
 			}
-
-			const cobaltData = await cobaltRes.json();
-			if (!cobaltData.url) {
-				throw new Error("Could not retrieve audio download link.");
-			}
-
-			const audioRes = await fetch(cobaltData.url);
-			if (!audioRes.ok) {
-				throw new Error(`Audio download failed: HTTP ${audioRes.status}`);
-			}
-
-			const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
-			fs.writeFileSync(audioPath, audioBuffer);
 
 			await sock.sendMessage(
 				jid,
@@ -130,8 +117,8 @@ export default {
 				jid,
 				{
 					audio: { url: audioPath },
-					mimetype: "audio/mpeg",
-					fileName: `${songName}.mp3`,
+					mimetype: "audio/mp4",
+					fileName: `${songName}.m4a`,
 					ptt: false,
 					contextInfo: {
 						externalAdReply: {
@@ -146,7 +133,7 @@ export default {
 				{ quoted: msg },
 			);
 		} catch (err) {
-			console.error("Song command error:", err);
+			console.error("Song command error:", err.stderr || err.message || err);
 			await sock.sendMessage(
 				jid,
 				{
@@ -155,9 +142,9 @@ export default {
 				{ quoted: msg },
 			);
 		} finally {
-			[audioPath, thumbPath].forEach((f) => {
-				if (f && fs.existsSync(f)) {
-					fs.unlinkSync(f);
+			[audioPath, thumbPath].forEach((filePath) => {
+				if (filePath && fs.existsSync(filePath)) {
+					fs.unlinkSync(filePath);
 				}
 			});
 		}
