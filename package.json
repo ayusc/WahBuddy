@@ -25,7 +25,7 @@
 		"qrcode": "latest",
 		"socket.io": "^4.7.5",
 		"bottleneck": "^2.19.5",
-		"youtubei.js": "latest",
+		"yt-dlp-exec": "latest",
 		"carbon-now-cli": "^2.1.0"
 	},
 	"engines": {
