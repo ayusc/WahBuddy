@@ -4,9 +4,7 @@ WORKDIR /wahbuddy
 
 COPY package.json ./
 
-ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=true
-
-RUN npm install --omit=dev --legacy-peer-deps
+RUN npm install --omit=dev --legacy-peer-deps --ignore-scripts
 
 COPY . .
 
