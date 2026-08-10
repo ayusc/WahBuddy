@@ -51,6 +51,7 @@ export default {
 				preferFreeFormats: true,
 				geoBypass: true,
 				addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+				extractorArgs: "youtube:player_client=ios,android",
 			});
 
 			const video = metadata.entries?.[0] || metadata;
