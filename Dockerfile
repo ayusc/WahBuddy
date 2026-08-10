@@ -1,6 +1,6 @@
 FROM node:20
 
-RUN apk add --no-cache python3
+RUN apt-get install -y python3 
 
 WORKDIR /wahbuddy
 
