@@ -14,13 +14,11 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { execSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
+import fetch from "node-fetch";
 
 export default {
 	name: [".carbon"],
-	description: "Generate a code snippet image using carbon.now.sh",
+	description: "Generate a code snippet image using carbon.now.sh API",
 	usage:
 		"Type .carbon in reply to a code block to Generate a code snippet image using carbon.now.sh",
 
@@ -62,25 +60,26 @@ export default {
 			.map((line) => line.trimStart())
 			.join("\n");
 
-		const tempDir = path.resolve("./temp");
-		if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-
-		const timeStamp = Date.now();
-		const codeFilePath = path.join(tempDir, `${timeStamp}.txt`);
-		const imagePath = path.join(tempDir, `${timeStamp}.png`);
-
 		try {
-			fs.writeFileSync(codeFilePath, code);
+			const response = await fetch("https://carbonara.solopov.dev/api/cook", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					code: code,
+					backgroundColor: "#FF0000",
+					theme: "one-light",
+					dropShadow: true,
+					fontFamily: "Monoid",
+				}),
+			});
 
-			execSync(
-				`npx carbon-now "${codeFilePath}" --settings '{"theme": "one-light", "backgroundColor": "#FF0000", "dropShadow": true, "fontFamily": "Monoid", "prettify": true}' --target-dir "${tempDir}" --target-file "${timeStamp}" -s`,
-			);
-
-			if (!fs.existsSync(imagePath)) {
-				throw new Error("Carbon image file was not created.");
+			if (!response.ok) {
+				throw new Error(`Carbon API error: HTTP ${response.status}`);
 			}
 
-			const buffer = fs.readFileSync(imagePath);
+			const buffer = Buffer.from(await response.arrayBuffer());
 
 			await sock.sendMessage(jid, { image: buffer }, { quoted: msg });
 		} catch (err) {
@@ -90,12 +89,6 @@ export default {
 				{ text: "Failed to generate image from code." },
 				{ quoted: msg },
 			);
-		} finally {
-			[codeFilePath, imagePath].forEach((file) => {
-				if (fs.existsSync(file)) {
-					fs.unlinkSync(file);
-				}
-			});
 		}
 	},
 };
