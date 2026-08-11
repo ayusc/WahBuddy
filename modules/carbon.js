@@ -73,7 +73,7 @@ export default {
 			fs.writeFileSync(codeFilePath, code);
 
 			execSync(
-				`npx carbon-now "${codeFilePath}" --settings '{"theme": "one-light", "backgroundColor": "#FF0000", "dropShadow": true, "fontFamily": "Monoid", "prettify": true} --target-dir "${tempDir}" --target-file "${timeStamp}" -s`,
+				`npx carbon-now "${codeFilePath}" --settings '{"theme": "one-light", "backgroundColor": "#FF0000", "dropShadow": true, "fontFamily": "Monoid", "prettify": true}' --target-dir "${tempDir}" --target-file "${timeStamp}" -s`,
 			);
 
 			if (!fs.existsSync(imagePath)) {
