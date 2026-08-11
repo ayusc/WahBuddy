@@ -17,11 +17,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import fetch from "node-fetch";
-import ytDlp from "yt-dlp-exec";
 
 export default {
 	name: [".song"],
-	description: "Searches and sends a song from YouTube",
+	description: "Searches and sends a song",
 	usage: ".song <song name>",
 
 	async execute(msg, _args, sock) {
@@ -40,23 +39,21 @@ export default {
 		try {
 			const progressMsg = await sock.sendMessage(
 				jid,
-				{ text: `Searching for "${query}" on YouTube...` },
+				{ text: `Searching for "${query}" on Saavn...` },
 				{ quoted: msg },
 			);
 
-			const metadata = await ytDlp(`ytsearch1:${query}`, {
-				dumpSingleJson: true,
-				noWarnings: true,
-				noCheckCertificates: true,
-				preferFreeFormats: true,
-				geoBypass: true,
-				addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-				extractorArgs: "youtube:player_client=ios,android",
-			});
+			const searchRes = await fetch(
+				`https://rsjiprivate-api.vercel.app/api/search/songs?query=${encodeURIComponent(query)}`,
+			);
 
-			const video = metadata.entries?.[0] || metadata;
+			if (!searchRes.ok) {
+				throw new Error(`API error: HTTP ${searchRes.status}`);
+			}
 
-			if (!video || !video.webpage_url) {
+			const result = await searchRes.json();
+
+			if (!result.success || !result.data?.results?.[0]) {
 				return await sock.sendMessage(
 					jid,
 					{ text: `No results found for "${query}".`, edit: progressMsg.key },
@@ -64,16 +61,28 @@ export default {
 				);
 			}
 
-			const songName = video.title || video.fulltitle || "Unknown Song";
-			const songUrl = video.webpage_url;
-			const thumbUrl = video.thumbnail || "";
-			const artistName = `Artist: ${video.uploader || video.channel || "Unknown"}`;
+			const songDetails = result.data.results[0];
+			const songName = songDetails.name || "Unknown Song";
+			const downloadUrlList = songDetails.downloadUrl;
+			const downloadUrl =
+				downloadUrlList?.[downloadUrlList.length - 1]?.url ||
+				downloadUrlList?.[0]?.url;
+
+			if (!downloadUrl) {
+				throw new Error("Download URL not found in API response.");
+			}
+
+			const thumbUrl =
+				songDetails.image?.[1]?.url || songDetails.image?.[0]?.url || "";
+			const artistName = `Artist: ${
+				songDetails.primaryArtists || songDetails.artist || "Unknown"
+			}`;
 
 			const tempDir = path.resolve("./temp");
 			if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
 			const timeStamp = Date.now();
-			audioPath = path.join(tempDir, `${timeStamp}.m4a`);
+			audioPath = path.join(tempDir, `${timeStamp}.mp3`);
 			thumbPath = path.join(tempDir, `${timeStamp}.jpg`);
 
 			await sock.sendMessage(
@@ -94,20 +103,13 @@ export default {
 				}
 			}
 
-			await ytDlp(songUrl, {
-				format: "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
-				output: audioPath,
-				addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-				noCheckCertificates: true,
-				noWarnings: true,
-				preferFreeFormats: true,
-				geoBypass: true,
-				extractorArgs: "youtube:player_client=ios,android",
-			});
-
-			if (!fs.existsSync(audioPath)) {
-				throw new Error("Audio file was not generated.");
+			const audioRes = await fetch(downloadUrl);
+			if (!audioRes.ok) {
+				throw new Error(`Audio download failed: HTTP ${audioRes.status}`);
 			}
+
+			const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+			fs.writeFileSync(audioPath, audioBuffer);
 
 			await sock.sendMessage(
 				jid,
@@ -119,8 +121,8 @@ export default {
 				jid,
 				{
 					audio: { url: audioPath },
-					mimetype: "audio/mp4",
-					fileName: `${songName}.m4a`,
+					mimetype: "audio/mpeg",
+					fileName: `${songName}.mp3`,
 					ptt: false,
 					contextInfo: {
 						externalAdReply: {
@@ -135,7 +137,7 @@ export default {
 				{ quoted: msg },
 			);
 		} catch (err) {
-			console.error("Song command error:", err.stderr || err.message || err);
+			console.error("Song command error:", err);
 			await sock.sendMessage(
 				jid,
 				{
