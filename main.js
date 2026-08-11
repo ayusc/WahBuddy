@@ -21,6 +21,7 @@ import {
 	Browsers,
 	DisconnectReason,
 	fetchLatestBaileysVersion,
+	jidDecode,
 	makeWASocket,
 	useMultiFileAuthState,
 } from "baileys";
@@ -119,6 +120,8 @@ async function saveAuthStateToMongo(attempt = 1) {
 		const main = sessionCollection;
 
 		const files = fs.readdirSync(authDir);
+		const fileSet = new Set(files);
+
 		const operations = files.map(async (file) => {
 			const filePath = path.join(authDir, file);
 			const data = await fs.promises.readFile(filePath, "utf-8");
@@ -142,6 +145,15 @@ async function saveAuthStateToMongo(attempt = 1) {
 			}));
 			await main.bulkWrite(bulkOps);
 			await staging.deleteMany({});
+		}
+
+		const storedDocs = await main.find({}, { projection: { _id: 1 } }).toArray();
+		const docsToDelete = storedDocs
+			.filter((doc) => !fileSet.has(doc._id))
+			.map((doc) => doc._id);
+
+		if (docsToDelete.length > 0) {
+			await main.deleteMany({ _id: { $in: docsToDelete } });
 		}
 	} catch (err) {
 		if (attempt < 5) {
@@ -279,7 +291,7 @@ async function startBot() {
 		});
 	}
 
-	const _restored = await restoreAuthStateFromMongo();
+	await restoreAuthStateFromMongo();
 
 	const [{ version }, { state, saveCreds }] = await Promise.all([
 		fetchLatestBaileysVersion(),
@@ -295,6 +307,10 @@ async function startBot() {
 		return message?.message || null;
 	};
 
+	if (globalThis.sock?.ev) {
+		globalThis.sock.ev.removeAllListeners();
+	}
+
 	const sock = makeWASocket({
 		version,
 		auth: state,
@@ -302,8 +318,10 @@ async function startBot() {
 		syncFullHistory: true,
 		getMessage,
 		generateHighQualityLinkPreview: true,
-		logger: pino({ level: "debug" }),
+		logger: pino({ level: "warn" }),
 		defaultQueryTimeoutMs: 60000,
+		connectTimeoutMs: 60000,
+		keepAliveIntervalMs: 10000,
 		markOnlineOnConnect: false,
 		userDevicesCache,
 		msgRetryCounterCache,
@@ -312,6 +330,42 @@ async function startBot() {
 
 	globalThis.sock = sock;
 
+	sock.decodeJid = (jid) => {
+		if (!jid) return jid;
+		if (/:\d+@/gi.test(jid)) {
+			const decode = jidDecode(jid) || {};
+			return (
+				(decode.user && decode.server && `${decode.user}@${decode.server}`) ||
+				jid
+			);
+		}
+		return jid;
+	};
+
+	sock.getName = async (jid, withoutContact = false) => {
+		const id = sock.decodeJid(jid);
+
+		if (id.endsWith("@g.us")) {
+			let metadata = groupCache.get(id);
+			if (!metadata) {
+				metadata = await sock.groupMetadata(id).catch(() => null);
+				if (metadata) groupCache.set(id, metadata);
+			}
+			return metadata?.subject || id.replace("@g.us", "");
+		}
+
+		if (id === "0@s.whatsapp.net") return "WhatsApp";
+		if (id === sock.decodeJid(sock.user?.id)) return sock.user?.name || "Me";
+
+		const contact = await contactsCollection.findOne({ id });
+		return (
+			(withoutContact ? "" : contact?.name) ||
+			contact?.notify ||
+			contact?.verifiedName ||
+			id.replace("@s.whatsapp.net", "")
+		);
+	};
+	
 	sock.ev.on(
 		"creds.update",
 		debounce(async () => {
@@ -399,7 +453,7 @@ async function startBot() {
 
 				sock.ev.removeAllListeners();
 				setTimeout(async () => {
-				    await startBot();
+					await startBot();
 				}, 2000);
 				
 				return;
@@ -475,24 +529,28 @@ async function startBot() {
 	});
 
 	sock.ev.on("chats.upsert", async (chats) => {
-		for (const chat of chats) {
-			await chatsCollection.updateOne(
-				{ id: chat.id },
-				{ $set: chat },
-				{ upsert: true },
-			);
-		}
+		if (!chats?.length) return;
+		const bulkOps = chats.map((chat) => ({
+			updateOne: {
+				filter: { id: chat.id },
+				update: { $set: chat },
+				upsert: true,
+			},
+		}));
+		await chatsCollection.bulkWrite(bulkOps);
 	});
 
 	sock.ev.on("messages.upsert", async ({ messages, type }) => {
 		if (!messages?.length) return;
-		for (const msg of messages) {
-			await messagesCollection.updateOne(
-				{ "key.id": msg.key.id },
-				{ $set: msg },
-				{ upsert: true },
-			);
-		}
+
+		const bulkOps = messages.map((msg) => ({
+			updateOne: {
+				filter: { "key.id": msg.key.id },
+				update: { $set: msg },
+				upsert: true,
+			},
+		}));
+		await messagesCollection.bulkWrite(bulkOps);
 
 		if (type !== "notify") return;
 		const msg = messages[0];
@@ -528,51 +586,83 @@ async function startBot() {
 	});
 
 	sock.ev.on("contacts.upsert", async (contacts) => {
-		for (const contact of contacts) {
-			await contactsCollection.updateOne(
-				{ id: contact.id },
-				{ $set: contact },
-				{ upsert: true },
-			);
-		}
+		if (!contacts?.length) return;
+		const bulkOps = contacts.map((contact) => ({
+			updateOne: {
+				filter: { id: contact.id },
+				update: { $set: contact },
+				upsert: true,
+			},
+		}));
+		await contactsCollection.bulkWrite(bulkOps);
 	});
 
 	sock.ev.on("messaging-history.set", async ({ chats, contacts, messages }) => {
-		for (const chat of chats) {
-			await chatsCollection.updateOne(
-				{ id: chat.id },
-				{ $set: chat },
-				{ upsert: true },
+		const operations = [];
+
+		if (chats?.length) {
+			operations.push(
+				chatsCollection.bulkWrite(
+					chats.map((chat) => ({
+						updateOne: {
+							filter: { id: chat.id },
+							update: { $set: chat },
+							upsert: true,
+						},
+					})),
+				),
 			);
 		}
-		for (const contact of contacts) {
-			await contactsCollection.updateOne(
-				{ id: contact.id },
-				{ $set: contact },
-				{ upsert: true },
+
+		if (contacts?.length) {
+			operations.push(
+				contactsCollection.bulkWrite(
+					contacts.map((contact) => ({
+						updateOne: {
+							filter: { id: contact.id },
+							update: { $set: contact },
+							upsert: true,
+						},
+					})),
+				),
 			);
 		}
-		for (const message of messages) {
-			await messagesCollection.updateOne(
-				{ "key.id": message.key },
-				{ $set: message },
-				{ upsert: true },
+
+		if (messages?.length) {
+			operations.push(
+				messagesCollection.bulkWrite(
+					messages.map((message) => ({
+						updateOne: {
+							filter: { "key.id": message.key.id || message.key },
+							update: { $set: message },
+							upsert: true,
+						},
+					})),
+				),
 			);
 		}
-		console.log("Full sync done !");
+
+		await Promise.all(operations);
+		console.log("Full Sync Done !");
 	});
 
 	sock.ev.on("messages.update", async (updates) => {
-		for (const update of updates) {
-			if (!update.key?.id) continue;
-			await messagesCollection.updateOne(
-				{ "key.id": update.key.id },
-				{ $set: update },
-				{ upsert: true },
-			);
+		if (!updates?.length) return;
+		const bulkOps = updates
+			.filter((update) => update.key?.id)
+			.map((update) => ({
+				updateOne: {
+					filter: { "key.id": update.key.id },
+					update: { $set: update },
+					upsert: true,
+				},
+			}));
+
+		if (bulkOps.length) {
+			await messagesCollection.bulkWrite(bulkOps);
 		}
 	});
-
+	
 	sock.ev.on("messages.delete", async ({ keys }) => {
 		for (const key of keys) {
 			await messagesCollection.deleteOne({ "key.id": key.id });
