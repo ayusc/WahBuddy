@@ -24,6 +24,7 @@ import {
 	jidDecode,
 	makeWASocket,
 	useMultiFileAuthState,
+	makeCacheableSignalKeyStore,
 } from "baileys";
 import Bottleneck from "bottleneck";
 import dotenv from "dotenv";
@@ -310,15 +311,18 @@ async function startBot() {
 	if (globalThis.sock?.ev) {
 		globalThis.sock.ev.removeAllListeners();
 	}
-
+	
 	const sock = makeWASocket({
 		version,
-		auth: state,
+		logger: pino({ level: 'warn' }),
+		auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
+            },
 		browser: Browsers.macOS("Desktop"),
 		syncFullHistory: true,
 		getMessage,
 		generateHighQualityLinkPreview: true,
-		logger: pino({ level: "warn" }),
 		defaultQueryTimeoutMs: 60000,
 		connectTimeoutMs: 60000,
 		keepAliveIntervalMs: 10000,
