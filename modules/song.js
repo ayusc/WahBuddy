@@ -73,13 +73,16 @@ export default {
 			}
 
 			const thumbUrl =
-				songDetails.image?.[1]?.url || songDetails.image?.[0]?.url || "";
+				songDetails.image?.[2]?.url ||
+				songDetails.image?.[1]?.url ||
+				songDetails.image?.[0]?.url ||
+				"";
 			const artistName = `Artist: ${
 				songDetails.primaryArtists || songDetails.artist || "Unknown"
 			}`;
 
 			const tempDir = path.resolve("./temp");
-			if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+			if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
 			const timeStamp = Date.now();
 			audioPath = path.join(tempDir, `${timeStamp}.mp3`);
@@ -91,11 +94,12 @@ export default {
 				{ quoted: msg },
 			);
 
+			let thumbBuffer = null;
 			if (thumbUrl) {
 				try {
 					const thumbRes = await fetch(thumbUrl);
 					if (thumbRes.ok) {
-						const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
+						thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
 						fs.writeFileSync(thumbPath, thumbBuffer);
 					}
 				} catch (e) {
@@ -117,6 +121,21 @@ export default {
 				{ quoted: msg },
 			);
 
+			const contextInfo = {
+				externalAdReply: {
+					title: songName,
+					body: artistName,
+					mediaType: 1,
+					renderLargerThumbnail: true,
+				},
+			};
+
+			if (thumbBuffer) {
+				contextInfo.externalAdReply.thumbnail = thumbBuffer;
+			} else if (thumbUrl) {
+				contextInfo.externalAdReply.thumbnailUrl = thumbUrl;
+			}
+
 			await sock.sendMessage(
 				jid,
 				{
@@ -124,15 +143,7 @@ export default {
 					mimetype: "audio/mpeg",
 					fileName: `${songName}.mp3`,
 					ptt: false,
-					contextInfo: {
-						externalAdReply: {
-							title: songName,
-							body: artistName,
-							thumbnailUrl: thumbUrl,
-							mediaType: 1,
-							renderLargerThumbnail: true,
-						},
-					},
+					contextInfo,
 				},
 				{ quoted: msg },
 			);
