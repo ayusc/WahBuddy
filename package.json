@@ -7,7 +7,6 @@
 	},
 	"dependencies": {
 		"@hapi/boom": "latest",
-		"@vitalets/google-translate-api": "latest",
 		"axios": "^1.6.0",
 		"baileys": "github:ayusc/Baileys#master",
 		"canvas": "^2.11.2",
