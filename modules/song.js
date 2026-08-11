@@ -18,6 +18,15 @@ import fs from "node:fs";
 import path from "node:path";
 import fetch from "node-fetch";
 
+const decodeHtmlEntities = (str = "") =>
+	str
+		.replace(/&quot;/g, '"')
+		.replace(/&amp;/g, "&")
+		.replace(/&#039;/g, "'")
+		.replace(/&apos;/g, "'")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">");
+
 export default {
 	name: [".song"],
 	description: "Searches and sends a song",
@@ -62,7 +71,7 @@ export default {
 			}
 
 			const songDetails = result.data.results[0];
-			const songName = songDetails.name || "Unknown Song";
+			const songName = decodeHtmlEntities(songDetails.name || "Unknown Song");
 			const downloadUrlList = songDetails.downloadUrl;
 			const downloadUrl =
 				downloadUrlList?.[downloadUrlList.length - 1]?.url ||
@@ -77,9 +86,10 @@ export default {
 				songDetails.image?.[1]?.url ||
 				songDetails.image?.[0]?.url ||
 				"";
-			const artistName = `Artist: ${
-				songDetails.primaryArtists || songDetails.artist || "Unknown"
-			}`;
+
+			const rawArtist =
+				songDetails.primaryArtists || songDetails.artist || "Unknown";
+			const artistName = `Artist: ${decodeHtmlEntities(rawArtist)}`;
 
 			const tempDir = path.resolve("./temp");
 			if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -127,6 +137,7 @@ export default {
 					body: artistName,
 					mediaType: 1,
 					renderLargerThumbnail: true,
+					sourceUrl: downloadUrl,
 				},
 			};
 
