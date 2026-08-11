@@ -24,8 +24,7 @@
 		"base64url": "^3.0.1",
 		"qrcode": "latest",
 		"socket.io": "^4.7.5",
-		"bottleneck": "^2.19.5",
-		"carbon-now-cli": "^2.1.0"
+		"bottleneck": "^2.19.5"
 	},
 	"engines": {
 		"node": "20.x"
