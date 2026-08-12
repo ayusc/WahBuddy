@@ -14,18 +14,32 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { exec } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
 dotenv.config();
 
 const MERRIAM_API_KEY = process.env.MERRIAM_API_KEY;
-
-if (!MERRIAM_API_KEY) {
-	throw new Error("MERRIAM_API_KEY is not set");
-}
-
 const AUDIO_BASE_URL = "https://media.merriam-webster.com/soundc11";
+const execAsync = promisify(exec);
+
+function cleanMWText(text) {
+	if (!text) return "";
+	return text
+		.replace(/\{(?:d_link|a_link|i_link|et_link|sx|mat|ma)\|([^|}]+)(?:\|[^}]*)?\}/g, "$1")
+		.replace(/\{bc\}/g, "")
+		.replace(/\{(?:it|wi|phrase|qword|gloss|parahw)\}(.*?)\{\/(?:it|wi|phrase|qword|gloss|parahw)\}/g, "_$1_")
+		.replace(/\{b\}(.*?)\{\/b\}/g, "*$1*")
+		.replace(/\{sc\}(.*?)\{\/sc\}/g, "$1")
+		.replace(/\{[^}]+\}/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
 
 function getWordQuery(msg, _args) {
 	let word = _args.join(" ").trim();
@@ -42,16 +56,46 @@ function getWordQuery(msg, _args) {
 	return word;
 }
 
+async function convertWavToOpus(wavBuffer) {
+	const tempDir = os.tmpdir();
+	const inputPath = path.join(tempDir, `input_${Date.now()}.wav`);
+	const outputPath = path.join(tempDir, `output_${Date.now()}.opus`);
+
+	try {
+		await fs.promises.writeFile(inputPath, wavBuffer);
+		await execAsync(`ffmpeg -i "${inputPath}" -c:a libopus -b:a 32k "${outputPath}"`);
+		const opusBuffer = await fs.promises.readFile(outputPath);
+
+		await Promise.all([
+			fs.promises.unlink(inputPath).catch(() => {}),
+			fs.promises.unlink(outputPath).catch(() => {}),
+		]);
+
+		return opusBuffer;
+	} catch (err) {
+		// Fallback to original WAV buffer if ffmpeg fails/missing
+		return wavBuffer;
+	}
+}
+
 export default [
 	{
 		name: ".def",
-		description: "Get definition, examples, and matching words",
+		description: "Get definition, examples, and synonyms",
 		usage: ".def <word>",
 
 		async execute(msg, _args, sock) {
 			const jid = msg.key.remoteJid;
-			const word = getWordQuery(msg, _args);
 
+			if (!MERRIAM_API_KEY) {
+				return await sock.sendMessage(
+					jid,
+					{ text: "Please set your Merriam-Webster API Key!" },
+					{ quoted: msg },
+				);
+			}
+
+			const word = getWordQuery(msg, _args);
 			if (!word) {
 				return await sock.sendMessage(
 					jid,
@@ -78,7 +122,7 @@ export default [
 					return await sock.sendMessage(
 						jid,
 						{
-							text: `No exact definition found for "${word}".\n\nMatching words:\n- ${data.slice(0, 8).join("\n- ")}`,
+							text: `No exact definition found for "${word}".\n\nDid you mean:\n- ${data.slice(0, 8).join("\n- ")}`,
 						},
 						{ quoted: msg },
 					);
@@ -91,7 +135,7 @@ export default [
 
 				if (entry.shortdef && entry.shortdef.length > 0) {
 					entry.shortdef.forEach((def, i) => {
-						text += `${i + 1}. ${def}\n`;
+						text += `${i + 1}. ${cleanMWText(def)}\n`;
 					});
 				} else {
 					text += "No definitions found.\n";
@@ -106,7 +150,9 @@ export default [
 								if (!item[1]?.dt) continue;
 								for (const dt of item[1].dt) {
 									if (dt[0] === "vis" && Array.isArray(dt[1])) {
-										dt[1].forEach((v) => v.t && examples.push(v.t));
+										dt[1].forEach((v) => {
+											if (v.t) examples.push(cleanMWText(v.t));
+										});
 									}
 								}
 							}
@@ -121,17 +167,26 @@ export default [
 					});
 				}
 
-				const matchingWords = data
-					.filter((e) => typeof e === "object" && e.meta?.id)
-					.map((e) => e.meta.id.replace(/:\d+$/, ""))
-					.filter(
-						(w, i, self) =>
-							self.indexOf(w) === i &&
-							w.toLowerCase() !== headword.toLowerCase(),
-					);
+				const synonyms = [];
+				data.forEach((e) => {
+					if (typeof e === "object" && e.meta?.syns) {
+						e.meta.syns.forEach((synGroup) => {
+							if (Array.isArray(synGroup)) {
+								synGroup.forEach((syn) => {
+									const synWord = typeof syn === "string" ? syn : syn.wd;
+									if (synWord) synonyms.push(cleanMWText(synWord));
+								});
+							}
+						});
+					}
+				});
 
-				if (matchingWords.length > 0) {
-					text += `\n*Matching Words:*\n- ${matchingWords.slice(0, 6).join("\n- ")}`;
+				const uniqueSynonyms = [...new Set(synonyms)].filter(
+					(s) => s.toLowerCase() !== headword.toLowerCase(),
+				);
+
+				if (uniqueSynonyms.length > 0) {
+					text += `\n*Synonyms:*\n- ${uniqueSynonyms.slice(0, 8).join("\n- ")}`;
 				}
 
 				await sock.sendMessage(jid, { text: text.trim() }, { quoted: msg });
@@ -147,13 +202,21 @@ export default [
 	},
 	{
 		name: ".pronounce",
-		description: "Send audio pronunciation clip",
+		description: "Send audio pronunciation clip as voice note",
 		usage: ".pronounce <word>",
 
 		async execute(msg, _args, sock) {
 			const jid = msg.key.remoteJid;
-			const word = getWordQuery(msg, _args);
 
+			if (!MERRIAM_API_KEY) {
+				return await sock.sendMessage(
+					jid,
+					{ text: "Please set your Merriam-Webster API Key!" },
+					{ quoted: msg },
+				);
+			}
+
+			const word = getWordQuery(msg, _args);
 			if (!word) {
 				return await sock.sendMessage(
 					jid,
@@ -205,19 +268,17 @@ export default [
 				const audioUrl = `${AUDIO_BASE_URL}/${subdir}/${audioFile}.wav`;
 
 				const audioRes = await fetch(audioUrl);
-				if (!audioRes.ok) {
-					throw new Error(`HTTP ${audioRes.status}`);
-				}
+				if (!audioRes.ok) throw new Error(`HTTP ${audioRes.status}`);
 
-				const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+				const wavBuffer = Buffer.from(await audioRes.arrayBuffer());
+				const audioBuffer = await convertWavToOpus(wavBuffer);
 
 				await sock.sendMessage(
 					jid,
 					{
 						audio: audioBuffer,
-						mimetype: "audio/wav",
-						fileName: `${word}.wav`,
-						ptt: false,
+						mimetype: "audio/ogg; codecs=opus",
+						ptt: true,
 					},
 					{ quoted: msg },
 				);
