@@ -37,6 +37,7 @@ function cleanMWText(text) {
 		.replace(/\{b\}(.*?)\{\/b\}/g, "*$1*")
 		.replace(/\{sc\}(.*?)\{\/sc\}/g, "$1")
 		.replace(/\{[^}]+\}/g, "")
+		.replace(/^[\u2026…\.\s]+|[\u2026…\.\s]+$/g, "")
 		.replace(/\s+/g, " ")
 		.trim();
 }
@@ -73,7 +74,6 @@ async function convertWavToOpus(wavBuffer) {
 
 		return opusBuffer;
 	} catch (err) {
-		// Fallback to original WAV buffer if ffmpeg fails/missing
 		return wavBuffer;
 	}
 }
@@ -133,32 +133,51 @@ export default [
 
 				let text = `*Definition of ${headword}:*\n\n`;
 
-				if (entry.shortdef && entry.shortdef.length > 0) {
-					entry.shortdef.forEach((def, i) => {
-						text += `${i + 1}. ${cleanMWText(def)}\n`;
+				const definitions = [];
+				data.forEach((e) => {
+					if (typeof e === "object" && Array.isArray(e.shortdef)) {
+						e.shortdef.forEach((def) => {
+							const cleaned = cleanMWText(def);
+							if (cleaned && !definitions.includes(cleaned)) {
+								definitions.push(cleaned);
+							}
+						});
+					}
+				});
+
+				if (definitions.length > 0) {
+					definitions.forEach((def, i) => {
+						text += `${i + 1}. ${def}\n`;
 					});
 				} else {
 					text += "No definitions found.\n";
 				}
 
 				const examples = [];
-				if (entry.def) {
-					for (const d of entry.def) {
-						if (!d.sseq) continue;
-						for (const s of d.sseq) {
-							for (const item of s) {
-								if (!item[1]?.dt) continue;
-								for (const dt of item[1].dt) {
-									if (dt[0] === "vis" && Array.isArray(dt[1])) {
-										dt[1].forEach((v) => {
-											if (v.t) examples.push(cleanMWText(v.t));
-										});
+				data.forEach((e) => {
+					if (typeof e === "object" && e.def) {
+						for (const d of e.def) {
+							if (!d.sseq) continue;
+							for (const s of d.sseq) {
+								for (const item of s) {
+									if (!item[1]?.dt) continue;
+									for (const dt of item[1].dt) {
+										if (dt[0] === "vis" && Array.isArray(dt[1])) {
+											dt[1].forEach((v) => {
+												if (v.t) {
+													const cleaned = cleanMWText(v.t);
+													if (cleaned && !examples.includes(cleaned)) {
+														examples.push(cleaned);
+													}
+												}
+											});
+										}
 									}
 								}
 							}
 						}
 					}
-				}
+				});
 
 				if (examples.length > 0) {
 					text += `\n*Examples:*\n`;
@@ -168,6 +187,8 @@ export default [
 				}
 
 				const synonyms = [];
+				const jsonStr = JSON.stringify(data);
+
 				data.forEach((e) => {
 					if (typeof e === "object" && e.meta?.syns) {
 						e.meta.syns.forEach((synGroup) => {
@@ -181,8 +202,21 @@ export default [
 					}
 				});
 
+				const sxRegex = /\{sx\|([^|]+)(?:\|[^}]*)?\}/g;
+				let match;
+				while ((match = sxRegex.exec(jsonStr)) !== null) {
+					if (match[1]) synonyms.push(cleanMWText(match[1]));
+				}
+
+				if (synonyms.length === 0) {
+					const dlinkRegex = /\{d_link\|([^|]+)(?:\|[^}]*)?\}/g;
+					while ((match = dlinkRegex.exec(jsonStr)) !== null) {
+						if (match[1]) synonyms.push(cleanMWText(match[1]).replace(/:\d+$/, ""));
+					}
+				}
+
 				const uniqueSynonyms = [...new Set(synonyms)].filter(
-					(s) => s.toLowerCase() !== headword.toLowerCase(),
+					(s) => s.toLowerCase() !== headword.toLowerCase() && s.length > 0,
 				);
 
 				if (uniqueSynonyms.length > 0) {
