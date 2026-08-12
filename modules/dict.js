@@ -220,7 +220,7 @@ export default [
 				);
 
 				if (uniqueSynonyms.length > 0) {
-					text += `\n*Synonyms:*\n- ${uniqueSynonyms.slice(0, 8).join("\n- ")}`;
+					text += `\n*Synonyms/Related Words:*\n- ${uniqueSynonyms.slice(0, 8).join("\n- ")}`;
 				}
 
 				await sock.sendMessage(jid, { text: text.trim() }, { quoted: msg });
