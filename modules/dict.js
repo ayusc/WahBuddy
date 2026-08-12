@@ -134,7 +134,7 @@ export default [
 				let text = `*Definition of ${headword}:*\n\n`;
 
 				const definitions = [];
-				data.forEach((e) => {
+				[...data].reverse().forEach((e) => {
 					if (typeof e === "object" && Array.isArray(e.shortdef)) {
 						e.shortdef.forEach((def) => {
 							const cleaned = cleanMWText(def);
