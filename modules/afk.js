@@ -189,11 +189,11 @@ export async function handleAfkMessages(msg, sock) {
 	}
 
 	if (shouldRespond) {
-		let afkText = `*Hi there, this is a userbot !*\n\nMy master is AFK now.\n\n`;
+		let afkText = `*Hi there, this is a userbot 👋*\n\nThe person you are trying to reach is AFK now !\n\n`;
 		if (reason) {
-			afkText += `He gave me this reason: ${reason}\n\n`;
+			afkText += `Reason for AFK: ${reason}\n\n`;
 		}
-		afkText += `I last saw him: ${timeString}`;
+		afkText += `AFK since: ${timeString}`;
 
 		await sock.sendMessage(
 			msg.key.remoteJid,
