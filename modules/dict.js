@@ -21,6 +21,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import ffmpegPath from "ffmpeg-static";
 
 dotenv.config();
 
@@ -60,21 +61,23 @@ function getWordQuery(msg, _args) {
 async function convertWavToOpus(wavBuffer) {
 	const tempDir = os.tmpdir();
 	const inputPath = path.join(tempDir, `input_${Date.now()}.wav`);
-	const outputPath = path.join(tempDir, `output_${Date.now()}.opus`);
+	const outputPath = path.join(tempDir, `output_${Date.now()}.ogg`);
 
 	try {
 		await fs.promises.writeFile(inputPath, wavBuffer);
-		await execAsync(`ffmpeg -i "${inputPath}" -c:a libopus -b:a 32k "${outputPath}"`);
+		await execAsync(
+			`"${ffmpegPath}" -y -i "${inputPath}" -c:a libopus -ac 1 -ar 48000 -b:a 32k "${outputPath}"`,
+		);
 		const opusBuffer = await fs.promises.readFile(outputPath);
-
 		await Promise.all([
 			fs.promises.unlink(inputPath).catch(() => {}),
 			fs.promises.unlink(outputPath).catch(() => {}),
 		]);
-
 		return opusBuffer;
 	} catch (err) {
-		return wavBuffer;
+		console.error("Audio conversion failed:", err);
+		await fs.promises.unlink(inputPath).catch(() => {});
+		return null;
 	}
 }
 
@@ -306,7 +309,15 @@ export default [
 
 				const wavBuffer = Buffer.from(await audioRes.arrayBuffer());
 				const audioBuffer = await convertWavToOpus(wavBuffer);
-
+				
+				if (!audioBuffer) {
+					return await sock.sendMessage(
+						jid,
+						{ text: "Failed to convert pronunciation audio into a voice note." },
+						{ quoted: msg },
+					);
+				}
+				
 				await sock.sendMessage(
 					jid,
 					{
@@ -314,13 +325,6 @@ export default [
 						mimetype: "audio/ogg; codecs=opus",
 						ptt: true,
 					},
-					{ quoted: msg },
-				);
-			} catch (err) {
-				console.error("Pronounce command error:", err);
-				await sock.sendMessage(
-					jid,
-					{ text: "Failed to fetch pronunciation audio." },
 					{ quoted: msg },
 				);
 			}
