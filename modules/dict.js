@@ -327,6 +327,13 @@ export default [
 					},
 					{ quoted: msg },
 				);
+			} catch (err) {
+				console.error("Pronounce command error:", err);
+				await sock.sendMessage(
+					jid,
+					{ text: `Failed to get pronunciation: ${err.message}` },
+					{ quoted: msg },
+				);
 			}
 		},
 	},
