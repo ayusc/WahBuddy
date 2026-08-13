@@ -24,6 +24,7 @@
 		"qrcode": "latest",
 		"socket.io": "^4.7.5",
 		"bottleneck": "^2.19.5"
+		"ffmpeg-static": "latest"
 	},
 	"engines": {
 		"node": "20.x"
