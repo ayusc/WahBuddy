@@ -207,14 +207,18 @@ export default [
 
 				const sxRegex = /\{sx\|([^|]+)(?:\|[^}]*)?\}/g;
 				let match;
-				while ((match = sxRegex.exec(jsonStr)) !== null) {
+				match = sxRegex.exec(jsonStr);
+				while (match !== null) {
 					if (match[1]) synonyms.push(cleanMWText(match[1]));
+					match = sxRegex.exec(jsonStr);
 				}
 
 				if (synonyms.length === 0) {
 					const dlinkRegex = /\{d_link\|([^|]+)(?:\|[^}]*)?\}/g;
-					while ((match = dlinkRegex.exec(jsonStr)) !== null) {
+					match = dlinkRegex.exec(jsonStr);
+					while (match !== null) {
 						if (match[1]) synonyms.push(cleanMWText(match[1]).replace(/:\d+$/, ""));
+						match = dlinkRegex.exec(jsonStr);
 					}
 				}
 
