@@ -22,16 +22,12 @@ import mime from "mime-types";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "node_output.txt");
-
-// Create a CommonJS-compatible require function
 const require = createRequire(import.meta.url);
 
 function getContentFromMsg(message) {
 	if (!message) return "";
-
 	const msgType = Object.keys(message)[0];
 	const content = message[msgType];
-
 	if (!content) return "";
 
 	switch (msgType) {
@@ -64,7 +60,6 @@ export default {
 			code = rawContent.slice(6).trim();
 		}
 
-		// If no code and the message is a reply, try to extract code from the replied message
 		if (!code && msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
 			const quoted = msg.message.extendedTextMessage.contextInfo.quotedMessage;
 			code = getContentFromMsg(quoted)?.trim();
@@ -78,41 +73,37 @@ export default {
 			);
 		}
 
-		// Capture console output
 		let logOutput = "";
 		const originalLog = console.log;
-		console.log = (...args) => {
+		const originalError = console.error;
+		const originalWarn = console.warn;
+
+		const intercept = (...args) => {
 			logOutput += `${args
 				.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2)))
 				.join(" ")}\n`;
 		};
 
+		console.log = intercept;
+		console.error = intercept;
+		console.warn = intercept;
+
 		try {
-			// Provide `require` and CommonJS compatibility inside user code
 			const asyncFunction = new Function(
 				"msg",
 				"sock",
 				"require",
-				`
-        return (async () => {
-          let message = msg;
-          ${code}
-        })();
-      `,
+				"return (async () => {\nlet message = msg;\n" + code + "\n})();"
 			);
 
 			const result = await asyncFunction(msg, sock, require);
 
-			console.log = originalLog; // Restore console.log
-
 			let finalOutput = "";
-
-			if (logOutput) finalOutput += `console.log:\n${logOutput}`;
+			if (logOutput) finalOutput += `console:\n${logOutput}`;
 			if (result !== undefined)
 				finalOutput += `\nResult:\n${JSON.stringify(result, null, 2)}`;
 			finalOutput ||= "Code executed successfully (no return value)";
 
-			// Avoid sending large output directly
 			if (finalOutput.length > 2000) {
 				fs.writeFileSync(OUTPUT_FILE, finalOutput);
 				const media = {
@@ -141,12 +132,15 @@ export default {
 				);
 			}
 		} catch (error) {
-			console.log = originalLog;
 			await sock.sendMessage(
 				msg.key.remoteJid,
 				{ text: `Error:\n\`\`\`${error.message}\`\`\`` },
 				{ quoted: msg },
 			);
+		} finally {
+			console.log = originalLog;
+			console.error = originalError;
+			console.warn = originalWarn;
 		}
 	},
 };
