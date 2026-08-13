@@ -74,29 +74,29 @@ export default {
 		}
 
 		let logOutput = "";
-		const originalLog = console.log;
-		const originalError = console.error;
-		const originalWarn = console.warn;
-
 		const intercept = (...args) => {
 			logOutput += `${args
 				.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2)))
 				.join(" ")}\n`;
 		};
 
-		console.log = intercept;
-		console.error = intercept;
-		console.warn = intercept;
+		const scopedConsole = {
+			log: intercept,
+			error: intercept,
+			warn: intercept,
+			info: intercept,
+		};
 
 		try {
 			const asyncFunction = new Function(
 				"msg",
 				"sock",
 				"require",
-				"return (async () => {\nlet message = msg;\n" + code + "\n})();"
+				"console",
+				"return (async () => {\nlet message = msg;\n" + code + "\n})();",
 			);
 
-			const result = await asyncFunction(msg, sock, require);
+			const result = await asyncFunction(msg, sock, require, scopedConsole);
 
 			let finalOutput = "";
 			if (logOutput) finalOutput += `console:\n${logOutput}`;
@@ -137,10 +137,6 @@ export default {
 				{ text: `Error:\n\`\`\`${error.message}\`\`\`` },
 				{ quoted: msg },
 			);
-		} finally {
-			console.log = originalLog;
-			console.error = originalError;
-			console.warn = originalWarn;
 		}
 	},
 };
