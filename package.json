@@ -23,7 +23,7 @@
 		"base64url": "^3.0.1",
 		"qrcode": "latest",
 		"socket.io": "^4.7.5",
-		"bottleneck": "^2.19.5"
+		"bottleneck": "^2.19.5",
 		"ffmpeg-static": "latest"
 	},
 	"engines": {
