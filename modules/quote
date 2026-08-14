@@ -20,207 +20,333 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import axios from "axios";
-import { getContentType } from "baileys";
+import { getContentType, downloadContentFromMessage } from "baileys";
 import sharp from "sharp";
-import { contactsCollection } from "../main.js";
+import { contactsCollection, messagesCollection } from "../main.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const DEFAULT_FALLBACK_AVATAR = "https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png";
+
+function extractText(message) {
+	if (!message) return "";
+	const type = getContentType(message);
+
+	switch (type) {
+		case "conversation":
+			return message.conversation || "";
+		case "extendedTextMessage":
+			return message.extendedTextMessage?.text || "";
+		case "imageMessage":
+			return message.imageMessage?.caption || "";
+		case "videoMessage":
+			return message.videoMessage?.caption || "";
+		case "documentMessage":
+			return message.documentMessage?.caption || "";
+		default:
+			return "";
+	}
+}
+
+async function getMediaBase64(message, cropMedia) {
+	if (!message) return null;
+	const type = getContentType(message);
+
+	if (type !== "imageMessage" && type !== "stickerMessage") return null;
+
+	try {
+		const stream = await downloadContentFromMessage(
+			message[type],
+			type === "imageMessage" ? "image" : "sticker",
+		);
+		let buffer = Buffer.from([]);
+		for await (const chunk of stream) {
+			buffer = Buffer.concat([buffer, chunk]);
+		}
+
+		if (cropMedia && type === "imageMessage") {
+			buffer = await sharp(buffer)
+				.resize(512, 512, { fit: "cover" })
+				.jpeg()
+				.toBuffer();
+		} else {
+			buffer = await sharp(buffer).jpeg().toBuffer();
+		}
+
+		return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+	} catch (err) {
+		return null;
+	}
+}
+
+function normalizeJid(jid) {
+	return jid ? jid.replace(/:\d+@/, "@") : "";
+}
+
+async function getName(sock, id, useNumber) {
+	if (!id) return "Unknown";
+	const phone = id.split("@")[0].split(":")[0];
+	if (useNumber) return `+${phone}`;
+
+	const rawJid = id.includes("@s.whatsapp.net") ? id : `${phone}@s.whatsapp.net`;
+	const normalized = normalizeJid(rawJid);
+	const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null;
+
+	if (ownerJid && normalized === ownerJid) {
+		return sock.user?.name || `+${phone}`;
+	}
+
+	try {
+		const contact = await contactsCollection.findOne({ id: normalized });
+		return contact?.pushName || contact?.name || contact?.notify || `+${phone}`;
+	} catch {
+		return `+${phone}`;
+	}
+}
+
+async function getProfilePicUrl(sock, id) {
+	if (!id) return DEFAULT_FALLBACK_AVATAR;
+	try {
+		const url = await sock.profilePictureUrl(id, "image");
+		return url || DEFAULT_FALLBACK_AVATAR;
+	} catch (_err) {
+		return DEFAULT_FALLBACK_AVATAR;
+	}
+}
+
 export default {
-	name: ".quote",
-	description:
-		"Creates a quote sticker from a message and the next few (up to 5)",
+	name: [".quote", ".q"],
+	description: "Creates a quote sticker from the provided message(s)",
 	usage:
-		"Type .quote in reply to a msg to make a sticker out of it.\n" +
-		"Type .quote <1-5> in reply to a msg to quote the msg and next few msgs (upto 4)\n" +
-		"Type .quote noname in reply to a msg to make a quote using phone number instead of profile name\n" +
-		"Type .quote <1-5> noname in reply to a msg to quote the msg and next few msgs (upto 4) using phone numbers instead of profile names\n\n" +
-		"Note: The command will skip any other messages except text even in case the message is a reply to non-text messages.",
+		".q [count] [args]\n" +
+		"Count: 3 (down), -3 (up)\n" +
+		"Colors: red, blue, green, #hex\n" +
+		"Media: m (include), c (crop)\n" +
+		"Replies: r (show replies)\n" +
+		"Quality: s3.2 (scale)\n" +
+		"Names: noname",
 
 	async execute(msg, args, sock) {
 		const jid = msg.key.remoteJid;
-		const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-		const quotedType = quoted && getContentType(quoted);
+		const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+		const quotedMsgId = contextInfo?.stanzaId || null;
+		const quoted = contextInfo?.quotedMessage || null;
 
-		const quotedText = (() => {
-			if (quotedType === "conversation") return quoted.conversation;
-			if (quotedType === "extendedTextMessage")
-				return quoted.extendedTextMessage?.text;
-			if (quotedType === "textMessage") return quoted.textMessage?.text;
-			return null;
-		})();
-
-		if (!quotedText) {
+		if (!quotedMsgId || !quoted) {
 			return await sock.sendMessage(
 				jid,
-				{ text: "Please reply to a text message." },
+				{ text: "Please reply to a message to generate a quote." },
 				{ quoted: msg },
 			);
 		}
 
-		const useNumberAsName = args.includes("noname");
-		const countArg = args.find((arg) => /^[1-5]$/.test(arg));
-		const count = countArg ? Number(countArg) : 1;
+		let count = 1;
+		let isBackward = false;
+		let scale = 2;
+		let bgColor = "#ffffff";
+		let includeMedia = false;
+		let cropMedia = false;
+		let showReplies = false;
+		let useNumberAsName = false;
 
-		if (!quoted && count > 1) {
-			return await sock.sendMessage(
-				jid,
-				{
-					text: "Please reply to a message if you want to quote multiple messages.",
-				},
-				{ quoted: msg },
-			);
-		}
+		const colorMap = {
+			red: "#ff5733",
+			blue: "#3385ff",
+			green: "#4CAF50",
+			black: "#000000",
+			white: "#ffffff",
+			yellow: "#FFEB3B",
+			purple: "#cbafff",
+		};
 
-		if (count === 1) {
-			try {
-				const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
-				const senderId = contextInfo?.participant || msg.key.remoteJid;
+		args.forEach((arg) => {
+			const lower = arg.toLowerCase();
+			if (/^-?\d+$/.test(lower)) {
+				count = Math.abs(parseInt(lower, 10));
+				if (lower.startsWith("-")) isBackward = true;
+			} else if (/^s\d+(\.\d+)?$/.test(lower)) {
+				scale = Math.min(parseFloat(lower.replace("s", "")), 5);
+			} else if (lower === "m") {
+				includeMedia = true;
+			} else if (lower === "c") {
+				includeMedia = true;
+				cropMedia = true;
+			} else if (lower === "r") {
+				showReplies = true;
+			} else if (lower === "noname") {
+				useNumberAsName = true;
+			} else if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(lower)) {
+				bgColor = lower;
+			} else if (colorMap[lower]) {
+				bgColor = colorMap[lower];
+			}
+		});
+
+		count = Math.min(Math.max(count, 1), 30);
+
+		try {
+			let messagesList = [];
+
+			let dbMsg = null;
+			for (let attempt = 1; attempt <= 5; attempt++) {
+				dbMsg = await messagesCollection.findOne({
+					"key.id": quotedMsgId,
+					"key.remoteJid": jid,
+				});
+				if (dbMsg) break;
+				await new Promise((r) => setTimeout(r, 1000));
+			}
+
+			if (dbMsg) {
+				const query = { "key.remoteJid": jid };
+				if (isBackward) {
+					query.messageTimestamp = { $lte: dbMsg.messageTimestamp };
+				} else {
+					query.messageTimestamp = { $gte: dbMsg.messageTimestamp };
+				}
+
+				const rawMsgs = await messagesCollection
+					.find(query)
+					.sort({ messageTimestamp: isBackward ? -1 : 1 })
+					.limit(count)
+					.toArray();
+
+				if (isBackward) rawMsgs.reverse();
+
+				for (const m of rawMsgs) {
+					const text = extractText(m.message);
+					const hasMedia = ["imageMessage", "stickerMessage"].includes(getContentType(m.message));
+					if (text || (includeMedia && hasMedia)) {
+						messagesList.push(m);
+					}
+				}
+			}
+
+			if (messagesList.length === 0) {
+				const sender = contextInfo.participant || jid;
+				messagesList.push({
+					key: { participant: sender, remoteJid: jid, id: quotedMsgId },
+					message: quoted,
+				});
+			}
+
+			const apiMessages = [];
+			let prevSender = null;
+
+			for (let i = 0; i < messagesList.length; i++) {
+				const m = messagesList[i];
+				const senderId = m.key.participant || m.key.remoteJid || jid;
+				const normalizedSender = normalizeJid(senderId);
+				let text = extractText(m.message);
+
+				const msgType = getContentType(m.message);
+				if (!text && !includeMedia) {
+					if (msgType === "imageMessage") text = "Photo";
+					else if (msgType === "videoMessage") text = "Video";
+					else if (msgType === "stickerMessage") text = "Sticker";
+					else if (msgType === "audioMessage") text = "Audio";
+					else if (msgType === "documentMessage") text = "Document";
+					else text = "Message";
+				}
+
 				const contactName = await getName(sock, senderId, useNumberAsName);
-				const avatar = await getProfilePicUrl(sock, senderId);
+				const avatarUrl = await getProfilePicUrl(sock, senderId);
+
+				const showAvatar = prevSender !== normalizedSender;
+				prevSender = normalizedSender;
 
 				let replyMessage = null;
-				const quotedCtxInfo = quoted?.extendedTextMessage?.contextInfo;
 
-				if (quotedCtxInfo?.quotedMessage) {
-					const qMsg = quotedCtxInfo.quotedMessage;
-					const qTextType = getContentType(qMsg);
-					const qText =
-						qTextType === "conversation"
-							? qMsg.conversation
-							: qTextType === "extendedTextMessage"
-								? qMsg.extendedTextMessage?.text
-								: null;
+				if (showReplies && m.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+					const qCtx = m.message.extendedTextMessage.contextInfo;
+					const qMsg = qCtx.quotedMessage;
+					const qType = getContentType(qMsg);
+					let qText = extractText(qMsg);
 
-					const qSender = quotedCtxInfo.participant;
-					if (qText) {
+					if (!qText) {
+						if (qType === "imageMessage") qText = "Photo";
+						else if (qType === "videoMessage") qText = "Video";
+						else if (qType === "stickerMessage") qText = "Sticker";
+						else if (qType === "audioMessage") qText = "Audio";
+						else if (qType === "documentMessage") qText = "Document";
+						else qText = "Message";
+					}
+
+					const qSender = qCtx.participant;
+					if (qText && qSender) {
 						const qName = await getName(sock, qSender, useNumberAsName);
 						replyMessage = {
 							name: qName,
 							text: qText,
 							entities: [],
-							chatId: 123456789,
+							chatId: 10001,
 						};
 					}
 				}
 
-				const messages = [
-					{
-						entities: [],
-						avatar: true,
-						from: {
-							id: 1,
-							name: contactName,
-							photo: { url: avatar },
-						},
-						text: quotedText,
-						replyMessage,
+				const numericId = parseInt(senderId.replace(/\D/g, ""), 10) || 10001;
+				const msgObj = {
+					entities: [],
+					avatar: showAvatar,
+					from: {
+						id: numericId,
+						first_name: contactName,
+						last_name: "",
+						name: contactName,
+						photo: { url: avatarUrl },
 					},
-				];
+					text,
+					replyMessage,
+				};
 
-				return await sendQuoteSticker(messages, sock, jid, msg);
-			} catch (err) {
-				console.error("Quote generation error:", err);
-				await sock.sendMessage(
-					jid,
-					{ text: "Something went wrong while generating the quote." },
-					{ quoted: msg },
-				);
+				if (includeMedia) {
+					const base64Media = await getMediaBase64(m.message, cropMedia);
+					if (base64Media) {
+						msgObj.media = [{ url: base64Media }];
+					}
+				}
+
+				apiMessages.push(msgObj);
 			}
+
+			const quoteJson = {
+				type: "quote",
+				format: "png",
+				backgroundColor: bgColor,
+				width: 512,
+				height: 512,
+				scale: scale,
+				messages: apiMessages,
+			};
+
+			const res = await axios.post("https://quote.yuri.ly/generate", quoteJson, {
+				headers: { "Content-Type": "application/json" },
+				timeout: 15000,
+			});
+
+			const base64Image = res.data?.image || res.data?.result?.image;
+			if (!base64Image) {
+				throw new Error("API returned an empty payload.");
+			}
+
+			const imageBuffer = Buffer.from(base64Image, "base64");
+
+			const webpBuffer = await sharp(imageBuffer)
+				.resize(512, 512, {
+					fit: "contain",
+					background: { r: 0, g: 0, b: 0, alpha: 0 },
+				})
+				.webp({ quality: 100 })
+				.toBuffer();
+
+			await sock.sendMessage(jid, { sticker: webpBuffer }, { quoted: msg });
+		} catch (err) {
+			await sock.sendMessage(
+				jid,
+				{ text: "Failed to generate quote sticker. Please try again." },
+				{ quoted: msg },
+			);
 		}
 	},
 };
-
-async function sendQuoteSticker(messages, sock, jid, quotedMsg) {
-	const quoteJson = {
-		type: "quote",
-		format: "png",
-		backgroundColor: "#FFFFFF",
-		width: 512,
-		height: 512,
-		scale: 2,
-		messages,
-	};
-
-	try {
-		const res = await axios.post(
-			"https://bot.lyo.su/quote/generate",
-			quoteJson,
-			{
-				headers: { "Content-Type": "application/json" },
-			},
-		);
-
-		const buffer = Buffer.from(res.data.result.image, "base64");
-
-		const webpBuffer = await sharp(buffer)
-			.resize(512, 512, {
-				fit: "contain",
-				background: { r: 0, g: 0, b: 0, alpha: 0 },
-			})
-			.webp({ quality: 100 })
-			.toBuffer();
-
-		await sock.sendMessage(jid, { sticker: webpBuffer });
-	} catch (err) {
-		console.error("Quote generation error:", err);
-		await sock.sendMessage(
-			jid,
-			{ text: "Something went wrong while generating the quote." },
-			{ quoted: quotedMsg },
-		);
-	}
-}
-
-async function getProfilePicUrl(sock, id, retries = 5, delay = 300) {
-	const fallbackUrl =
-		"https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png";
-
-	for (let attempt = 1; attempt <= retries; attempt++) {
-		try {
-			const url = await sock.profilePictureUrl(id, "image");
-			if (url) return url;
-		} catch (_err) {
-			if (attempt === retries) {
-				console.warn(
-					`Failed to get profile pic for ${id} after ${retries} attempts.`,
-				);
-			} else {
-				await new Promise((resolve) => setTimeout(resolve, delay));
-			}
-		}
-	}
-	return fallbackUrl;
-}
-
-/**
- * Normalize JID by removing device suffix if present
- * e.g. "12345:33@s.whatsapp.net" → "12345@s.whatsapp.net"
- */
-function normalizeJid(jid) {
-	return jid.replace(/:\d+@/, "@");
-}
-
-async function getName(sock, id, useNumber) {
-	if (useNumber) {
-		return `+${id.split("@")[0]}`;
-	}
-
-	const rawJid = id.includes("@s.whatsapp.net") ? id : `${id}@s.whatsapp.net`;
-	const jid = normalizeJid(rawJid);
-	const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null;
-
-	if (ownerJid && jid === ownerJid) {
-		return sock.user?.name || `+${jid.split("@")[0]}`;
-	}
-
-	const contact = await contactsCollection.findOne({ id: jid });
-
-	return (
-		contact?.pushName ||
-		contact?.name ||
-		contact?.notify ||
-		`+${jid.split("@")[0]}`
-	);
-}
