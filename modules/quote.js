@@ -84,24 +84,35 @@ function normalizeJid(jid) {
 	return jid ? jid.replace(/:\d+@/, "@") : "";
 }
 
+function formatPhone(phone) {
+	if (!phone) return "";
+	if (phone.length > 10) {
+		const ccLen = phone.length - 10;
+		return `+${phone.slice(0, ccLen)} ${phone.slice(ccLen)}`;
+	}
+	return `+${phone}`;
+}
+
 async function getName(sock, id, useNumber) {
 	if (!id) return "Unknown";
 	const phone = id.split("@")[0].split(":")[0];
-	if (useNumber) return `+${phone}`;
+	const formattedPhone = formatPhone(phone);
+
+	if (useNumber) return formattedPhone;
 
 	const rawJid = id.includes("@s.whatsapp.net") ? id : `${phone}@s.whatsapp.net`;
 	const normalized = normalizeJid(rawJid);
 	const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null;
 
 	if (ownerJid && normalized === ownerJid) {
-		return sock.user?.name || `+${phone}`;
+		return sock.user?.name || formattedPhone;
 	}
 
 	try {
 		const contact = await contactsCollection.findOne({ id: normalized });
-		return contact?.pushName || contact?.name || contact?.notify || `+${phone}`;
+		return contact?.pushName || contact?.name || contact?.notify || formattedPhone;
 	} catch {
-		return `+${phone}`;
+		return formattedPhone;
 	}
 }
 
@@ -117,14 +128,13 @@ async function getProfilePicUrl(sock, id) {
 
 export default {
 	name: [".quote", ".q"],
-	description: "Creates a quote sticker from the provided message(s)",
+	description: "Creates a Telegram-style quote sticker",
 	usage:
 		".q [count] [args]\n" +
 		"Count: 3 (down), -3 (up)\n" +
 		"Colors: red, blue, green, #hex\n" +
 		"Media: m (include), c (crop)\n" +
 		"Replies: r (show replies)\n" +
-		"Quality: s3.2 (scale)\n" +
 		"Names: noname",
 
 	async execute(msg, args, sock) {
@@ -143,7 +153,6 @@ export default {
 
 		let count = 1;
 		let isBackward = false;
-		let scale = 2;
 		let bgColor = "#ffffff";
 		let includeMedia = false;
 		let cropMedia = false;
@@ -151,44 +160,58 @@ export default {
 		let useNumberAsName = false;
 
 		const colorMap = {
-			red: "#ff5733",
-			blue: "#3385ff",
+			red: "#F44336",
+			blue: "#2196F3",
 			green: "#4CAF50",
+			yellow: "#FFEB3B",
+			orange: "#FF9800",
+			purple: "#9C27B0",
+			pink: "#E91E63",
+			brown: "#795548",
+			gray: "#9E9E9E",
 			black: "#000000",
 			white: "#ffffff",
-			yellow: "#FFEB3B",
-			purple: "#cbafff",
 		};
 
-		args.forEach((arg) => {
+		const validFlags = ["m", "c", "r", "noname"];
+
+		for (const arg of args) {
 			const lower = arg.toLowerCase();
 			if (/^-?\d+$/.test(lower)) {
 				count = Math.abs(parseInt(lower, 10));
 				if (lower.startsWith("-")) isBackward = true;
-			} else if (/^s\d+(\.\d+)?$/.test(lower)) {
-				scale = Math.min(parseFloat(lower.replace("s", "")), 5);
-			} else if (lower === "m") {
-				includeMedia = true;
-			} else if (lower === "c") {
-				includeMedia = true;
-				cropMedia = true;
-			} else if (lower === "r") {
-				showReplies = true;
-			} else if (lower === "noname") {
-				useNumberAsName = true;
+			} else if (validFlags.includes(lower)) {
+				if (lower === "m") includeMedia = true;
+				if (lower === "c") {
+					includeMedia = true;
+					cropMedia = true;
+				}
+				if (lower === "r") showReplies = true;
+				if (lower === "noname") useNumberAsName = true;
 			} else if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(lower)) {
 				bgColor = lower;
 			} else if (colorMap[lower]) {
 				bgColor = colorMap[lower];
+			} else {
+				const colorList = Object.keys(colorMap)
+					.map((c) => `"${c}"`)
+					.join(", ");
+				return await sock.sendMessage(
+					jid,
+					{
+						text: `Sorry this colour option isn't available choose from ${colorList} or provide a valid hex code.`,
+					},
+					{ quoted: msg },
+				);
 			}
-		});
+		}
 
 		count = Math.min(Math.max(count, 1), 30);
 
 		try {
 			let messagesList = [];
-
 			let dbMsg = null;
+
 			for (let attempt = 1; attempt <= 5; attempt++) {
 				dbMsg = await messagesCollection.findOne({
 					"key.id": quotedMsgId,
@@ -216,7 +239,9 @@ export default {
 
 				for (const m of rawMsgs) {
 					const text = extractText(m.message);
-					const hasMedia = ["imageMessage", "stickerMessage"].includes(getContentType(m.message));
+					const hasMedia = ["imageMessage", "stickerMessage"].includes(
+						getContentType(m.message),
+					);
 					if (text || (includeMedia && hasMedia)) {
 						messagesList.push(m);
 					}
@@ -285,7 +310,7 @@ export default {
 					}
 				}
 
-				const numericId = parseInt(senderId.replace(/\D/g, ""), 10) || 10001;
+				const numericId = Number(senderId.replace(/\D/g, "").slice(-8)) || 10001;
 				const msgObj = {
 					entities: [],
 					avatar: showAvatar,
@@ -314,9 +339,7 @@ export default {
 				type: "quote",
 				format: "png",
 				backgroundColor: bgColor,
-				width: 512,
-				height: 512,
-				scale: scale,
+				scale: 3,
 				messages: apiMessages,
 			};
 
@@ -333,6 +356,7 @@ export default {
 			const imageBuffer = Buffer.from(base64Image, "base64");
 
 			const webpBuffer = await sharp(imageBuffer)
+				.trim()
 				.resize(512, 512, {
 					fit: "contain",
 					background: { r: 0, g: 0, b: 0, alpha: 0 },
