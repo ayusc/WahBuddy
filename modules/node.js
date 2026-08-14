@@ -26,24 +26,12 @@ const require = createRequire(import.meta.url);
 
 function getContentFromMsg(message) {
 	if (!message) return "";
-	const msgType = Object.keys(message)[0];
-	const content = message[msgType];
-	if (!content) return "";
-
-	switch (msgType) {
-		case "conversation":
-			return content;
-		case "extendedTextMessage":
-			return content.text;
-		case "imageMessage":
-		case "videoMessage":
-		case "documentMessage":
-		case "audioMessage":
-		case "stickerMessage":
-			return content.caption || "";
-		default:
-			return "";
-	}
+	if (message.conversation) return message.conversation;
+	if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
+	if (message.imageMessage?.caption) return message.imageMessage.caption;
+	if (message.videoMessage?.caption) return message.videoMessage.caption;
+	if (message.documentMessage?.caption) return message.documentMessage.caption;
+	return "";
 }
 
 export default {
