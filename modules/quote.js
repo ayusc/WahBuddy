@@ -273,10 +273,11 @@ export default {
 				if (colorSpec) {
 					bgColor = buildBackgroundColor(colorSpec);
 				} else {
+					const colorList = Array.from(CSS_COLOR_NAMES).join(", ");
 					return await sock.sendMessage(
 						jid,
 						{
-							text: `Sorry, this colour option isn't available. Please choose a valid CSS colour name, hex code, gradient (e.g. red/blue), or auto-gradient (e.g. //red).`,
+							text: `Sorry, this colour option isn't available. Please choose a valid CSS colour name, hex code, gradient (e.g. red/blue), or auto-gradient (e.g. //red).\n\nAvailable named colors:\n${colorList}`,
 						},
 						{ quoted: msg },
 					);
@@ -331,11 +332,13 @@ export default {
 				messagesList.push({
 					key: { participant: sender, remoteJid: jid, id: quotedMsgId, fromMe: contextInfo.participant === sock.user?.id },
 					message: quoted,
+					pushName: msg.pushName,
 				});
 			}
 
 			const apiMessages = [];
 			let prevSender = null;
+			const senderIdMap = new Map();
 
 			for (let i = 0; i < messagesList.length; i++) {
 				const m = messagesList[i];
@@ -401,7 +404,11 @@ export default {
 					}
 				}
 
-				const numericId = Number(senderId.replace(/\D/g, "").slice(-8)) || 10001;
+				if (!senderIdMap.has(normalizedSender)) {
+					senderIdMap.set(normalizedSender, senderIdMap.size + 1);
+				}
+				const numericId = senderIdMap.get(normalizedSender);
+
 				const msgObj = {
 					entities: [],
 					avatar: showAvatar,
@@ -446,16 +453,24 @@ export default {
 
 			const imageBuffer = Buffer.from(base64Image, "base64");
 
-			const webpBuffer = await sharp(imageBuffer)
-				.trim()
-				.resize(512, 512, {
+			const trimmedBuffer = await sharp(imageBuffer).trim().toBuffer();
+
+			const webpBuffer = await sharp(trimmedBuffer)
+				.resize(480, 480, {
 					fit: "contain",
+					background: { r: 0, g: 0, b: 0, alpha: 0 },
+				})
+				.extend({
+					top: 16,
+					bottom: 16,
+					left: 16,
+					right: 16,
 					background: { r: 0, g: 0, b: 0, alpha: 0 },
 				})
 				.webp({ quality: 100 })
 				.toBuffer();
 
-			await sock.sendMessage(jid, { sticker: webpBuffer }, { quoted: msg });
+			await sock.sendMessage(jid, { sticker: webpBuffer });
 		} catch {
 			await sock.sendMessage(
 				jid,
