@@ -27,7 +27,7 @@ import { contactsCollection, messagesCollection } from "../main.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_FALLBACK_AVATAR = "https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png";
+const DEFAULT_FALLBACK_AVATAR = "https:i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png";
 
 function extractText(message) {
 	if (!message) return "";
@@ -86,28 +86,35 @@ function normalizeJid(jid) {
 
 function formatPhone(phone) {
 	if (!phone) return "";
-	if (phone.length > 10) {
-		const ccLen = phone.length - 10;
-		return `+${phone.slice(0, ccLen)} ${phone.slice(ccLen)}`;
+	 Automatically adds a space after the +91 country code as requested
+	if (phone.startsWith("91") && phone.length === 12) {
+		return `+91 ${phone.slice(2)}`;
 	}
 	return `+${phone}`;
 }
 
-async function getName(sock, id, useNumber) {
+async function getName(sock, id, useNumber, pushNameFallback = null) {
 	if (!id) return "Unknown";
 	const phone = id.split("@")[0].split(":")[0];
 	const formattedPhone = formatPhone(phone);
 
 	if (useNumber) return formattedPhone;
 
-	const rawJid = id.includes("@s.whatsapp.net") ? id : `${phone}@s.whatsapp.net`;
+	const rawJid = id.includes("@s.whatsapp.net") || id.includes("@g.us") ? id : `${phone}@s.whatsapp.net`;
 	const normalized = normalizeJid(rawJid);
 	const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null;
 
+	// 1. Check if the message is from the Bot Owner
 	if (ownerJid && normalized === ownerJid) {
-		return sock.user?.name || formattedPhone;
+		return sock.user?.name || "Me";
 	}
 
+	// 2. Check if Baileys provided a temporary pushName in the message object
+	if (pushNameFallback) {
+		return pushNameFallback;
+	}
+
+	// 3. Fallback to Database Contact Search
 	try {
 		const contact = await contactsCollection.findOne({ id: normalized });
 		return contact?.pushName || contact?.name || contact?.notify || formattedPhone;
@@ -153,7 +160,7 @@ export default {
 
 		let count = 1;
 		let isBackward = false;
-		let bgColor = "#ffffff";
+		let bgColor = "#ffffff"; // Your default whitish background
 		let includeMedia = false;
 		let cropMedia = false;
 		let showReplies = false;
@@ -199,7 +206,7 @@ export default {
 				return await sock.sendMessage(
 					jid,
 					{
-						text: `Sorry this colour option isn't available choose from ${colorList} or provide a valid hex code.`,
+						text: `Sorry, this colour option isn't available. Choose from: ${colorList} or provide a valid hex code.`,
 					},
 					{ quoted: msg },
 				);
@@ -212,6 +219,7 @@ export default {
 			let messagesList = [];
 			let dbMsg = null;
 
+			// Wait briefly for the DB to sync in case the message was just sent
 			for (let attempt = 1; attempt <= 5; attempt++) {
 				dbMsg = await messagesCollection.findOne({
 					"key.id": quotedMsgId,
@@ -248,10 +256,11 @@ export default {
 				}
 			}
 
+			// Fallback if the message wasn't tracked in DB
 			if (messagesList.length === 0) {
 				const sender = contextInfo.participant || jid;
 				messagesList.push({
-					key: { participant: sender, remoteJid: jid, id: quotedMsgId },
+					key: { participant: sender, remoteJid: jid, id: quotedMsgId, fromMe: contextInfo.participant === sock.user?.id },
 					message: quoted,
 				});
 			}
@@ -261,7 +270,15 @@ export default {
 
 			for (let i = 0; i < messagesList.length; i++) {
 				const m = messagesList[i];
-				const senderId = m.key.participant || m.key.remoteJid || jid;
+
+				// Safely resolve the true sender ID regardless of Personal Chat or Group Chat
+				let senderId;
+				if (m.key.fromMe) {
+					senderId = sock.user.id;
+				} else {
+					senderId = m.key.participant || m.key.remoteJid || jid;
+				}
+
 				const normalizedSender = normalizeJid(senderId);
 				let text = extractText(m.message);
 
@@ -275,7 +292,8 @@ export default {
 					else text = "Message";
 				}
 
-				const contactName = await getName(sock, senderId, useNumberAsName);
+				// Pass the pushName from the message object as a fallback if DB lookup fails
+				const contactName = await getName(sock, senderId, useNumberAsName, m.pushName);
 				const avatarUrl = await getProfilePicUrl(sock, senderId);
 
 				const showAvatar = prevSender !== normalizedSender;
@@ -298,7 +316,14 @@ export default {
 						else qText = "Message";
 					}
 
-					const qSender = qCtx.participant;
+					// Resolve replied user's name
+					let qSender;
+					if (qCtx.participant) {
+						qSender = qCtx.participant;
+					} else {
+						qSender = jid; // Default to chat JID in DMs if missing
+					}
+
 					if (qText && qSender) {
 						const qName = await getName(sock, qSender, useNumberAsName);
 						replyMessage = {
@@ -335,11 +360,12 @@ export default {
 				apiMessages.push(msgObj);
 			}
 
+			// NO width and height constraints here. Let the API auto-fit the image exactly to the bubble.
 			const quoteJson = {
 				type: "quote",
 				format: "png",
 				backgroundColor: bgColor,
-				scale: 3,
+				scale: 3, 
 				messages: apiMessages,
 			};
 
@@ -366,6 +392,7 @@ export default {
 
 			await sock.sendMessage(jid, { sticker: webpBuffer }, { quoted: msg });
 		} catch (err) {
+			console.error(err);
 			await sock.sendMessage(
 				jid,
 				{ text: "Failed to generate quote sticker. Please try again." },
