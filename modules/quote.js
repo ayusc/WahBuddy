@@ -27,7 +27,93 @@ import { contactsCollection, messagesCollection } from "../main.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_FALLBACK_AVATAR = "https:i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png";
+const DEFAULT_FALLBACK_AVATAR = "https://i.ibb.co/d4qcHwdj/blank-profile-picture-973460-1280.png";
+
+const HEX_RE = /^#?([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const RGB_RE = /^rgba?\(\d{1,3},\d{1,3},\d{1,3}(,(0|1|0?\.\d+))?\)$/i;
+
+const CSS_COLOR_NAMES = new Set([
+	'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black',
+	'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse',
+	'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan',
+	'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta',
+	'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen',
+	'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink',
+	'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen',
+	'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow',
+	'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender',
+	'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan',
+	'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon',
+	'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue',
+	'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine',
+	'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue',
+	'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream',
+	'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange',
+	'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred',
+	'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple',
+	'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell',
+	'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen',
+	'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white',
+	'whitesmoke', 'yellow', 'yellowgreen'
+]);
+
+function normalizeOne(token) {
+	const t = token.trim().toLowerCase();
+	if (!t) return null;
+	if (HEX_RE.test(t)) return `#${t.replace(/^#/, '')}`;
+	if (RGB_RE.test(t)) return t;
+	if (CSS_COLOR_NAMES.has(t)) return t;
+	return null;
+}
+
+function normalizeSide(token) {
+	if (token.trim().toLowerCase() === 'random') return 'random';
+	return normalizeOne(token);
+}
+
+function parseColor(token) {
+	const t = token.trim();
+	const lower = t.toLowerCase();
+
+	if (lower === 'transparent') return { kind: 'transparent' };
+	if (lower === 'random') return { kind: 'random' };
+
+	if (t.startsWith('//')) {
+		const base = normalizeSide(t.slice(2));
+		return base ? { kind: 'autoGradient', base } : null;
+	}
+
+	if (t.includes('/')) {
+		const [a, b] = t.split('/');
+		const from = a !== undefined ? normalizeSide(a) : null;
+		const to = b !== undefined ? normalizeSide(b) : null;
+		return from && to ? { kind: 'gradient', from, to } : null;
+	}
+
+	const solid = normalizeOne(t);
+	return solid ? { kind: 'solid', color: solid } : null;
+}
+
+function randomHexColor() {
+	const n = Math.floor(Math.random() * 0x1000000);
+	return `#${n.toString(16).padStart(6, '0')}`;
+}
+
+function buildBackgroundColor(spec) {
+	const side = (v) => (v === 'random' ? randomHexColor() : v);
+	switch (spec.kind) {
+		case 'transparent':
+			return 'rgba(0,0,0,0)';
+		case 'solid':
+			return spec.color;
+		case 'autoGradient':
+			return `//${side(spec.base)}`;
+		case 'gradient':
+			return `${side(spec.from)}/${side(spec.to)}`;
+		case 'random':
+			return `${randomHexColor()}/${randomHexColor()}`;
+	}
+}
 
 function extractText(message) {
 	if (!message) return "";
@@ -75,7 +161,7 @@ async function getMediaBase64(message, cropMedia) {
 		}
 
 		return `data:image/jpeg;base64,${buffer.toString("base64")}`;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 }
@@ -86,11 +172,15 @@ function normalizeJid(jid) {
 
 function formatPhone(phone) {
 	if (!phone) return "";
-	 Automatically adds a space after the +91 country code as requested
-	if (phone.startsWith("91") && phone.length === 12) {
-		return `+91 ${phone.slice(2)}`;
+	const clean = phone.replace(/\D/g, "");
+	if (clean.startsWith("91") && clean.length === 12) {
+		return `+91 ${clean.slice(2)}`;
 	}
-	return `+${phone}`;
+	if (clean.length > 10) {
+		const ccLen = clean.length - 10;
+		return `+${clean.slice(0, ccLen)} ${clean.slice(ccLen)}`;
+	}
+	return `+${clean}`;
 }
 
 async function getName(sock, id, useNumber, pushNameFallback = null) {
@@ -104,17 +194,14 @@ async function getName(sock, id, useNumber, pushNameFallback = null) {
 	const normalized = normalizeJid(rawJid);
 	const ownerJid = sock.user?.id ? normalizeJid(sock.user.id) : null;
 
-	// 1. Check if the message is from the Bot Owner
 	if (ownerJid && normalized === ownerJid) {
 		return sock.user?.name || "Me";
 	}
 
-	// 2. Check if Baileys provided a temporary pushName in the message object
 	if (pushNameFallback) {
 		return pushNameFallback;
 	}
 
-	// 3. Fallback to Database Contact Search
 	try {
 		const contact = await contactsCollection.findOne({ id: normalized });
 		return contact?.pushName || contact?.name || contact?.notify || formattedPhone;
@@ -128,7 +215,7 @@ async function getProfilePicUrl(sock, id) {
 	try {
 		const url = await sock.profilePictureUrl(id, "image");
 		return url || DEFAULT_FALLBACK_AVATAR;
-	} catch (_err) {
+	} catch {
 		return DEFAULT_FALLBACK_AVATAR;
 	}
 }
@@ -139,7 +226,7 @@ export default {
 	usage:
 		".q [count] [args]\n" +
 		"Count: 3 (down), -3 (up)\n" +
-		"Colors: red, blue, green, #hex\n" +
+		"Colors: red, #ff5733, red/blue, //red, random\n" +
 		"Media: m (include), c (crop)\n" +
 		"Replies: r (show replies)\n" +
 		"Names: noname",
@@ -160,25 +247,11 @@ export default {
 
 		let count = 1;
 		let isBackward = false;
-		let bgColor = "#ffffff"; // Your default whitish background
+		let bgColor = "#ffffff";
 		let includeMedia = false;
 		let cropMedia = false;
 		let showReplies = false;
 		let useNumberAsName = false;
-
-		const colorMap = {
-			red: "#F44336",
-			blue: "#2196F3",
-			green: "#4CAF50",
-			yellow: "#FFEB3B",
-			orange: "#FF9800",
-			purple: "#9C27B0",
-			pink: "#E91E63",
-			brown: "#795548",
-			gray: "#9E9E9E",
-			black: "#000000",
-			white: "#ffffff",
-		};
 
 		const validFlags = ["m", "c", "r", "noname"];
 
@@ -195,21 +268,19 @@ export default {
 				}
 				if (lower === "r") showReplies = true;
 				if (lower === "noname") useNumberAsName = true;
-			} else if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(lower)) {
-				bgColor = lower;
-			} else if (colorMap[lower]) {
-				bgColor = colorMap[lower];
 			} else {
-				const colorList = Object.keys(colorMap)
-					.map((c) => `"${c}"`)
-					.join(", ");
-				return await sock.sendMessage(
-					jid,
-					{
-						text: `Sorry, this colour option isn't available. Choose from: ${colorList} or provide a valid hex code.`,
-					},
-					{ quoted: msg },
-				);
+				const colorSpec = parseColor(arg);
+				if (colorSpec) {
+					bgColor = buildBackgroundColor(colorSpec);
+				} else {
+					return await sock.sendMessage(
+						jid,
+						{
+							text: `Sorry, this colour option isn't available. Please choose a valid CSS colour name, hex code, gradient (e.g. red/blue), or auto-gradient (e.g. //red).`,
+						},
+						{ quoted: msg },
+					);
+				}
 			}
 		}
 
@@ -219,7 +290,6 @@ export default {
 			let messagesList = [];
 			let dbMsg = null;
 
-			// Wait briefly for the DB to sync in case the message was just sent
 			for (let attempt = 1; attempt <= 5; attempt++) {
 				dbMsg = await messagesCollection.findOne({
 					"key.id": quotedMsgId,
@@ -256,7 +326,6 @@ export default {
 				}
 			}
 
-			// Fallback if the message wasn't tracked in DB
 			if (messagesList.length === 0) {
 				const sender = contextInfo.participant || jid;
 				messagesList.push({
@@ -271,7 +340,6 @@ export default {
 			for (let i = 0; i < messagesList.length; i++) {
 				const m = messagesList[i];
 
-				// Safely resolve the true sender ID regardless of Personal Chat or Group Chat
 				let senderId;
 				if (m.key.fromMe) {
 					senderId = sock.user.id;
@@ -292,7 +360,6 @@ export default {
 					else text = "Message";
 				}
 
-				// Pass the pushName from the message object as a fallback if DB lookup fails
 				const contactName = await getName(sock, senderId, useNumberAsName, m.pushName);
 				const avatarUrl = await getProfilePicUrl(sock, senderId);
 
@@ -316,12 +383,11 @@ export default {
 						else qText = "Message";
 					}
 
-					// Resolve replied user's name
 					let qSender;
 					if (qCtx.participant) {
 						qSender = qCtx.participant;
 					} else {
-						qSender = jid; // Default to chat JID in DMs if missing
+						qSender = jid;
 					}
 
 					if (qText && qSender) {
@@ -360,12 +426,11 @@ export default {
 				apiMessages.push(msgObj);
 			}
 
-			// NO width and height constraints here. Let the API auto-fit the image exactly to the bubble.
 			const quoteJson = {
 				type: "quote",
 				format: "png",
 				backgroundColor: bgColor,
-				scale: 3, 
+				scale: 3,
 				messages: apiMessages,
 			};
 
@@ -391,8 +456,7 @@ export default {
 				.toBuffer();
 
 			await sock.sendMessage(jid, { sticker: webpBuffer }, { quoted: msg });
-		} catch (err) {
-			console.error(err);
+		} catch {
 			await sock.sendMessage(
 				jid,
 				{ text: "Failed to generate quote sticker. Please try again." },
