@@ -51,6 +51,13 @@ function _getTimeInTimeZone(timeZone) {
 
 async function fetchBioAndEmoji() {
 	try {
+		const prompt = `Generate a completely random quote, thought, or saying under STRICTLY 50 characters and 1 matching emoji.
+Rules:
+1. Do NOT use out of scope emojis which has no connection to the quote.
+2. Do NOT repeat or paraphrase: "${lastQuote}".
+3. Pick an emoji that directly fits the tone/vibe of the quote.
+4. Respond STRICTLY in this format with a pipe separator and NOTHING ELSE: EMOJI|QUOTE`;
+
 		const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 			method: "POST",
 			headers: {
@@ -58,28 +65,22 @@ async function fetchBioAndEmoji() {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				model: "llama-3.1-8b-instant",
-				temperature: 0.8,
-				top_p: 0.9,
-				max_tokens: 45,
-				messages: [
-					{
-						role: "system",
-						content:
-							"You generate short, thought-provoking quotes and matching emojis. Respond STRICTLY in the exact format: EMOJI|QUOTE with no formatting, markdown, commentary, or explanation.",
-					},
-					{
-						role: "user",
-						content: `Generate a random thought, quote, or saying strictly under 50 characters with 1 relevant emoji. Do NOT repeat or paraphrase: "${lastQuote}".`,
-					},
-				],
+				model: "allam-2-7b",
+				messages: [{ role: "user", content: prompt }],
+				temperature: 0.7,
+				top_p: 0.85,
+				max_tokens: 50,
 			}),
 		});
 
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		if (!res.ok) {
+			const errorText = await res.text();
+			throw new Error(`HTTP ${res.status}: ${errorText}`);
+		}
 
 		const data = await res.json();
-		let text = (data.choices[0]?.message?.content || "")
+		let text = data.choices[0]?.message?.content || "";
+		text = text
 			.replace(/```[a-z]*/gi, "")
 			.replace(/```/g, "")
 			.trim();
