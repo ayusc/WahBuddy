@@ -269,6 +269,33 @@ async function getHoroscopes() {
 	}
 }
 
+async function getJoke(attempt = 1) {
+	if (attempt > 5) {
+		return { error: true, text: "Failed to get random joke: API ERROR" };
+	}
+	try {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 10000);
+		const response = await fetch("https://v2.jokeapi.dev/joke/Any?type=twopart", {
+			signal: controller.signal
+		});
+		clearTimeout(timeoutId);
+
+		if (!response.ok) {
+			return await getJoke(attempt + 1);
+		}
+
+		const data = await response.json();
+		if (data.error || data.type !== "twopart") {
+			return await getJoke(attempt + 1);
+		}
+
+		return { error: false, setup: data.setup, delivery: data.delivery };
+	} catch (err) {
+		return await getJoke(attempt + 1);
+	}
+}
+
 async function generateImage(targetDate = new Date()) {
 	await downloadImage(imagePath);
 
@@ -287,6 +314,7 @@ async function generateImage(targetDate = new Date()) {
 	const aqiresult = await getAQI(city);
 	const dateText = getDateTimeString(targetDate);
 	const { daily, sign } = await getHoroscopes();
+	const jokeData = await getJoke();
 
 	const finalText = `     ${dateText}, ${weatherInfo.temperature} (Feels Like ${weatherInfo.feelsLike}), ${city}
 Wind ${weatherInfo.windSpeed}, Humidity ${weatherInfo.humidity}, Rainfall Chances ${weatherInfo.rainChance}
@@ -328,6 +356,23 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 	const x = safePadding;
 	let y = 30;
 
+	function wrapText(text, maxWidth) {
+		const words = text.split(" ");
+		const wrappedLines = [];
+		let currentLine = "";
+		for (const word of words) {
+			const test = `${currentLine + word} `;
+			if (context.measureText(test).width > maxWidth) {
+				wrappedLines.push(currentLine.trim());
+				currentLine = `${word} `;
+			} else {
+				currentLine = test;
+			}
+		}
+		wrappedLines.push(currentLine.trim());
+		return wrappedLines;
+	}
+
 	if (SHOW_HOROSCOPE === "True") {
 		const horoscopeLine = `Today's Horoscope for ${sign}: ${daily}`;
 		const wrappedLines = wrapText(horoscopeLine, width - safePadding * 2);
@@ -337,22 +382,32 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 		}
 	}
 
-	function wrapText(text, maxWidth) {
-		const words = text.split(" ");
-		const lines = [];
-		let line = "";
-		for (const word of words) {
-			const test = `${line + word} `;
-			if (context.measureText(test).width > maxWidth) {
-				lines.push(line.trim());
-				line = `${word} `;
-			} else {
-				line = test;
-			}
+	y += 50;
+
+	if (jokeData.error) {
+		context.font = "bold 30px FancyFont";
+		const errorLines = wrapText(jokeData.text, width - safePadding * 2);
+		for (const line of errorLines) {
+			context.fillText(line, x, y);
+			y += 35;
+		}
+	} else {
+		context.font = "bold 45px FancyFont";
+		context.fillText("Random Joke", x, y);
+		y += 55;
+
+		context.font = "30px FancyFont";
+		const setupLines = wrapText(jokeData.setup, width - safePadding * 2);
+		for (const line of setupLines) {
+			context.fillText(line, x, y);
+			y += 35;
 		}
 
-		lines.push(line.trim());
-		return lines;
+		const deliveryLines = wrapText(`-> ${jokeData.delivery}`, width - safePadding * 2);
+		for (const line of deliveryLines) {
+			context.fillText(line, x, y);
+			y += 35;
+		}
 	}
 
 	const overlayBuffer = canvas.toBuffer();
