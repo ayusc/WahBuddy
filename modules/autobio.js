@@ -67,9 +67,7 @@ Rules:
 			body: JSON.stringify({
 				model: "allam-2-7b",
 				messages: [{ role: "user", content: prompt }],
-				temperature: 0.7,
-				top_p: 0.85,
-				max_tokens: 50,
+				temperature: 1.1,
 			}),
 		});
 
