@@ -25,6 +25,7 @@ const groq_key = process.env.GROQ_API_KEY;
 let lastQuote = "";
 let nextBio = null;
 let isFetching = false;
+let currentModelIndex = 0;
 
 function _getTimeInTimeZone(timeZone) {
 	const now = new Date();
@@ -49,13 +50,22 @@ function _getTimeInTimeZone(timeZone) {
 	);
 }
 
+const models = [
+	"openai/gpt-oss-120b",
+	"qwen/qwen3.8-27b",
+	"openai/gpt-oss-20b"
+];
+
 async function fetchBioAndEmoji() {
+	const selectedModel = models[currentModelIndex];
+	currentModelIndex = (currentModelIndex + 1) % models.length;
+
 	try {
 		const prompt = `Generate a completely random quote, thought, or saying under STRICTLY 50 characters and 1 matching emoji.
 Rules:
 1. Do NOT use out of scope emojis which has no connection to the quote.
 2. Do NOT repeat or paraphrase: "${lastQuote}".
-3. Pick an emoji that directly fits the tone/vibe of the quote.
+3. Pick an emoji that directly fits/matches the tone/vibe of the quote.
 4. Respond STRICTLY in this format with a pipe separator and NOTHING ELSE: EMOJI|QUOTE`;
 
 		const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -65,38 +75,46 @@ Rules:
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				model: "allam-2-7b",
+				model: selectedModel,
 				messages: [{ role: "user", content: prompt }],
-				temperature: 1.1,
+				temperature: 0.85, 
+				top_p: 0.9,
+				max_tokens: 1000, 
 			}),
 		});
 
 		if (!res.ok) {
 			const errorText = await res.text();
-			throw new Error(`HTTP ${res.status}: ${errorText}`);
+			throw new Error(`HTTP ${res.status} on ${selectedModel}: ${errorText}`);
 		}
 
 		const data = await res.json();
 		let text = data.choices[0]?.message?.content || "";
-		text = text
-			.replace(/```[a-z]*/gi, "")
-			.replace(/```/g, "")
-			.trim();
+		
+		text = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+		text = text.replace(/```[a-z]*/gi, "").replace(/```/g, "").trim();
 
-		const parts = text.split("|");
+		const lines = text.split('\n');
+		let quoteLine = text;
+		for (let i = lines.length - 1; i >= 0; i--) {
+			if (lines[i].includes('|')) {
+				quoteLine = lines[i];
+				break;
+			}
+		}
+
+		const parts = quoteLine.split("|");
 		if (parts.length >= 2) {
 			const emoji = parts[0].trim();
-			const quote = parts
-				.slice(1)
-				.join("|")
-				.trim()
-				.replace(/^["']|["']$/g, "");
+			const quote = parts.slice(1).join("|").trim().replace(/^["']|["']$/g, "");
 
 			if (quote.length > 0 && quote.length <= 50 && emoji) {
 				lastQuote = quote;
 				return { quote, emoji };
 			}
 		}
+		
+		console.warn(`Format parsing failed on ${selectedModel}. Raw text:`, text);
 		return null;
 	} catch (error) {
 		console.error("Error fetching quote from Groq:", error.message);
