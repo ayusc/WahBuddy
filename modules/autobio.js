@@ -142,7 +142,7 @@ async function performBioUpdate() {
 	if (res) {
 		try {
 			await globalThis.profileLimiter.schedule(() =>
-				sock.updateProfileStatus(res.quote, res.emoji, 3600),
+				sock.updateProfileStatus(res.quote, res.emoji, 120),
 			);
 			console.log("About updated");
 		} catch (err) {
