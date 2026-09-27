@@ -51,13 +51,6 @@ function _getTimeInTimeZone(timeZone) {
 
 async function fetchBioAndEmoji() {
 	try {
-		const prompt = `Generate a completely random quote, thought, or saying under STRICTLY 50 characters and 1 matching emoji.
-Rules:
-1. Do NOT use out of scope emojis which has no connection to the quote.
-2. Do NOT repeat or paraphrase: "${lastQuote}".
-3. Pick an emoji that directly fits the tone/vibe of the quote.
-4. Respond STRICTLY in this format with a pipe separator and NOTHING ELSE: EMOJI|QUOTE`;
-
 		const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 			method: "POST",
 			headers: {
@@ -66,16 +59,27 @@ Rules:
 			},
 			body: JSON.stringify({
 				model: "llama-3.1-8b-instant",
-				messages: [{ role: "user", content: prompt }],
-				temperature: 1.1,
+				temperature: 0.8,
+				top_p: 0.9,
+				max_tokens: 45,
+				messages: [
+					{
+						role: "system",
+						content:
+							"You generate short, thought-provoking quotes and matching emojis. Respond STRICTLY in the exact format: EMOJI|QUOTE with no formatting, markdown, commentary, or explanation.",
+					},
+					{
+						role: "user",
+						content: `Generate a random thought, quote, or saying strictly under 50 characters with 1 relevant emoji. Do NOT repeat or paraphrase: "${lastQuote}".`,
+					},
+				],
 			}),
 		});
 
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
 		const data = await res.json();
-		let text = data.choices[0]?.message?.content || "";
-		text = text
+		let text = (data.choices[0]?.message?.content || "")
 			.replace(/```[a-z]*/gi, "")
 			.replace(/```/g, "")
 			.trim();
