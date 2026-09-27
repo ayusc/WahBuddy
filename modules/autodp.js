@@ -392,7 +392,7 @@ Air Quality Index (AQI): ${aqiresult.aqi} (${aqiresult.status})`;
 			y += 35;
 		}
 	} else {
-		context.font = "bold 45px FancyFont";
+		context.font = "bold 40px FancyFont";
 		context.fillText("Random Joke", x, y);
 		y += 55;
 
