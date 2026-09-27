@@ -64,7 +64,7 @@ function getDateTimeString(targetDate = new Date()) {
 
 	time = time.replace(/\s?am/, " A.M").replace(/\s?pm/, " P.M");
 
-	return `${day} ${dd}.${mm}.${yyyy} ${time}`;
+	return `${day}, ${dd}.${mm}.${yyyy}, ${time}`;
 }
 
 async function ensureFontDownloaded() {
